@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "backup-receipt v1 design draft",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "backup_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "archive_file": {
+      "const": "archive.tar.zst"
+    },
+    "archive_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "verification": {
+      "const": "verified"
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "verifier_version": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "schema_version",
+    "backup_id",
+    "archive_file",
+    "archive_sha256",
+    "manifest_sha256",
+    "verification",
+    "verified_at",
+    "verifier_version"
+  ],
+  "additionalProperties": false
+}

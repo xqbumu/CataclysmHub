@@ -1,0 +1,35 @@
+# 文件格式与兼容演进契约
+
+版本：0.1.0 · 日期：2026-10-27 · 状态：待评审 · 责任角色：备份与档案负责人。依据：PRD §10.3、§13.1、§14.1。
+
+## 契约文件
+
+| 契约 | JSON Schema | 正例 |
+|---|---|---|
+| 完整备份内部清单 v1 | [backup-manifest.schema.json](backup-manifest.schema.json) | [backup-manifest.json](examples/backup-manifest.json) |
+| 外部回执 v1 | [backup-receipt.schema.json](backup-receipt.schema.json) | [backup-receipt.json](examples/backup-receipt.json) |
+| 便携环境档案 v1 | [environment-profile.schema.json](environment-profile.schema.json) | [environment-profile.json](examples/environment-profile.json) |
+
+Schema 使用 JSON Schema 2020-12，均为设计草案；示例是合成数据，不代表真实 CDDA 存档或实际生成的归档。receipt 示例的摘要仅为格式占位，不应当作有效备份证据。
+
+## 备份语义规则
+
+schema_version 必须为 reader 支持的值。scope=world 时 world_id 非空；scope=save_root 时 root scope 标识仍必需。source_token 是不包含用户名和绝对路径的本地范围令牌。所有条目相对于 data/，目录 size="0"、sha256=null；文件 SHA-256 为小写 64 位十六进制。
+
+清单的 file_count 仅统计普通文件，entry_count 包括目录，total_bytes 为普通文件原始大小之和。JSON 数字仅用于受限计数或版本；所有 64 位字节数使用十进制字符串。SHA-256 计算针对原始字节；manifest_hash 针对归档中 manifest 的原始 UTF-8 字节，不能 parse/re-serialize 后再算。
+
+compression_version 记录实际编码库/格式实现版本。根目录备份必须携带 world_contexts，逐世界记录相对根路径、最后游戏版本和档案/适配器信息；无法识别时上下文可为空，但未知范围须保留在 entries。顶层 game 在无法描述一个共同环境时为 null，不能用某个世界的版本代表全部世界。world_contexts 的相对路径和身份唯一性须作语义校验。
+
+Schema 验证不能代替语义验证。运行时还必须检查路径规范、安全类型、唯一性、祖先冲突、目标平台碰撞、总数/大小、归档中无多余/缺失文件、scope/world 关系和 reader 资源限额。文件清单已知类型必须完整保存；未知字段在 v1 备份核心对象中拒绝，未来兼容扩展通过 extensions 对象携带并保持不透明。
+
+receipt 中 verification=verified 只是历史记录；恢复仍重新验证当前归档和载荷。无可信签名时摘要不提供来源认证。发布顺序与回执自引用规则见 [备份设计](../design/backup-and-restore.md)。
+
+## 环境档案语义规则
+
+profile_id 是导出档案身份；game 用分支、版本和平台描述，不使用本机 installation_id 作为跨机唯一定位。content 保留资源类型、角色、修订、启用状态、顺序、来源和可选摘要。launch_args 为字符串数组，导出前筛除绝对个人路径、秘密和不便携参数，并在 omitted_fields 说明省略类别。
+
+config_refs 仅保存可移植相对路径和摘要。未知字段允许在同主版本中读取和原样保留，但不执行其行为；未知资源类型不能启用。未知主版本拒绝应用，可查看原文和导入报告。导入先给出 missing/conflict/platform_difference/unknown_fields，再按确认计划写入。
+
+## 演进策略
+
+添加纯描述扩展可用兼容扩展区；修改路径、摘要或恢复语义必须新 schema_version，并提供旧格式读取与迁移测试。不得就地覆写旧备份来升级格式；迁移生成新归档，验证通过后由用户决定旧归档保留。应用版本、数据库版本、清单版本、档案版本彼此独立。

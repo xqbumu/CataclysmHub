@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "backup-manifest v1 design draft",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "backup_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope": {
+      "enum": [
+        "world",
+        "save_root"
+      ]
+    },
+    "world_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "world_alias": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source_token": {
+      "type": "string",
+      "minLength": 1
+    },
+    "consistency": {
+      "enum": [
+        "quiescent_checked",
+        "best_effort",
+        "unknown"
+      ]
+    },
+    "game": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "branch": {
+              "type": "string",
+              "minLength": 1
+            },
+            "version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "platform": {
+              "type": "string",
+              "minLength": 1
+            },
+            "arch": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "branch",
+            "version",
+            "platform",
+            "arch"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "profile_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "uuid"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "adapter_version": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compression": {
+      "const": "zstd"
+    },
+    "archive_format": {
+      "const": "tar"
+    },
+    "characters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "character_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "confidence": {
+            "enum": [
+              "confirmed",
+              "probable",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "character_id",
+          "display_name",
+          "confidence"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "entry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "file_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_bytes": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "relative_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "file_type": {
+            "enum": [
+              "file",
+              "directory"
+            ]
+          },
+          "size": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mtime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "relative_path",
+          "file_type",
+          "size",
+          "sha256"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "file_type": {
+                  "const": "file"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "size": {
+                  "const": "0"
+                },
+                "sha256": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "extensions": {
+      "type": "object"
+    },
+    "compression_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "world_contexts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "world_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "relative_root": {
+            "type": "string",
+            "minLength": 1
+          },
+          "game": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "branch": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "version": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "platform": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "arch": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "branch",
+                  "version",
+                  "platform",
+                  "arch"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "profile_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "adapter_version": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "world_id",
+          "relative_root",
+          "game",
+          "profile_id",
+          "adapter_version"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "backup_id",
+    "created_at",
+    "scope",
+    "world_id",
+    "world_alias",
+    "source_token",
+    "consistency",
+    "game",
+    "profile_id",
+    "adapter_version",
+    "tool_version",
+    "compression",
+    "archive_format",
+    "characters",
+    "entry_count",
+    "file_count",
+    "total_bytes",
+    "entries",
+    "extensions",
+    "compression_version"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "world"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "world_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "scope": {
+            "const": "save_root"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "world_contexts"
+        ]
+      }
+    }
+  ]
+}

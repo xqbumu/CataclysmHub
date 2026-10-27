@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "profile_id": "00000000-0000-4000-8000-000000000003",
+  "name": "合成档案示例",
+  "created_at": "2026-10-27T07:00:00Z",
+  "game": {
+    "branch": "synthetic-example",
+    "version": null,
+    "platform": "macos",
+    "arch": "aarch64"
+  },
+  "launch_args": [],
+  "content": [
+    {
+      "type": "tileset",
+      "name": "synthetic-tiles",
+      "version": null,
+      "role": "map",
+      "enabled": true,
+      "order": 0,
+      "source_url": null,
+      "sha256": null,
+      "compatibility": "unverified"
+    }
+  ],
+  "config_refs": [],
+  "omitted_fields": [
+    "personal_absolute_paths",
+    "credentials"
+  ],
+  "extensions": {}
+}

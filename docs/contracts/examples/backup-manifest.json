@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "backup_id": "00000000-0000-4000-8000-000000000001",
+  "created_at": "2026-10-27T07:00:00Z",
+  "scope": "world",
+  "world_id": "00000000-0000-4000-8000-000000000002",
+  "world_alias": "合成测试世界",
+  "source_token": "source-example",
+  "consistency": "quiescent_checked",
+  "game": {
+    "branch": "synthetic-example",
+    "version": null,
+    "platform": "macos",
+    "arch": "aarch64"
+  },
+  "profile_id": null,
+  "adapter_version": null,
+  "tool_version": "0.1.0-design",
+  "compression": "zstd",
+  "archive_format": "tar",
+  "characters": [],
+  "entry_count": 2,
+  "file_count": 1,
+  "total_bytes": "0",
+  "entries": [
+    {
+      "relative_path": "empty-dir",
+      "file_type": "directory",
+      "size": "0",
+      "sha256": null
+    },
+    {
+      "relative_path": "empty.dat",
+      "file_type": "file",
+      "size": "0",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "extensions": {},
+  "compression_version": "synthetic-example"
+}
