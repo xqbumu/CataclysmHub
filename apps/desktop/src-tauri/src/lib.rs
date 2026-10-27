@@ -217,6 +217,25 @@ async fn cancel_restore(
     state.hub.cancel_restore(&task_id).await
 }
 
+#[tauri::command]
+async fn start_inspection(
+    state: tauri::State<'_, AppState>,
+    restore_task_id: String,
+    request_key: String,
+) -> Result<hub_core::InspectionTask, HubError> {
+    state
+        .hub
+        .start_inspection(&restore_task_id, &request_key)
+        .await
+}
+#[tauri::command]
+async fn cancel_inspection(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<hub_core::InspectionTask, HubError> {
+    state.hub.cancel_inspection(&task_id).await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -261,7 +280,9 @@ pub fn run() {
             retry_task_recovery,
             prepare_restore,
             start_restore,
-            cancel_restore
+            cancel_restore,
+            start_inspection,
+            cancel_inspection
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

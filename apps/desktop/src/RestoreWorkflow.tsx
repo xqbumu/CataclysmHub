@@ -1,7 +1,8 @@
 import { useRef, useState } from 'react';
 import { FolderOpen, LoaderCircle, Square, TriangleAlert } from 'lucide-react';
 import Modal from './Modal';
-import type { HubApi, RestorePlan, RestoreTask } from './api';
+import InspectionPanel from './InspectionPanel';
+import type { HubApi, RestorePlan, RestoreTask, InspectionTask } from './api';
 type Runner = (action: () => Promise<void>) => Promise<void>;
 export function RestoreButton({
   api,
@@ -127,7 +128,7 @@ const states: Record<string, string> = {
   running: '执行中',
   cancelling: '正在取消',
   cancelled: '已取消',
-  succeeded: '恢复字节已验证',
+  succeeded: '恢复完成 · 当时字节已验证',
   failed: '失败',
   recovery_required: '需要检查目标目录',
 };
@@ -143,11 +144,15 @@ const phases: Record<string, string> = {
 export function RestoreTasks({
   api,
   tasks,
+  inspections = [],
+  blocked = false,
   busy,
   run,
 }: {
   api: HubApi;
   tasks: RestoreTask[];
+  inspections?: InspectionTask[];
+  blocked?: boolean;
   busy: boolean;
   run: Runner;
 }) {
@@ -197,6 +202,18 @@ export function RestoreTasks({
               <p className="muted">
                 文件路径、类型、大小和 SHA-256 已回读核对；游戏兼容性仍未验证。
               </p>
+            )}
+            {!active && (
+              <InspectionPanel
+                api={api}
+                restoreTaskId={task.id}
+                inspections={inspections.filter(
+                  (inspection) => inspection.restore_task_id === task.id,
+                )}
+                blocked={blocked}
+                busy={busy}
+                run={run}
+              />
             )}
             {task.error_code === 'TASK_RESULT_PERSIST_FAILED' && (
               <button

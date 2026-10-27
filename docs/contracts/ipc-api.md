@@ -77,3 +77,18 @@ RestorePlan 含 plan_id、plan_digest、expires_at、source_id/source_digest、s
 | PARSER_UNSUPPORTED / SUMMARY_FAILED | 不阻断主任务 | 文件级摘要降级 |
 
 details 只包含稳定机器字段和脱敏定位，不含原始存档、token 或完整个人路径。面向用户的文本由 message_key 本地化，代码不依赖文案字符串判断错误。
+
+
+## 当前桌面恢复目录检查适配层（schema 5）
+
+以下命令仍沿用已实现的 Result DTO 与 dashboard 轮询，不表示本文设计的完整生产 envelope 已完成：
+
+| 命令 | 参数 | 返回 |
+|---|---|---|
+| start_inspection | restoreTaskId、UUID requestKey | InspectionTask；同键同目标返回原任务，同键异目标 REQUEST_CONFLICT |
+| cancel_inspection | taskId | 真实当前 InspectionTask，完成后不伪称取消 |
+| get_dashboard | 无 | 新增 inspection_tasks（最近 50 条），含可空 RestoreInspection 结果 |
+
+后台从原恢复记录解析目标与登记归档，前端不能传入任意检查路径。任务结果只有 succeeded 时展示新的文件校验结论；cancelled / failed / recovery_required 不回退显示旧成功结果。RestoreInspection 嵌套既有恢复摘要，并单独返回未完成/历史报告存在状态；不更新原恢复任务终态。
+
+新增 INSPECTION_WORKER_FAILED、INSPECTION_RESULT_INVALID、PATH_CHANGED 等明确失败；原 RESTORED_DATA_MISMATCH / RESTORE_MARKER_INVALID 和归档校验错误沿用。TASK_PROGRESS_PERSIST_FAILED / TASK_RESULT_PERSIST_FAILED 对应记录失败；重试记录不重放检查。DTO 由 Rust 生成到 apps/desktop/src/bindings。

@@ -61,3 +61,11 @@ erDiagram
 ## 数据库灾难恢复
 
 优先恢复最近一致性元数据备份；无法恢复时建立新工作区，扫描用户指定安装/存档/归档，按清单 ID 和证据重建索引，身份冲突需人工绑定。别名、标签和部分会话记录可能丢失，应在诊断中说明；原始世界和独立备份仍可使用。禁止通过数据库缺失推导“磁盘文件可清理”。
+
+## 当前实现：schema 5 检查记录
+
+实际迁移链位于 crates/hub-core/src/migration-002.sql 至 migration-005.sql。schema 5 追加 inspection_task，不改写原 restore_task：随机 id、唯一 request_key、request_digest、restore_task_id 外键、state、phase、revision、error_code、UTC created_at/finished_at 与可空 result_json。结果仅含摘要、计数、时间和标记存在状态；长度限制 64 KiB，不保存存档内容。原任务历史结论与新的检查结果保持独立。
+
+检查任务和审计意图、终态和结果分别按事务提交；取消或失败不产生新的通过结果。重启将遗留活动检查标为 recovery_required/TASK_INTERRUPTED，并清空未完成结果。结果无法解码或成功记录缺少结果时返回 INSPECTION_RESULT_INVALID，不填充默认值。所有工作区写任务与长时间检查互斥，运行时结束事实用于处理终态持久化失败。
+
+schema 1～4 打开前创建 VACUUM 一致性副本、quick_check 与持久化文件，再事务升级到 5；升级失败保留旧版本。此为当前实现说明，不表示本文件设计中的 world identity、journal、环境档案或全量生产任务模型都已经实现。

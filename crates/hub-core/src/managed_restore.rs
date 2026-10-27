@@ -1,3 +1,4 @@
+use crate::backup_format::source_failure_status;
 use crate::{
     BackupRecord, Hub, HubError, RestorePlan, RestoreTask, Result,
     backup_format::{io_error, sha, verify_dir},
@@ -46,13 +47,6 @@ fn same_parent(parent: &Dir, path: &Path) -> Result<()> {
         return Err(stale());
     }
     Ok(())
-}
-fn source_failure_status(code: &str) -> Option<&'static str> {
-    match code {
-        "HASH_MISMATCH" | "ARCHIVE_INVALID" | "SOURCE_CHANGED" => Some("failed"),
-        "BACKUP_IO_FAILED" | "PERMISSION_DENIED" => Some("unavailable"),
-        _ => None,
-    }
 }
 impl Hub {
     pub async fn prepare_restore(&self, backup_id: &str, parent_dir: &str) -> Result<RestorePlan> {

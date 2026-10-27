@@ -59,7 +59,7 @@ const statusNames: Record<string, string> = {
   starting: '正在启动',
   running: '运行中',
   exited_unverified: '进程已退出 · 未验证存档',
-  failed: '启动失败',
+  failed: '失败',
   interrupted_unknown: '上次运行状态未知',
   resolved_unknown: '已人工确认关闭 · 存档未验证',
   succeeded: '已完成',
@@ -78,6 +78,7 @@ const actionNames: Record<string, string> = {
   'backup.create': '创建独立完整备份',
   'backup.verify': '重新校验备份',
   'backup.restore_new': '恢复到新目录',
+  'backup.inspect_restored': '检查已恢复目录',
 };
 function time(value: string) {
   return new Date(value).toLocaleString('zh-CN', {
@@ -287,6 +288,9 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
           data.scan_tasks.some((task) =>
             ['running', 'cancelling'].includes(task.state),
           ) ||
+          data.inspection_tasks.some((task) =>
+            ['running', 'cancelling'].includes(task.state),
+          ) ||
           data.restore_tasks.some((task) =>
             ['running', 'cancelling'].includes(task.state),
           ) ||
@@ -322,7 +326,9 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                   className={`session-state ${active.state === 'running' ? 'green' : ''}`}
                 >
                   <CircleDot size={13} />
-                  {statusNames[active.state] ?? active.state}
+                  {active.state === 'failed'
+                    ? '启动失败'
+                    : (statusNames[active.state] ?? active.state)}
                 </div>
               )}
               <button

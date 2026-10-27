@@ -7,9 +7,12 @@ use crate::{
 use cap_fs_ext::DirExt;
 use cap_std::fs::Dir;
 use serde::Serialize;
-use std::{path::Path, sync::atomic::AtomicBool};
+use std::{
+    path::Path,
+    sync::atomic::{AtomicBool, AtomicU8, Ordering},
+};
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, ts_rs::TS)]
 pub struct RestoreInspection {
     pub schema_version: u32,
     pub inspected_at: String,
@@ -34,7 +37,35 @@ pub fn verify_restored_directory(backup: &Path, container: &Path) -> Result<Rest
     let cancel = AtomicBool::new(false);
     let archive = Dir::open_ambient_dir(backup, cap_std::ambient_authority()).map_err(io_error)?;
     let root = Dir::open_ambient_dir(container, cap_std::ambient_authority()).map_err(io_error)?;
-    let (manifest, verified) = verify_dir(&archive, None, &cancel)?;
+    inspect_dirs(&archive, &root, None, &cancel, &AtomicU8::new(0))
+}
+pub(crate) struct ArchiveIdentity<'a> {
+    pub backup_id: &'a str,
+    pub archive_sha256: &'a str,
+    pub manifest_sha256: &'a str,
+}
+pub(crate) fn inspect_dirs(
+    archive: &Dir,
+    root: &Dir,
+    expected: Option<ArchiveIdentity<'_>>,
+    cancel: &AtomicBool,
+    phase: &AtomicU8,
+) -> Result<RestoreInspection> {
+    crate::backup_format::check_cancel(cancel)?;
+    phase.store(1, Ordering::Release);
+    let (manifest, verified) = verify_dir(
+        archive,
+        expected.as_ref().map(|expected| expected.archive_sha256),
+        cancel,
+    )?;
+    if let Some(expected) = expected
+        && (verified.backup_id != expected.backup_id
+            || verified.manifest_sha256 != expected.manifest_sha256)
+    {
+        return Err(crate::backup_format::invalid());
+    }
+    phase.store(2, Ordering::Release);
+
     let data = root.open_dir_nofollow("data").map_err(|error| {
         if error.kind() == std::io::ErrorKind::PermissionDenied {
             io_error(error)
@@ -45,18 +76,19 @@ pub fn verify_restored_directory(backup: &Path, container: &Path) -> Result<Rest
             )
         }
     })?;
-    verify_tree(&data, &manifest, &cancel).map_err(|error| match error.code {
-        "PERMISSION_DENIED" => error,
+    verify_tree(&data, &manifest, cancel).map_err(|error| match error.code {
+        "PERMISSION_DENIED" | "TASK_CANCELLED" => error,
         _ => HubError::new(
             "RESTORED_DATA_MISMATCH",
             "恢复目录的路径、类型、大小或 SHA-256 与归档不一致，或未能完整读取。",
         ),
     })?;
+    crate::backup_format::check_cancel(cancel)?;
     Ok(RestoreInspection {
         schema_version: 1,
         inspected_at: now(),
-        incomplete_marker_present: regular_marker(&root, "RESTORE_INCOMPLETE.json")?,
-        historical_report_present: regular_marker(&root, "restore-verification.json")?,
+        incomplete_marker_present: regular_marker(root, "RESTORE_INCOMPLETE.json")?,
+        historical_report_present: regular_marker(root, "restore-verification.json")?,
         verification: RestoreVerification {
             schema_version: 1,
             state: "verified".into(),

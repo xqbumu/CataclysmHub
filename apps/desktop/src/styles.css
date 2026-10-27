@@ -1549,3 +1549,15 @@ select:focus-visible {
   margin: 3px 0 0;
   accent-color: var(--green);
 }
+
+.restore-inspection {
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #131914;
+}
+.restore-inspection > div > strong {
+  display: inline-block;
+  margin-top: 10px;
+}

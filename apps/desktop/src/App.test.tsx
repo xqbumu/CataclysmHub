@@ -59,6 +59,8 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     restorePlan: vi.fn(),
     startRestore: vi.fn(),
     cancelRestore: vi.fn(),
+    startInspection: vi.fn(),
+    cancelInspection: vi.fn(),
     retryTaskRecovery: vi.fn(),
     cancelBackup: vi.fn(),
     scanReport: vi.fn(),
@@ -142,5 +144,32 @@ describe('workspace and launch safety', () => {
     ]);
     for (const bad of ['"--flag"', '{}', '[1]', '["\\u0000"]'])
       expect(() => parseArguments(bad)).toThrow();
+  });
+  it('does not label a failed directory inspection as a failed game launch', async () => {
+    render(
+      <App
+        api={client({
+          ...emptyDashboard,
+          workspace,
+          operations: [
+            {
+              id: 'event',
+              task_id: 'inspection',
+              action: 'backup.inspect_restored',
+              status: 'failed',
+              error_code: 'RESTORED_DATA_MISMATCH',
+              created_at: workspace.created_at,
+            },
+          ],
+        })}
+      />,
+    );
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('button', { name: '操作记录' }));
+    const table = screen.getByRole('table');
+    expect(within(table).queryByText('启动失败')).not.toBeInTheDocument();
+    expect(within(table).getByText('失败')).toBeVisible();
+    expect(within(table).getByText('检查已恢复目录')).toBeVisible();
   });
 });

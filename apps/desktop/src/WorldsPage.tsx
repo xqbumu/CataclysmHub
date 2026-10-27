@@ -79,6 +79,9 @@ export default function WorldsPage({
   const restoreActive = data.restore_tasks.some((task) =>
     ['running', 'cancelling'].includes(task.state),
   );
+  const inspectionActive = data.inspection_tasks.some((task) =>
+    ['running', 'cancelling'].includes(task.state),
+  );
   const gameActive = data.sessions.some((session) =>
     ['starting', 'running', 'interrupted_unknown'].includes(session.state),
   );
@@ -148,6 +151,7 @@ export default function WorldsPage({
             gameActive ||
             backupActive ||
             restoreActive ||
+            inspectionActive ||
             !api.desktop
           }
           onClick={() =>
@@ -169,10 +173,10 @@ export default function WorldsPage({
           目录只是世界候选，边界与角色归属尚未验证。扫描不会解析角色内容、改写存档或创建备份；结果也不能证明存档稳定。
         </span>
       </div>
-      {(backupActive || restoreActive) && (
+      {(backupActive || restoreActive || inspectionActive) && (
         <div className="notice">
           <CircleHelp size={17} />
-          工作区正在备份、校验或恢复，请等待完成或取消后再扫描。
+          工作区正在备份、校验、恢复或检查目录，请等待完成或取消后再扫描。
         </div>
       )}
       {gameActive && (

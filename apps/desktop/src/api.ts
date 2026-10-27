@@ -11,6 +11,7 @@ import type { ScanTask } from './bindings/ScanTask';
 import type { ScanReport } from './bindings/ScanReport';
 import type { BackupPlan } from './bindings/BackupPlan';
 import type { BackupTask } from './bindings/BackupTask';
+import type { InspectionTask } from './bindings/InspectionTask';
 import type { RestorePlan } from './bindings/RestorePlan';
 import type { RestoreTask } from './bindings/RestoreTask';
 import type { BackupRecord } from './bindings/BackupRecord';
@@ -29,6 +30,7 @@ export type {
   BackupRecord,
   RestorePlan,
   RestoreTask,
+  InspectionTask,
 };
 export const emptyDashboard: Dashboard = {
   workspace: null,
@@ -39,6 +41,7 @@ export const emptyDashboard: Dashboard = {
   backup_tasks: [],
   backups: [],
   restore_tasks: [],
+  inspection_tasks: [],
 };
 export interface HubApi {
   desktop: boolean;
@@ -65,6 +68,11 @@ export interface HubApi {
     planDigest: string,
     requestKey: string,
   ): Promise<RestoreTask>;
+  startInspection(
+    restoreTaskId: string,
+    requestKey: string,
+  ): Promise<InspectionTask>;
+  cancelInspection(taskId: string): Promise<InspectionTask>;
   cancelRestore(taskId: string): Promise<RestoreTask>;
   retryTaskRecovery(taskId: string): Promise<void>;
   cancelBackup(taskId: string): Promise<BackupTask>;
@@ -117,6 +125,9 @@ export const api: HubApi = {
       confirmed: true,
     }),
   cancelRestore: (taskId) => desktopOnly('cancel_restore', { taskId }),
+  startInspection: (restoreTaskId, requestKey) =>
+    desktopOnly('start_inspection', { restoreTaskId, requestKey }),
+  cancelInspection: (taskId) => desktopOnly('cancel_inspection', { taskId }),
   retryTaskRecovery: (taskId) => desktopOnly('retry_task_recovery', { taskId }),
   cancelBackup: (taskId) => desktopOnly('cancel_backup', { taskId }),
 };

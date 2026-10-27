@@ -86,6 +86,8 @@ function client(): HubApi {
     restorePlan: vi.fn(),
     startRestore: vi.fn(),
     cancelRestore: vi.fn(),
+    startInspection: vi.fn(),
+    cancelInspection: vi.fn(),
     retryTaskRecovery: vi.fn(),
     cancelBackup: vi.fn().mockResolvedValue({ ...task, state: 'cancelling' }),
   };

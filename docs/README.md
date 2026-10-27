@@ -30,6 +30,7 @@
 | [IPC 契约](contracts/ipc-api.md) | 命令、DTO、计划确认、事件、分页和错误码 | 前后端 |
 | [文件格式契约](contracts/file-formats.md) | 5 个 JSON Schema、合成正例和兼容演进 | 备份/档案 |
 | [威胁模型](security/threat-model.md) | 信任边界、安全控制、隐私和供应链 | 安全 |
+| [桌面检查验证](quality/desktop-inspection-verification.md) | 持久检查、原任务/字节分离、原生正反例与 schema 5 | QA/桌面 |
 | [恢复强杀矩阵](quality/restore-crash-matrix.md) | 六个真实子进程终止边界、重启对账与只读检查证据 | QA/核心服务 |
 | [测试与验收](quality/test-strategy.md) | 数据集、核心用例、故障注入、AC 和缺陷门禁 | QA |
 | [性能与兼容](quality/performance-and-compatibility.md) | 性能预算、平台与游戏资源验证矩阵 | QA/平台 |

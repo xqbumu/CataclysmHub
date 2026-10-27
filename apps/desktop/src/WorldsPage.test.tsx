@@ -87,6 +87,8 @@ function client(): HubApi {
     restorePlan: vi.fn(),
     startRestore: vi.fn(),
     cancelRestore: vi.fn(),
+    startInspection: vi.fn(),
+    cancelInspection: vi.fn(),
     retryTaskRecovery: vi.fn(),
     cancelBackup: vi.fn(),
     scanReport: vi.fn().mockResolvedValue(report),
@@ -229,5 +231,7 @@ it('blocks scanning while a full backup owns the workspace', () => {
     ],
   });
   expect(screen.getByRole('button', { name: '只读扫描' })).toBeDisabled();
-  expect(screen.getByText(/工作区正在备份、校验或恢复/)).toBeVisible();
+  expect(
+    screen.getByText(/工作区正在备份、校验、恢复或检查目录/),
+  ).toBeVisible();
 });

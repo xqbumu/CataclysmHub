@@ -10,7 +10,7 @@ use std::{
     sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize, serde::Deserialize, ts_rs::TS)]
 pub struct RestoreVerification {
     pub schema_version: u32,
     pub state: String,

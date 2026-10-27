@@ -51,7 +51,7 @@ pub(crate) struct Receipt {
     pub verified_at: String,
     pub verifier_version: String,
 }
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, ts_rs::TS)]
 pub struct BackupVerification {
     pub backup_id: String,
     pub file_count: u32,
@@ -451,4 +451,14 @@ pub(crate) fn sync_directory(directory: &Dir) -> Result<()> {
     #[cfg(not(unix))]
     let _ = directory;
     Ok(())
+}
+
+pub(crate) fn source_failure_status(code: &str) -> Option<&'static str> {
+    match code {
+        "HASH_MISMATCH" | "ARCHIVE_INVALID" | "SOURCE_CHANGED" => Some("failed"),
+        "BACKUP_IO_FAILED" | "PERMISSION_DENIED" | "PATH_INVALID" | "PATH_CHANGED" => {
+            Some("unavailable")
+        }
+        _ => None,
+    }
 }

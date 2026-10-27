@@ -1,8 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import InspectionPanel from './InspectionPanel';
 import { RestoreButton, RestoreTasks } from './RestoreWorkflow';
-import type { HubApi, RestorePlan, RestoreTask } from './api';
+import type { HubApi, RestorePlan, RestoreTask, InspectionTask } from './api';
 const plan: RestorePlan = {
   id: 'plan',
   plan_digest: 'digest',
@@ -48,6 +49,8 @@ function client() {
     createBackup: vi.fn(),
     verifyBackup: vi.fn(),
     cancelBackup: vi.fn(),
+    startInspection: vi.fn(),
+    cancelInspection: vi.fn(),
     retryTaskRecovery: vi.fn(),
     restorePlan: vi.fn().mockResolvedValue(plan),
     startRestore: vi.fn().mockResolvedValue(task),
@@ -166,10 +169,164 @@ describe('new-directory restore workflow', () => {
         run={(action) => action()}
       />,
     );
-    expect(screen.getByText('恢复字节已验证')).toBeVisible();
+    expect(screen.getByText('恢复完成 · 当时字节已验证')).toBeVisible();
     expect(screen.getByText(/游戏兼容性仍未验证/)).toBeVisible();
     expect(
       screen.queryByRole('button', { name: '取消恢复' }),
     ).not.toBeInTheDocument();
+  });
+});
+
+const inspection: InspectionTask = {
+  id: 'inspection',
+  request_key: 'inspection-key',
+  restore_task_id: task.id,
+  state: 'succeeded',
+  phase: 'finished',
+  revision: 2,
+  error_code: null,
+  created_at: '2026-10-27T01:00:00Z',
+  finished_at: '2026-10-27T01:01:00Z',
+  result: {
+    schema_version: 1,
+    inspected_at: '2026-10-27T01:01:00Z',
+    incomplete_marker_present: true,
+    historical_report_present: true,
+    verification: {
+      schema_version: 1,
+      state: 'verified',
+      restored_files: 2,
+      restored_entries: 4,
+      restored_bytes: '123',
+      backup: {
+        backup_id: 'backup',
+        file_count: 2,
+        entry_count: 4,
+        total_bytes: '123',
+        consistency: 'best_effort',
+        archive_sha256: 'a'.repeat(64),
+        manifest_sha256: 'b'.repeat(64),
+        verified_at: '2026-10-27T01:00:00Z',
+        receipt_present: true,
+      },
+    },
+  },
+};
+function inspectPanel(
+  api: HubApi,
+  inspections: InspectionTask[] = [],
+  blocked = false,
+) {
+  return render(
+    <InspectionPanel
+      api={api}
+      restoreTaskId={task.id}
+      inspections={inspections}
+      busy={false}
+      blocked={blocked}
+      run={(action) => action()}
+    />,
+  );
+}
+describe('persistent recovery directory inspection', () => {
+  it('starts read-only inspection by original restore identity without selecting arbitrary paths', async () => {
+    const api = client();
+    inspectPanel(api);
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: '检查已恢复目录' }));
+    expect(api.startInspection).toHaveBeenCalledExactlyOnceWith(
+      task.id,
+      expect.stringMatching(/^[a-f0-9-]{36}$/),
+    );
+    expect(api.pickPath).not.toHaveBeenCalled();
+    expect(api.startRestore).not.toHaveBeenCalled();
+  });
+  it('keeps cancellation available while other conflicting buttons remain blocked', async () => {
+    const api = client();
+    inspectPanel(
+      api,
+      [
+        {
+          ...inspection,
+          state: 'running',
+          phase: 'checking_restored',
+          result: null,
+        },
+      ],
+      true,
+    );
+    expect(
+      screen.getByRole('button', { name: '检查已恢复目录' }),
+    ).toBeDisabled();
+    expect(screen.getByText('正在检查目录')).toBeVisible();
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: '取消检查' }));
+    expect(api.cancelInspection).toHaveBeenCalledExactlyOnceWith(inspection.id);
+  });
+  it('shows matching bytes and incomplete workflow as separate facts', () => {
+    render(
+      <RestoreTasks
+        api={client()}
+        tasks={[
+          {
+            ...task,
+            state: 'recovery_required',
+            phase: 'interrupted',
+            error_code: 'TASK_INTERRUPTED',
+          },
+        ]}
+        inspections={[inspection]}
+        busy={false}
+        run={(action) => action()}
+      />,
+    );
+    expect(screen.getByText('需要检查目标目录')).toBeVisible();
+    expect(screen.getByText('本次文件检查通过')).toBeVisible();
+    expect(
+      screen.getByText(/仍有未完成标记；字节匹配不代表原恢复流程已完成/),
+    ).toBeVisible();
+    expect(
+      screen.queryByText('恢复完成 · 当时字节已验证'),
+    ).not.toBeInTheDocument();
+  });
+  it('does not show an older successful verdict after the latest inspection failed', () => {
+    const failed = {
+      ...inspection,
+      id: 'failed',
+      state: 'failed',
+      error_code: 'RESTORED_DATA_MISMATCH',
+      result: null,
+    };
+    inspectPanel(client(), [failed, inspection]);
+    expect(screen.getByText('本次检查未通过')).toBeVisible();
+    expect(screen.getByText('RESTORED_DATA_MISMATCH')).toBeVisible();
+    expect(screen.queryByText('本次文件检查通过')).not.toBeInTheDocument();
+  });
+  it('retries only status recording after terminal persistence failure', async () => {
+    const api = client();
+    inspectPanel(api, [
+      {
+        ...inspection,
+        state: 'recovery_required',
+        error_code: 'TASK_RESULT_PERSIST_FAILED',
+        result: null,
+      },
+    ]);
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: '重试记录检查状态' }));
+    expect(api.retryTaskRecovery).toHaveBeenCalledExactlyOnceWith(
+      inspection.id,
+    );
+    expect(api.startInspection).not.toHaveBeenCalled();
+  });
+  it('reports cancellation without presenting a fresh verification verdict', () => {
+    inspectPanel(client(), [
+      { ...inspection, state: 'cancelled', result: null },
+    ]);
+    expect(screen.getByText('检查已取消，未形成新结论')).toBeVisible();
+    expect(screen.queryByText('本次文件检查通过')).not.toBeInTheDocument();
   });
 });

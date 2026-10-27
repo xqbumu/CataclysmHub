@@ -7,6 +7,7 @@ pub(crate) enum TaskKind {
     Scan,
     Backup,
     Restore,
+    Inspection,
 }
 impl TaskKind {
     fn table(self) -> &'static str {
@@ -14,6 +15,7 @@ impl TaskKind {
             Self::Scan => "task",
             Self::Backup => "backup_task",
             Self::Restore => "restore_task",
+            Self::Inspection => "inspection_task",
         }
     }
     fn action(self) -> &'static str {
@@ -21,6 +23,7 @@ impl TaskKind {
             Self::Scan => "world.scan",
             Self::Backup => "backup.reconcile",
             Self::Restore => "backup.restore_new",
+            Self::Inspection => "backup.inspect_restored",
         }
     }
 }
@@ -102,6 +105,16 @@ impl Hub {
             task.error_code = Some("TASK_RESULT_PERSIST_FAILED".into());
             task.finished_at = Some(failure.finished_at.clone());
             task.revision += 1;
+        }
+    }
+    pub(crate) async fn overlay_inspection(&self, task: &mut crate::InspectionTask) {
+        if let Some(failure) = self.runtime_recovery.lock().await.get(&task.id) {
+            task.state = "recovery_required".into();
+            task.phase = "recording_failed".into();
+            task.error_code = Some("TASK_RESULT_PERSIST_FAILED".into());
+            task.finished_at = Some(failure.finished_at.clone());
+            task.revision += 1;
+            task.result = None;
         }
     }
 }

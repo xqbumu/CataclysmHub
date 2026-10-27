@@ -84,6 +84,7 @@ pub struct Dashboard {
     pub backup_tasks: Vec<BackupTask>,
     pub backups: Vec<BackupRecord>,
     pub restore_tasks: Vec<RestoreTask>,
+    pub inspection_tasks: Vec<InspectionTask>,
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct LaunchPlan {
@@ -242,4 +243,20 @@ pub struct RestoreTask {
     pub error_code: Option<String>,
     pub created_at: String,
     pub finished_at: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
+pub struct InspectionTask {
+    pub id: String,
+    pub request_key: String,
+    pub restore_task_id: String,
+    pub state: String,
+    pub phase: String,
+    #[ts(type = "number")]
+    pub revision: i64,
+    pub error_code: Option<String>,
+    pub created_at: String,
+    pub finished_at: Option<String>,
+    #[sqlx(skip)]
+    pub result: Option<crate::RestoreInspection>,
 }

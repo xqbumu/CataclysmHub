@@ -60,6 +60,9 @@ export default function BackupsPage({
   );
   const blocked =
     !!active ||
+    data.inspection_tasks.some((task) =>
+      ['running', 'cancelling'].includes(task.state),
+    ) ||
     data.restore_tasks.some((task) =>
       ['running', 'cancelling'].includes(task.state),
     ) ||
@@ -115,7 +118,7 @@ export default function BackupsPage({
       {blocked && !active && (
         <div className="alert">
           <TriangleAlert size={17} />
-          工作区正在扫描或恢复，或游戏仍在运行/状态未知。请先处理相关任务。
+          工作区正在扫描、恢复或检查目录，或游戏仍在运行/状态未知。请先处理相关任务。
         </div>
       )}
       {latest && (
@@ -182,6 +185,8 @@ export default function BackupsPage({
       <RestoreTasks
         api={api}
         tasks={data.restore_tasks}
+        inspections={data.inspection_tasks}
+        blocked={blocked}
         busy={busy}
         run={run}
       />

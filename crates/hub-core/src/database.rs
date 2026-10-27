@@ -67,7 +67,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 4 {
+        if version > 5 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -91,7 +91,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 4 {
+        if version > 0 && version < 5 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -132,7 +132,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 4 {
+        if version < 5 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -156,7 +156,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-004.sql"))
+            if version < 4 {
+                sqlx::raw_sql(include_str!("migration-004.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-005.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {
@@ -261,6 +272,25 @@ impl Hub {
                 .await
                 .map_err(HubError::db)?;
         }
+        let interrupted_inspections: Vec<String> = sqlx::query_scalar(
+            "SELECT id FROM inspection_task WHERE state IN ('running','cancelling')",
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(HubError::db)?;
+        for task in interrupted_inspections {
+            sqlx::query("UPDATE inspection_task SET state='recovery_required',phase='interrupted',error_code='TASK_INTERRUPTED',finished_at=?,result_json=NULL,revision=revision+1 WHERE id=?").bind(now()).bind(&task).execute(&mut *tx).await.map_err(HubError::db)?;
+            sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
+                .bind(id())
+                .bind(task)
+                .bind("backup.inspect_restored")
+                .bind("recovery_required")
+                .bind("TASK_INTERRUPTED")
+                .bind(now())
+                .execute(&mut *tx)
+                .await
+                .map_err(HubError::db)?;
+        }
         tx.commit().await.map_err(HubError::db)?;
         Ok(hub)
     }
@@ -305,6 +335,16 @@ impl Hub {
         .fetch_all(&mut *tx)
         .await
         .map_err(HubError::db)?;
+        let inspection_rows = sqlx::query_as::<_, crate::managed_inspection::InspectionRow>(
+            "SELECT * FROM inspection_task ORDER BY created_at DESC,id LIMIT 50",
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(HubError::db)?;
+        let mut inspection_tasks = inspection_rows
+            .into_iter()
+            .map(|row| row.into_task())
+            .collect::<Result<Vec<_>>>()?;
         tx.commit().await.map_err(HubError::db)?;
         for task in &mut scan_tasks {
             self.overlay_scan(task).await;
@@ -315,6 +355,9 @@ impl Hub {
         for task in &mut restore_tasks {
             self.overlay_restore(task).await;
         }
+        for task in &mut inspection_tasks {
+            self.overlay_inspection(task).await;
+        }
         Ok(Dashboard {
             workspace,
             installations,
@@ -324,6 +367,7 @@ impl Hub {
             backup_tasks,
             backups,
             restore_tasks,
+            inspection_tasks,
         })
     }
 
