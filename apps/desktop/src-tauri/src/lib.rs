@@ -1,5 +1,6 @@
 use hub_core::{
-    Dashboard, Hub, HubError, Installation, LaunchPlan, Session, Workspace, WorkspaceInput,
+    Dashboard, Hub, HubError, Installation, LaunchPlan, ScanReport, ScanTask, Session, Workspace,
+    WorkspaceInput,
 };
 use std::{
     collections::HashSet,
@@ -121,6 +122,28 @@ async fn acknowledge_interrupted(
     state.hub.acknowledge_interrupted(&session_id).await
 }
 
+#[tauri::command]
+async fn start_world_scan(
+    state: tauri::State<'_, AppState>,
+    request_key: String,
+) -> Result<ScanTask, HubError> {
+    state.hub.start_world_scan(&request_key).await
+}
+#[tauri::command]
+async fn cancel_world_scan(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<ScanTask, HubError> {
+    state.hub.cancel_scan(&task_id).await
+}
+#[tauri::command]
+async fn get_scan_report(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<ScanReport, HubError> {
+    state.hub.scan_report(&task_id).await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -154,7 +177,10 @@ pub fn run() {
             import_installation,
             create_launch_plan,
             launch_game,
-            acknowledge_interrupted
+            acknowledge_interrupted,
+            start_world_scan,
+            cancel_world_scan,
+            get_scan_report
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

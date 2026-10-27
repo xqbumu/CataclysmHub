@@ -1204,3 +1204,258 @@ dialog > p {
     transition: none !important;
   }
 }
+
+/* Read-only world inventory */
+.scan-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 22px 24px;
+  margin-bottom: 16px;
+  gap: 20px;
+}
+.scan-toolbar .file-path {
+  margin: 10px 0 0;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.scan-task {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #1b241b;
+  margin-bottom: 18px;
+  gap: 14px;
+}
+.scan-task > div {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: #9bab93;
+}
+.scan-task strong {
+  font-size: 12px;
+  font-weight: 500;
+  color: #c5d7b7;
+}
+.scan-task code {
+  color: var(--amber);
+  font-size: 10px;
+}
+.task-warning {
+  border-color: #58452c;
+  background: #2d261b;
+}
+.scan-history {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 20px 0;
+  font-size: 11px;
+  color: #9bad91;
+}
+select {
+  font: inherit;
+  background: #1c251b;
+  color: #c4d5b8;
+  border: 1px solid #38472e;
+  border-radius: 5px;
+  padding: 9px 12px;
+  max-width: 100%;
+}
+select:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 3px;
+}
+.scan-summary {
+  display: flex;
+  gap: 25px;
+  flex-wrap: wrap;
+  padding: 6px 0 22px;
+  color: #819679;
+  font-size: 11px;
+}
+.scan-summary strong {
+  color: #c5d9b5;
+  font-size: 17px;
+  margin-right: 5px;
+  font-weight: 500;
+}
+.inventory-layout {
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 18px;
+}
+.candidate-list {
+  align-self: start;
+  padding: 8px;
+  max-height: 630px;
+  overflow-y: auto;
+}
+.candidate-list button {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  text-align: left;
+  color: #91a984;
+  background: transparent;
+  gap: 9px;
+  width: 100%;
+  padding: 12px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+}
+.candidate-list button > svg {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.candidate-list button strong {
+  display: block;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.candidate-list button small {
+  display: block;
+  font-size: 10px;
+  color: #708866;
+  margin-top: 7px;
+  line-height: 1.5;
+}
+.candidate-list button:hover,
+.candidate-list .candidate-selected {
+  background: #293623;
+  color: #c4d9b4;
+}
+.inventory-panel {
+  padding: 21px;
+  min-width: 0;
+}
+.inventory-panel h2 {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.inventory-panel table {
+  white-space: normal;
+}
+.inventory-panel td {
+  font-size: 11px;
+  vertical-align: top;
+}
+.inventory-panel td:not(:first-child) {
+  white-space: nowrap;
+}
+.inventory-path {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  overflow-wrap: anywhere;
+}
+.inventory-path > svg {
+  flex-shrink: 0;
+  color: #7f986d;
+  margin-top: 1px;
+}
+.inventory-path > span {
+  min-width: 0;
+}
+.inventory-search {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #34432d;
+  background: #111a12;
+  border-radius: 4px;
+  margin-top: 18px;
+  padding-left: 11px;
+  color: #7e976b;
+}
+.inventory-search input {
+  background: transparent;
+  border: 0;
+  font-size: 11px;
+}
+.inventory-pagination {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 18px;
+  font-size: 10px;
+  color: #7f976e;
+}
+.inventory-pagination > div {
+  display: flex;
+  gap: 8px;
+}
+.inventory-pagination button {
+  padding: 7px 10px;
+  font-size: 10px;
+}
+.scan-issues {
+  padding: 22px;
+  margin-top: 20px;
+}
+.scan-issues h2 {
+  font-size: 15px;
+}
+.scan-issues > p {
+  margin-top: 9px;
+}
+.scan-issues ul {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+}
+.scan-issues li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 11px;
+  color: #a9b29a;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.scan-issues li > svg {
+  flex-shrink: 0;
+  color: var(--amber);
+}
+.scan-issues li span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.scan-issues li strong {
+  font-weight: 400;
+  font-size: 10px;
+  color: #c6b282;
+  max-width: 50%;
+}
+@media (max-width: 1100px) {
+  .inventory-layout {
+    grid-template-columns: 190px minmax(0, 1fr);
+    gap: 12px;
+  }
+  .inventory-panel {
+    padding: 15px;
+  }
+  .scan-summary {
+    gap: 16px;
+  }
+}
+@media (max-width: 850px) {
+  .inventory-layout {
+    grid-template-columns: 1fr;
+  }
+  .candidate-list {
+    max-height: 240px;
+  }
+  .scan-task > div {
+    gap: 8px;
+  }
+}

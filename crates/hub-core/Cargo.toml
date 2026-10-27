@@ -13,6 +13,7 @@ sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio",
 sha2 = "0.10"
 fs2 = "0.4"
 ts-rs = "12.0.1"
+cap-std = "4.0.3"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 
 [dev-dependencies]

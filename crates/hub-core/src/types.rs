@@ -80,6 +80,7 @@ pub struct Dashboard {
     pub installations: Vec<Installation>,
     pub sessions: Vec<Session>,
     pub operations: Vec<OperationLog>,
+    pub scan_tasks: Vec<ScanTask>,
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct LaunchPlan {
@@ -93,4 +94,55 @@ pub struct LaunchPlan {
     pub save_binding_verified: bool,
     pub expires_at: String,
     pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
+pub struct ScanTask {
+    pub id: String,
+    pub request_key: String,
+    pub workspace_id: String,
+    pub operation: String,
+    pub state: String,
+    pub phase: String,
+    #[ts(type = "number")]
+    pub processed_entries: i64,
+    #[ts(type = "number")]
+    pub revision: i64,
+    pub error_code: Option<String>,
+    pub created_at: String,
+    pub finished_at: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct ScanEntry {
+    pub relative_path: String,
+    pub file_type: String,
+    pub size: String,
+    pub candidate_root: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct ScanIssue {
+    pub code: String,
+    pub relative_path: String,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct WorldCandidate {
+    pub id: String,
+    pub relative_root: String,
+    pub file_count: u32,
+    pub entry_count: u32,
+    pub total_bytes: String,
+    pub identity_confidence: String,
+    pub boundary_verified: bool,
+}
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+pub struct ScanReport {
+    pub task_id: String,
+    pub scanner_version: String,
+    pub created_at: String,
+    pub enumeration_complete: bool,
+    pub visited_entries: u32,
+    pub total_bytes: String,
+    pub candidates: Vec<WorldCandidate>,
+    pub entries: Vec<ScanEntry>,
+    pub issues: Vec<ScanIssue>,
 }

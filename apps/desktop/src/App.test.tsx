@@ -51,6 +51,9 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     launchPlan: vi.fn().mockResolvedValue(plan),
     launch: vi.fn(),
     acknowledge: vi.fn(),
+    scanWorlds: vi.fn(),
+    cancelScan: vi.fn(),
+    scanReport: vi.fn(),
   };
 }
 describe('workspace and launch safety', () => {

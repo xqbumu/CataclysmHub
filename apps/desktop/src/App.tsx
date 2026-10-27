@@ -1,3 +1,4 @@
+import WorldsPage from './WorldsPage';
 import {
   useCallback,
   useEffect,
@@ -43,10 +44,11 @@ import {
   type WorkspaceInput,
 } from './api';
 
-type Page = 'overview' | 'games' | 'activity' | 'settings';
+type Page = 'overview' | 'games' | 'worlds' | 'activity' | 'settings';
 const pages: Record<Page, string> = {
   overview: '概览',
   games: '游戏库',
+  worlds: '世界与角色',
   activity: '操作记录',
   settings: '工作区',
 };
@@ -63,6 +65,9 @@ const statusNames: Record<string, string> = {
   interrupted_unknown: '上次运行状态未知',
   resolved_unknown: '已人工确认关闭 · 存档未验证',
   succeeded: '已完成',
+  cancelling: '正在取消',
+  cancelled: '已取消',
+  recovery_required: '操作中断，需重新检查',
 };
 const actionNames: Record<string, string> = {
   'workspace.initialize': '工作区初始化',
@@ -71,6 +76,7 @@ const actionNames: Record<string, string> = {
   'game.process_result': '记录进程结果',
   'process.reconcile': '重启后状态检查',
   'process.user_acknowledged': '人工确认游戏关闭',
+  'world.scan': '只读扫描存档目录',
 };
 function time(value: string) {
   return new Date(value).toLocaleString('zh-CN', {
@@ -406,7 +412,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
           >
             游戏库<span className="nav-count">{data.installations.length}</span>
           </NavItem>
-          <NavItem icon={Globe2} soon>
+          <NavItem
+            icon={Globe2}
+            selected={page === 'worlds'}
+            onClick={() => setPage('worlds')}
+          >
             世界与角色
           </NavItem>
           <NavItem icon={GitBranch} soon>
@@ -483,9 +493,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                   ? '管理你的游戏与存档，让下一次出发更从容。'
                   : page === 'games'
                     ? '并存管理本地安装，启动前确认环境与参数。'
-                    : page === 'activity'
-                      ? '查看本地操作和进程状态，追溯每一次变更。'
-                      : '分离数据目录，为后续的世界保护建立基础。'}
+                    : page === 'worlds'
+                      ? '只读枚举世界候选、共享文件与无法确认的边界。'
+                      : page === 'activity'
+                        ? '查看本地操作和进程状态，追溯每一次变更。'
+                        : '分离数据目录，为后续的世界保护建立基础。'}
               </p>
             </div>
             {(page === 'overview' || page === 'games') && (
@@ -566,7 +578,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       icon={Globe2}
                       label="世界存档"
                       value="—"
-                      detail="世界发现将在下一阶段接入"
+                      detail="世界候选可在“世界与角色”扫描"
                     />
                     <Stat
                       icon={GitBranch}
@@ -709,6 +721,15 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                     </section>
                   </div>
                 </>
+              )}
+              {page === 'worlds' && (
+                <WorldsPage
+                  api={api}
+                  data={data}
+                  busy={busy}
+                  run={act}
+                  onConfigure={() => setPage('settings')}
+                />
               )}
               {page === 'settings' && setup}
               {page === 'games' &&

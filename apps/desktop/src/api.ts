@@ -7,6 +7,8 @@ import type { Session } from './bindings/Session';
 import type { OperationLog } from './bindings/OperationLog';
 import type { Dashboard } from './bindings/Dashboard';
 import type { LaunchPlan } from './bindings/LaunchPlan';
+import type { ScanTask } from './bindings/ScanTask';
+import type { ScanReport } from './bindings/ScanReport';
 export type {
   Workspace,
   WorkspaceInput,
@@ -15,12 +17,15 @@ export type {
   OperationLog,
   Dashboard,
   LaunchPlan,
+  ScanTask,
+  ScanReport,
 };
 export const emptyDashboard: Dashboard = {
   workspace: null,
   installations: [],
   sessions: [],
   operations: [],
+  scan_tasks: [],
 };
 export interface HubApi {
   desktop: boolean;
@@ -31,6 +36,9 @@ export interface HubApi {
   launchPlan(installationId: string, args: string[]): Promise<LaunchPlan>;
   launch(planId: string): Promise<Session>;
   acknowledge(sessionId: string): Promise<void>;
+  scanWorlds(requestKey: string): Promise<ScanTask>;
+  cancelScan(taskId: string): Promise<ScanTask>;
+  scanReport(taskId: string): Promise<ScanReport>;
 }
 function desktopOnly<T>(
   command: string,
@@ -57,6 +65,9 @@ export const api: HubApi = {
   launch: (planId) => desktopOnly('launch_game', { planId, confirmed: true }),
   acknowledge: (sessionId) =>
     desktopOnly('acknowledge_interrupted', { sessionId }),
+  scanWorlds: (requestKey) => desktopOnly('start_world_scan', { requestKey }),
+  cancelScan: (taskId) => desktopOnly('cancel_world_scan', { taskId }),
+  scanReport: (taskId) => desktopOnly('get_scan_report', { taskId }),
 };
 export function errorMessage(error: unknown): string {
   if (

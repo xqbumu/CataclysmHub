@@ -6,13 +6,24 @@ use crate::{
 use std::{process::Stdio, sync::Arc};
 
 impl Hub {
-    async fn check_sessions(&self, _installation_id: &str) -> Result<()> {
+    pub(crate) async fn check_sessions(&self, _installation_id: &str) -> Result<()> {
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM session WHERE state IN ('starting','running','interrupted_unknown')")
             .fetch_one(&self.pool).await.map_err(HubError::db)?;
         if count > 0 {
             return Err(HubError::new(
                 "GAME_RUNNING_OR_UNKNOWN",
                 "已有游戏运行或会话状态未知，请先确认游戏已关闭后再启动。",
+            ));
+        }
+        let active: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM task WHERE state IN ('running','cancelling')")
+                .fetch_one(&self.pool)
+                .await
+                .map_err(HubError::db)?;
+        if active > 0 {
+            return Err(HubError::new(
+                "TASK_CONFLICT",
+                "存档目录正在扫描，请等待完成或取消后再启动游戏。",
             ));
         }
         Ok(())

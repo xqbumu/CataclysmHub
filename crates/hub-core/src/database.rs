@@ -10,7 +10,7 @@ use std::{
     collections::HashMap,
     fs::File,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, atomic::AtomicBool},
     time::Duration,
 };
 use tokio::sync::Mutex;
@@ -20,6 +20,7 @@ pub struct Hub {
     pub(crate) data_dir: PathBuf,
     pub(crate) mutation: Mutex<()>,
     pub(crate) plans: Mutex<HashMap<String, LaunchPlan>>,
+    pub(crate) scan_controls: Mutex<HashMap<String, Arc<AtomicBool>>>,
     _lock: File,
 }
 pub(crate) fn now() -> String {
@@ -63,7 +64,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 1 {
+        if version > 2 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -87,11 +88,73 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
+        if version < 2 {
+            if version == 1 {
+                let backup = data_dir.join(format!("metadata-v1-{}.sqlite", id()));
+                sqlx::query("VACUUM INTO ?")
+                    .bind(paths::text(&backup)?)
+                    .execute(&pool)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "MIGRATION_BACKUP_FAILED",
+                            "无法创建迁移前元数据备份，升级已中止。",
+                        )
+                    })?;
+                let snapshot = SqlitePoolOptions::new()
+                    .max_connections(1)
+                    .connect_with(
+                        SqliteConnectOptions::new()
+                            .filename(&backup)
+                            .read_only(true),
+                    )
+                    .await
+                    .map_err(|_| {
+                        HubError::new("MIGRATION_BACKUP_FAILED", "无法打开迁移前备份。")
+                    })?;
+                let snapshot_check: String = sqlx::query_scalar("PRAGMA quick_check")
+                    .fetch_one(&snapshot)
+                    .await
+                    .map_err(|_| {
+                        HubError::new("MIGRATION_BACKUP_FAILED", "无法校验迁移前备份。")
+                    })?;
+                snapshot.close().await;
+                if snapshot_check != "ok" {
+                    return Err(HubError::new(
+                        "MIGRATION_BACKUP_FAILED",
+                        "迁移前元数据备份校验未通过。",
+                    ));
+                }
+                std::fs::OpenOptions::new()
+                    .read(true)
+                    .write(true)
+                    .open(&backup)
+                    .and_then(|file| file.sync_all())
+                    .map_err(|_| {
+                        HubError::new(
+                            "MIGRATION_BACKUP_FAILED",
+                            "无法持久保存迁移前元数据备份，升级已中止。",
+                        )
+                    })?;
+            }
+            let mut tx = pool.begin().await.map_err(HubError::db)?;
+            sqlx::raw_sql(include_str!("migration-002.sql"))
+                .execute(&mut *tx)
+                .await
+                .map_err(|_| {
+                    HubError::new(
+                        "DB_MIGRATION_FAILED",
+                        "元数据升级失败，原版本和迁移前备份已保留。",
+                    )
+                })?;
+            tx.commit().await.map_err(HubError::db)?;
+        }
         let hub = Arc::new(Self {
             pool,
             data_dir,
             mutation: Mutex::new(()),
             plans: Mutex::new(HashMap::new()),
+            scan_controls: Mutex::new(HashMap::new()),
             _lock: lock,
         });
         // A previous child may still be alive. Never infer exit or a stable save from app restart.
@@ -114,6 +177,25 @@ impl Hub {
                 .bind("process.reconcile")
                 .bind("interrupted_unknown")
                 .bind("PROCESS_STATUS_UNKNOWN")
+                .bind(now())
+                .execute(&mut *tx)
+                .await
+                .map_err(HubError::db)?;
+        }
+        let interrupted_tasks: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM task WHERE state IN ('running','cancelling')")
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(HubError::db)?;
+        for task_id in interrupted_tasks {
+            sqlx::query("UPDATE task SET state='recovery_required',phase='interrupted',error_code='TASK_INTERRUPTED',finished_at=?,revision=revision+1 WHERE id=?")
+                .bind(now()).bind(&task_id).execute(&mut *tx).await.map_err(HubError::db)?;
+            sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
+                .bind(id())
+                .bind(task_id)
+                .bind("world.scan")
+                .bind("recovery_required")
+                .bind("TASK_INTERRUPTED")
                 .bind(now())
                 .execute(&mut *tx)
                 .await
@@ -147,12 +229,15 @@ impl Hub {
         .fetch_all(&mut *tx)
         .await
         .map_err(HubError::db)?;
+        let scan_tasks = sqlx::query_as::<_, crate::ScanTask>("SELECT id,request_key,workspace_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at FROM task ORDER BY created_at DESC,id LIMIT 20")
+            .fetch_all(&mut *tx).await.map_err(HubError::db)?;
         tx.commit().await.map_err(HubError::db)?;
         Ok(Dashboard {
             workspace,
             installations,
             sessions,
             operations,
+            scan_tasks,
         })
     }
 
