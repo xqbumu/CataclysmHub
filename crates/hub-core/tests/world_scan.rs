@@ -330,3 +330,51 @@ async fn scan_and_launch_share_a_backend_gate_even_if_the_ui_is_bypassed() {
     assert_eq!(wait_finished(&f.hub, &task.id).await.state, "succeeded");
     pool.close().await;
 }
+
+#[tokio::test]
+async fn terminal_write_failure_does_not_leave_a_phantom_running_scan() {
+    let f = Fixture::new().await;
+    let db = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f.data.join("metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("CREATE TRIGGER reject_terminal BEFORE UPDATE OF state ON task WHEN NEW.state != OLD.state BEGIN SELECT RAISE(ABORT,'injected'); END").execute(&db).await.unwrap();
+    let task = f
+        .hub
+        .start_world_scan(&uuid::Uuid::new_v4().to_string())
+        .await
+        .unwrap();
+    let ended = wait_finished(&f.hub, &task.id).await;
+    assert_eq!(ended.state, "recovery_required");
+    assert_eq!(
+        ended.error_code.as_deref(),
+        Some("TASK_RESULT_PERSIST_FAILED")
+    );
+    assert_eq!(
+        f.hub.cancel_scan(&task.id).await.unwrap().state,
+        "recovery_required"
+    );
+    assert_eq!(
+        f.hub.dashboard().await.unwrap().scan_tasks[0].state,
+        "recovery_required"
+    );
+    f.hub
+        .prepare_backup()
+        .await
+        .expect("ended scan must not block workspace");
+    sqlx::query("DROP TRIGGER reject_terminal")
+        .execute(&db)
+        .await
+        .unwrap();
+    f.hub.retry_task_recovery(&task.id).await.unwrap();
+    let raw: String = sqlx::query_scalar("SELECT state FROM task WHERE id=?")
+        .bind(&task.id)
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert_eq!(raw, "recovery_required");
+    assert!(f.hub.scan_report(&task.id).await.is_err());
+    assert!(f.scan().await.enumeration_complete);
+}

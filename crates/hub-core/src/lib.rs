@@ -11,3 +11,5 @@ pub use types::*;
 mod backup;
 mod backup_format;
 pub use backup_format::verify_backup_directory;
+
+mod task_recovery;

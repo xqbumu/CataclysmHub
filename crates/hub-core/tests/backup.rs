@@ -394,3 +394,72 @@ async fn internal_manifest_remains_verifiable_if_the_external_receipt_is_lost() 
         .unwrap();
     assert_eq!(wait(&f.hub, &job.id).await.state, "succeeded");
 }
+
+#[tokio::test]
+async fn missing_archive_revokes_current_verified_status_but_retains_last_success_time() {
+    let f = Fixture::new().await;
+    let created = f.create().await;
+    assert_eq!(created.state, "succeeded");
+    let previous = f.hub.dashboard().await.unwrap().backups[0].clone();
+    std::fs::remove_file(f.backups.join(&created.backup_id).join("archive.tar.zst")).unwrap();
+    let task = f
+        .hub
+        .verify_backup(&created.backup_id, &uuid::Uuid::new_v4().to_string())
+        .await
+        .unwrap();
+    assert_eq!(wait(&f.hub, &task.id).await.state, "failed");
+    let current = f.hub.dashboard().await.unwrap().backups[0].clone();
+    assert_eq!(current.verification, "unavailable");
+    assert_eq!(current.verified_at, previous.verified_at);
+}
+
+#[tokio::test]
+async fn terminal_write_failure_is_visible_and_recording_can_retry_without_replaying_backup() {
+    let f = Fixture::new().await;
+    let db = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f._temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("CREATE TRIGGER reject_terminal BEFORE UPDATE OF state ON backup_task WHEN NEW.state != OLD.state BEGIN SELECT RAISE(ABORT,'injected'); END").execute(&db).await.unwrap();
+    let ended = f.create().await;
+    assert_eq!(ended.state, "recovery_required");
+    assert_eq!(
+        ended.error_code.as_deref(),
+        Some("TASK_RESULT_PERSIST_FAILED")
+    );
+    let raw: String = sqlx::query_scalar("SELECT state FROM backup_task WHERE id=?")
+        .bind(&ended.id)
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert_eq!(raw, "running");
+    assert_eq!(
+        f.hub.cancel_backup(&ended.id).await.unwrap().state,
+        "recovery_required"
+    );
+    assert_eq!(
+        f.hub.dashboard().await.unwrap().backup_tasks[0].state,
+        "recovery_required"
+    );
+    f.hub
+        .prepare_backup()
+        .await
+        .expect("ended worker must not block workspace");
+    let published = std::fs::read_dir(&f.backups).unwrap().count();
+    sqlx::query("DROP TRIGGER reject_terminal")
+        .execute(&db)
+        .await
+        .unwrap();
+    f.hub.retry_task_recovery(&ended.id).await.unwrap();
+    let raw: String = sqlx::query_scalar("SELECT state FROM backup_task WHERE id=?")
+        .bind(&ended.id)
+        .fetch_one(&db)
+        .await
+        .unwrap();
+    assert_eq!(raw, "recovery_required");
+    assert_eq!(std::fs::read_dir(&f.backups).unwrap().count(), published);
+    assert!(f.hub.dashboard().await.unwrap().backups.is_empty());
+    assert_eq!(f.create().await.state, "succeeded");
+}

@@ -136,6 +136,19 @@ export default function BackupsPage({
             )}
             <span className="mono">{latest.id.slice(0, 8)}</span>
             {latest.error_code && <code>{latest.error_code}</code>}
+            {latest.error_code === 'TASK_RESULT_PERSIST_FAILED' && (
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await api.retryTaskRecovery(latest.id);
+                  })
+                }
+              >
+                重试记录任务状态
+              </button>
+            )}
           </div>
           {active && (
             <button
@@ -189,7 +202,11 @@ export default function BackupsPage({
                   ) : (
                     <TriangleAlert size={14} />
                   )}
-                  最近校验{backup.verification === 'verified' ? '通过' : '失败'}
+                  {backup.verification === 'verified'
+                    ? '最近校验通过'
+                    : backup.verification === 'unavailable'
+                      ? '归档当前不可用'
+                      : '最近校验失败'}
                 </span>
               </div>
               <div className="backup-meta">

@@ -395,3 +395,16 @@ pub fn verify_backup_directory(path: &Path) -> Result<BackupVerification> {
     let root = Dir::open_ambient_dir(path, cap_std::ambient_authority()).map_err(io_error)?;
     verify_dir(&root, None, &AtomicBool::new(false)).map(|(_, result)| result)
 }
+
+pub(crate) fn sync_directory(directory: &Dir) -> Result<()> {
+    #[cfg(unix)]
+    directory
+        .try_clone()
+        .map_err(io_error)?
+        .into_std_file()
+        .sync_all()
+        .map_err(io_error)?;
+    #[cfg(not(unix))]
+    let _ = directory;
+    Ok(())
+}

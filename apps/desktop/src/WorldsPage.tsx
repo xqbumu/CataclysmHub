@@ -188,6 +188,19 @@ export default function WorldsPage({
             <span>已枚举 {latest.processed_entries} 个条目</span>
             <span className="mono">{latest.id.slice(0, 8)}</span>
             {latest.error_code && <code>{latest.error_code}</code>}
+            {latest.error_code === 'TASK_RESULT_PERSIST_FAILED' && (
+              <button
+                className="secondary"
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    await api.retryTaskRecovery(latest.id);
+                  })
+                }
+              >
+                重试记录任务状态
+              </button>
+            )}
           </div>
           {active && (
             <button

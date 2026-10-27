@@ -83,6 +83,7 @@ function client(): HubApi {
     backupPlan: vi.fn().mockResolvedValue(plan),
     createBackup: vi.fn().mockResolvedValue(task),
     verifyBackup: vi.fn().mockResolvedValue(task),
+    retryTaskRecovery: vi.fn(),
     cancelBackup: vi.fn().mockResolvedValue({ ...task, state: 'cancelling' }),
   };
 }
@@ -172,5 +173,34 @@ describe('full backup confirmation and integrity display', () => {
     });
     expect(screen.getByText(/保留的 .partial 临时目录/)).toBeVisible();
     expect(screen.queryByText('最近校验通过')).not.toBeInTheDocument();
+  });
+  it('shows unavailable archives without claiming current verification passed', () => {
+    show(client(), {
+      ...emptyDashboard,
+      workspace,
+      backups: [{ ...record, verification: 'unavailable' }],
+    });
+    expect(screen.getByText('归档当前不可用')).toBeVisible();
+    expect(screen.queryByText('最近校验通过')).not.toBeInTheDocument();
+  });
+  it('retries only task recording after terminal persistence failure', async () => {
+    const api = client();
+    show(api, {
+      ...emptyDashboard,
+      workspace,
+      backup_tasks: [
+        {
+          ...task,
+          state: 'recovery_required',
+          phase: 'recording_failed',
+          error_code: 'TASK_RESULT_PERSIST_FAILED',
+        },
+      ],
+    });
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: '重试记录任务状态' }));
+    expect(api.retryTaskRecovery).toHaveBeenCalledExactlyOnceWith(task.id);
+    expect(api.createBackup).not.toHaveBeenCalled();
   });
 });

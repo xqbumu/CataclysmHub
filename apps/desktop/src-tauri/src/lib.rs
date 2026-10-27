@@ -179,6 +179,14 @@ async fn cancel_backup(
     state.hub.cancel_backup(&task_id).await
 }
 
+#[tauri::command]
+async fn retry_task_recovery(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<(), HubError> {
+    state.hub.retry_task_recovery(&task_id).await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -219,7 +227,8 @@ pub fn run() {
             prepare_backup,
             create_backup,
             verify_backup,
-            cancel_backup
+            cancel_backup,
+            retry_task_recovery
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

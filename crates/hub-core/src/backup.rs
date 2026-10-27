@@ -711,7 +711,8 @@ impl Hub {
                 .await
                 .is_err()
             {
-                eprintln!("BACKUP_RESULT_PERSIST_FAILED task_id={worker_id}");
+                hub.mark_task_recovery(crate::task_recovery::TaskKind::Backup, &worker_id)
+                    .await;
             }
             hub.scan_controls.lock().await.remove(&worker_id);
         });
@@ -758,6 +759,7 @@ impl Hub {
                     ));
                 }
                 let staged = base.open_dir_nofollow(partial).map_err(io_error)?;
+                super::backup_format::sync_directory(&staged)?;
                 // Publication and cancellation are serialized under the service mutation gate.
                 base.rename(partial, base, &output.manifest.backup_id)
                     .map_err(io_error)?;
@@ -765,6 +767,12 @@ impl Hub {
                     HubError::new(
                         "PUBLICATION_UNCERTAIN",
                         "归档已切换到正式目录，但发布记录未完成；请保留目录并独立校验。",
+                    )
+                })?;
+                super::backup_format::sync_directory(&staged).map_err(|_| {
+                    HubError::new(
+                        "PUBLICATION_UNCERTAIN",
+                        "归档目录持久化确认失败；请保留目录并独立校验。",
                     )
                 })?;
                 #[cfg(unix)]
@@ -817,9 +825,15 @@ impl Hub {
             }
             Err(error) => {
                 if let Work::Verify(record) = work
-                    && ["HASH_MISMATCH", "ARCHIVE_INVALID"].contains(&error.code)
+                    && error.code != "TASK_CANCELLED"
                 {
-                    sqlx::query("UPDATE backup_archive SET verification='failed' WHERE id=?")
+                    let status = if ["HASH_MISMATCH", "ARCHIVE_INVALID"].contains(&error.code) {
+                        "failed"
+                    } else {
+                        "unavailable"
+                    };
+                    sqlx::query("UPDATE backup_archive SET verification=? WHERE id=?")
+                        .bind(status)
                         .bind(&record.id)
                         .execute(&mut *tx)
                         .await
@@ -873,11 +887,13 @@ impl Hub {
     }
     pub async fn backup_task(&self, task_id: &str) -> Result<BackupTask> {
         let query = format!("SELECT {COLUMNS} FROM backup_task WHERE id=?");
-        sqlx::query_as(&query)
+        let mut task = sqlx::query_as(&query)
             .bind(task_id)
             .fetch_optional(&self.pool)
             .await
             .map_err(HubError::db)?
-            .ok_or(HubError::new("TASK_NOT_FOUND", "备份任务不存在。"))
+            .ok_or(HubError::new("TASK_NOT_FOUND", "备份任务不存在。"))?;
+        self.overlay_backup(&mut task).await;
+        Ok(task)
     }
 }

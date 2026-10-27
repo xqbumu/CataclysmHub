@@ -21,6 +21,7 @@ pub struct Hub {
     pub(crate) mutation: Mutex<()>,
     pub(crate) plans: Mutex<HashMap<String, LaunchPlan>>,
     pub(crate) backup_plans: Mutex<HashMap<String, crate::backup::PreparedPlan>>,
+    pub(crate) runtime_recovery: Mutex<HashMap<String, crate::task_recovery::RuntimeFailure>>,
     pub(crate) scan_controls: Mutex<HashMap<String, Arc<AtomicBool>>>,
     _lock: File,
 }
@@ -161,6 +162,7 @@ impl Hub {
             plans: Mutex::new(HashMap::new()),
             backup_plans: Mutex::new(HashMap::new()),
             scan_controls: Mutex::new(HashMap::new()),
+            runtime_recovery: Mutex::new(HashMap::new()),
             _lock: lock,
         });
         // A previous child may still be alive. Never infer exit or a stable save from app restart.
@@ -255,9 +257,9 @@ impl Hub {
         .fetch_all(&mut *tx)
         .await
         .map_err(HubError::db)?;
-        let scan_tasks = sqlx::query_as::<_, crate::ScanTask>("SELECT id,request_key,workspace_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at FROM task ORDER BY created_at DESC,id LIMIT 20")
+        let mut scan_tasks = sqlx::query_as::<_, crate::ScanTask>("SELECT id,request_key,workspace_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at FROM task ORDER BY created_at DESC,id LIMIT 20")
             .fetch_all(&mut *tx).await.map_err(HubError::db)?;
-        let backup_tasks = sqlx::query_as::<_, crate::BackupTask>("SELECT id,request_key,workspace_id,backup_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at FROM backup_task ORDER BY created_at DESC,id LIMIT 20").fetch_all(&mut *tx).await.map_err(HubError::db)?;
+        let mut backup_tasks = sqlx::query_as::<_, crate::BackupTask>("SELECT id,request_key,workspace_id,backup_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at FROM backup_task ORDER BY created_at DESC,id LIMIT 20").fetch_all(&mut *tx).await.map_err(HubError::db)?;
         let backups = sqlx::query_as::<_, crate::BackupRecord>(
             "SELECT * FROM backup_archive ORDER BY created_at DESC,id LIMIT 100",
         )
@@ -265,6 +267,12 @@ impl Hub {
         .await
         .map_err(HubError::db)?;
         tx.commit().await.map_err(HubError::db)?;
+        for task in &mut scan_tasks {
+            self.overlay_scan(task).await;
+        }
+        for task in &mut backup_tasks {
+            self.overlay_backup(task).await;
+        }
         Ok(Dashboard {
             workspace,
             installations,

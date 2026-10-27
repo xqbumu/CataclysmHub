@@ -56,6 +56,7 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     backupPlan: vi.fn(),
     createBackup: vi.fn(),
     verifyBackup: vi.fn(),
+    retryTaskRecovery: vi.fn(),
     cancelBackup: vi.fn(),
     scanReport: vi.fn(),
   };

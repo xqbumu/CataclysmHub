@@ -692,7 +692,9 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                         <span className="eyebrow">BACKUP HEALTH</span>
                         <span className="pill warning">
                           <TriangleAlert size={12} />
-                          {data.backups.length
+                          {data.backups.some(
+                            (backup) => backup.verification === 'verified',
+                          )
                             ? '已建立尽力快照'
                             : '尚未建立保护'}
                         </span>

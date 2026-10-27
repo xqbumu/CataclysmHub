@@ -326,7 +326,8 @@ impl Hub {
                 .is_err()
             {
                 // No success report was published; startup reconciliation will expose the intent.
-                eprintln!("SCAN_RESULT_PERSIST_FAILED task_id={worker_id}");
+                hub.mark_task_recovery(crate::task_recovery::TaskKind::Scan, &worker_id)
+                    .await;
             }
             hub.scan_controls.lock().await.remove(&worker_id);
         });
@@ -421,12 +422,14 @@ impl Hub {
     }
     pub async fn scan_task(&self, task_id: &str) -> Result<ScanTask> {
         let query = format!("SELECT {TASK_COLUMNS} FROM task WHERE id=?");
-        sqlx::query_as(&query)
+        let mut task = sqlx::query_as(&query)
             .bind(task_id)
             .fetch_optional(&self.pool)
             .await
             .map_err(HubError::db)?
-            .ok_or(HubError::new("TASK_NOT_FOUND", "找不到该扫描任务。"))
+            .ok_or(HubError::new("TASK_NOT_FOUND", "找不到该扫描任务。"))?;
+        self.overlay_scan(&mut task).await;
+        Ok(task)
     }
     pub async fn scan_report(&self, task_id: &str) -> Result<ScanReport> {
         let value: Option<String> =

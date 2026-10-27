@@ -54,6 +54,7 @@ export interface HubApi {
     requestKey: string,
   ): Promise<BackupTask>;
   verifyBackup(backupId: string, requestKey: string): Promise<BackupTask>;
+  retryTaskRecovery(taskId: string): Promise<void>;
   cancelBackup(taskId: string): Promise<BackupTask>;
 }
 function desktopOnly<T>(
@@ -94,6 +95,7 @@ export const api: HubApi = {
     }),
   verifyBackup: (backupId, requestKey) =>
     desktopOnly('verify_backup', { backupId, requestKey }),
+  retryTaskRecovery: (taskId) => desktopOnly('retry_task_recovery', { taskId }),
   cancelBackup: (taskId) => desktopOnly('cancel_backup', { taskId }),
 };
 export function errorMessage(error: unknown): string {
