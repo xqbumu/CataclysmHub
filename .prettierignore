@@ -1,0 +1,6 @@
+node_modules
+target
+**/dist
+apps/desktop/src/bindings
+apps/desktop/src-tauri/gen
+package-lock.json

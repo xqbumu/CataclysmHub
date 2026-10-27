@@ -1,0 +1,27 @@
+{
+  "name": "cataclysm-hub",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @cataclysm-hub/desktop",
+    "build": "npm run build -w @cataclysm-hub/desktop",
+    "typecheck": "npm run typecheck -w @cataclysm-hub/desktop",
+    "test": "npm run test -w @cataclysm-hub/desktop",
+    "desktop": "npm run tauri -w @cataclysm-hub/desktop --",
+    "check": "npm run format:check && npm run typecheck && npm test && npm run build",
+    "bindings": "cargo run -p hub-core --bin export-bindings",
+    "format": "prettier --write apps/desktop/src \"apps/desktop/*.json\" apps/desktop/vite.config.ts package.json .github/workflows/quality.yml",
+    "format:check": "prettier --check apps/desktop/src \"apps/desktop/*.json\" apps/desktop/vite.config.ts package.json .github/workflows/quality.yml"
+  },
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "npm@11.19.1",
+  "devDependencies": {
+    "prettier": "3.9.10"
+  }
+}
