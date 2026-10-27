@@ -18,3 +18,9 @@ mod restore;
 pub use restore::{RestoreVerification, restore_backup_to_new_directory};
 
 mod managed_restore;
+
+#[cfg(test)]
+mod restore_faults;
+
+mod restore_inspection;
+pub use restore_inspection::{RestoreInspection, verify_restored_directory};

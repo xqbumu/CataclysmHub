@@ -331,6 +331,8 @@ impl Hub {
             .await
             .map_err(HubError::db)?;
         tx.commit().await.map_err(HubError::db)?;
+        #[cfg(test)]
+        crate::restore_faults::checkpoint("after_task_commit");
         Ok(())
     }
     async fn record_restore_source_failure(&self, backup_id: &str, error: &HubError) -> Result<()> {

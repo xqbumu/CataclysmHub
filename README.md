@@ -61,6 +61,16 @@ cargo run -p hub-core --bin restore-backup -- /path/to/backup-id /path/to/new-re
 
 失败保留 `RESTORE_INCOMPLETE.json` 和可能的部分文件，不会自动清理或重放；不要把未完成目录作为存档使用。真实磁盘故障可能使标记写入也失败，必须结合命令退出状态判断。工具不切换当前存档，不覆盖既有目录，也不依赖原应用数据库。桌面使用同一恢复核心，任务与备份、扫描及游戏启动互斥。详细流程与限制见 [新目录恢复设计](docs/design/new-directory-restore-implementation.md)。
 
+### 只读检查已恢复目录
+
+中断后或日后需要确认恢复文件时，可在关闭外部写入者后独立检查，不要求原应用数据库存在：
+
+```sh
+cargo run -p hub-core --bin verify-restored -- /path/to/backup-id /path/to/recovery-container
+```
+
+第二个参数是包含 data/ 的恢复容器。工具重新验证源归档，再逐项核对恢复载荷的路径、类型、大小和 SHA-256；不会写文件、修补标记、改判任务或再次恢复。输出中的 `verification.state=verified` 只代表本次观测的字节匹配，`incomplete_marker_present` 和 `historical_report_present` 分别报告原标记是否存在，不能据此宣称原任务成功或游戏兼容。文件变化、缺失、额外条目、类型不符或不可完整读取都会失败。
+
 ## 开发文档
 
 - [开发文档总览](docs/README.md)：按角色阅读、文档责任和评审顺序。

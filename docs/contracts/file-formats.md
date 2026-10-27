@@ -8,6 +8,7 @@
 |---|---|---|
 | 完整备份内部清单 v1 | [backup-manifest.schema.json](backup-manifest.schema.json) | [backup-manifest.json](examples/backup-manifest.json) |
 | 外部回执 v1 | [backup-receipt.schema.json](backup-receipt.schema.json) | [backup-receipt.json](examples/backup-receipt.json) |
+| 恢复目录检查结果 v1 | [restore-inspection.schema.json](restore-inspection.schema.json) | [restore-inspection.json](examples/restore-inspection.json) |
 | 恢复验证报告 v1 | [restore-verification.schema.json](restore-verification.schema.json) | [restore-verification.json](examples/restore-verification.json) |
 | 便携环境档案 v1 | [environment-profile.schema.json](environment-profile.schema.json) | [environment-profile.json](examples/environment-profile.json) |
 
@@ -41,3 +42,12 @@ config_refs 仅保存可移植相对路径和摘要。未知字段允许在同�
 restore-verification.json 由已实现的独立/桌面恢复核心生成。示例来自合成 fixture 的原生恢复演练，不含私有绝对路径。schema_version=1、state=verified 只描述写入时逐项回读结果。restored_files / restored_entries / restored_bytes 必须与 backup 摘要里的对应值一致；仍须通过运行时语义校验，不能仅凭 Schema 或报告自述判定任意目录当前健康。
 
 报告不携带自动切换存档指令，不认证归档来源，不把 best_effort 升级为游戏语义一致。未完成标记存在、命令退出失败或任务为 recovery_required 时，不能按报告单独宣称恢复流程成功。桌面数据库与目录报告的提交不是跨介质原子事务。
+
+
+## 恢复目录只读检查结果
+
+verify-restored 输出 restore-inspection v1，嵌套复用 restore-verification v1 的字节验证摘要，不写回任何报告文件。inspected_at 是本次目标检查结束时间；嵌套 backup.verified_at 是本次源归档验证时间。incomplete_marker_present 与 historical_report_present 仅说明对应普通标记文件存在，不认证其 JSON 内容、摘要或原流程状态。
+
+检查 data/ 的精确载荷集合；容器外层的笔记等额外文件不属于载荷集合，历史报告不能代替本次核对。错误码 RESTORED_DATA_MISMATCH 表示载荷缺失、不完整可读、类型/集合/大小/摘要不匹配；PERMISSION_DENIED 保留明确的权限原因；RESTORE_MARKER_INVALID 表示控制标记不是普通文件（包括链接），不能按正常容器解释。源归档错误沿用原归档校验错误码。
+
+Schema 以相对 $ref 引用 restore-verification.schema.json，应从同目录或本地资源注册表解析，不需要网络。对应示例来自合成原生恢复产物的只读检查，不含私有路径。标记观察和载荷检查不是原子快照，操作时应关闭外部写入者。

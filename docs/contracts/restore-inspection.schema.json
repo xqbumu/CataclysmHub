@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "restore-inspection.schema.json",
+  "title": "restore-inspection v1 read-only result",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "inspected_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "verification": {
+      "$ref": "restore-verification.schema.json"
+    },
+    "incomplete_marker_present": {
+      "type": "boolean"
+    },
+    "historical_report_present": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "inspected_at",
+    "verification",
+    "incomplete_marker_present",
+    "historical_report_present"
+  ]
+}

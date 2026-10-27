@@ -385,6 +385,8 @@ pub(crate) fn inspect_archive(
                 let mut output = directory.open_with(name, &options).map_err(io_error)?;
                 let result = transfer_hashed(&mut entry, &mut output, size, cancel)?;
                 output.sync_all().map_err(io_error)?;
+                #[cfg(test)]
+                crate::restore_faults::checkpoint("after_payload_file");
                 result
             } else {
                 hash_reader(&mut entry, size, cancel)?

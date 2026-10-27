@@ -51,3 +51,10 @@ cargo run -p hub-core --bin restore-backup -- /path/to/backup-id /path/to/new-re
 schema 1/2/3 升级前创建校验过的 VACUUM 元数据副本，同一迁移事务追加 restore_task；失败不改变旧版本。重启将 running/cancelling 恢复任务标为 recovery_required/TASK_INTERRUPTED，并保留目标目录和审计。不自动重放、清理、重建成功结论或切换当前存档。
 
 本机验收：原生应用从 schema 3 元数据迁移到 4；预览前后恢复目录与任务表均无新增，确认后产生 succeeded 任务及开始/终态审计，UI 显示“恢复字节已验证”及兼容性未知。独立 Python 检查原存档未变、恢复树 3 文件 / 5 条目 / 55 B 的路径/类型/摘要完全一致，迁移前 schema 3 快照 quick_check 通过。已加入摘要篡改、父目录替换、目标抢占、源归档变化、取消边界、互斥、终态持久化故障、请求重放、重启中断及迁移回滚测试。
+
+
+## 中断后只读验证与实际强杀证据
+
+新增独立 verify-restored CLI / verify_restored_directory API：从源归档重新建立可信清单，完整枚举并回读 data/ 对照路径、类型、大小和 SHA-256；不依赖原 DB，不信任历史报告的成功自述，不写入目标或补记原任务。输出同时保留未完成/历史报告存在标志，载荷字节通过不能清除原任务的 recovery_required。原恢复核心的目录持久化步骤已与纯回读核对分离，检查工具不调用写入或目录同步步骤。
+
+六个实际核心子进程强杀边界与重启对账已在本机通过，详见 [强杀矩阵](../quality/restore-crash-matrix.md)。临时目录和成功报告都可能早于 DB 终态存在，重启仍采取保守结论；只有持久提交过的 succeeded 保持成功。真实掉电/拔盘、三平台矩阵及原生 GUI 强杀验收仍待完成。

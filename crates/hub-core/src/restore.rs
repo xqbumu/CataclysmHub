@@ -37,7 +37,7 @@ fn write_json(root: &Dir, name: &str, value: &impl Serialize) -> Result<()> {
     file.sync_all().map_err(io_error)
 }
 /// Independently read the materialized tree, including the exact path/type set.
-fn verify_tree(root: &Dir, manifest: &Manifest, cancel: &AtomicBool) -> Result<()> {
+pub(crate) fn verify_tree(root: &Dir, manifest: &Manifest, cancel: &AtomicBool) -> Result<()> {
     let expected: BTreeMap<_, _> = manifest
         .entries
         .iter()
@@ -88,6 +88,9 @@ fn verify_tree(root: &Dir, manifest: &Manifest, cancel: &AtomicBool) -> Result<(
     if count != expected.len() {
         return Err(invalid());
     }
+    Ok(())
+}
+fn sync_restored_tree(root: &Dir, manifest: &Manifest) -> Result<()> {
     // Sync children before parents after every file has been synced and independently read.
     let mut directories: Vec<_> = manifest
         .entries
@@ -168,11 +171,15 @@ impl PendingRestore {
         let outcome = (|| {
             write_json(&self.container, "restore-verification.json", &self.result)?;
             sync_directory(&self.container)?;
+            #[cfg(test)]
+            crate::restore_faults::checkpoint("after_report");
             self.container
                 .remove_file("RESTORE_INCOMPLETE.json")
                 .map_err(io_error)?;
             sync_directory(&self.container)?;
             sync_directory(&self.parent)?;
+            #[cfg(test)]
+            crate::restore_faults::checkpoint("after_completion_marker");
             Ok(())
         })();
         if outcome.is_err()
@@ -242,13 +249,18 @@ pub(crate) fn stage_restore(
     )?;
     sync_directory(&container)?;
     sync_directory(parent)?;
+    #[cfg(test)]
+    crate::restore_faults::checkpoint("after_incomplete_marker");
     container.create_dir("data").map_err(io_error)?;
     let data = container.open_dir_nofollow("data").map_err(io_error)?;
     let (manifest, verified) =
         inspect_archive(source, Some(&before.archive_sha256), cancel, Some(&data))?;
     phase.store(3, Ordering::Release);
     verify_tree(&data, &manifest, cancel)?;
+    sync_restored_tree(&data, &manifest)?;
     check_cancel(cancel)?;
+    #[cfg(test)]
+    crate::restore_faults::checkpoint("after_readback");
     let result = RestoreVerification {
         schema_version: 1,
         state: "verified".into(),
