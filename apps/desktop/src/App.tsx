@@ -77,6 +77,7 @@ const actionNames: Record<string, string> = {
   'world.scan': '只读扫描存档目录',
   'backup.create': '创建独立完整备份',
   'backup.verify': '重新校验备份',
+  'backup.restore_new': '恢复到新目录',
 };
 function time(value: string) {
   return new Date(value).toLocaleString('zh-CN', {
@@ -284,6 +285,9 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             ['running', 'starting', 'interrupted_unknown'].includes(s.state),
           ) ||
           data.scan_tasks.some((task) =>
+            ['running', 'cancelling'].includes(task.state),
+          ) ||
+          data.restore_tasks.some((task) =>
             ['running', 'cancelling'].includes(task.state),
           ) ||
           data.backup_tasks.some((task) =>
@@ -701,7 +705,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       </div>
                       <h3>别让唯一的存档，成为唯一的机会。</h3>
                       <p>
-                        可在“独立备份”创建尽力快照并校验文件。恢复功能尚未开放，请继续保留现有备份方式。
+                        可在“独立备份”创建尽力快照并校验文件。可恢复到新目录并回读校验；覆盖恢复尚未开放。
                       </p>
                     </section>
                   </div>

@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "restore-verification v1 implementation preview",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "state": {
+      "const": "verified"
+    },
+    "backup": {
+      "type": "object",
+      "properties": {
+        "backup_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "file_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "entry_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 20000
+        },
+        "total_bytes": {
+          "type": "string",
+          "pattern": "^(0|[1-9][0-9]*)$"
+        },
+        "consistency": {
+          "enum": [
+            "best_effort",
+            "quiescent_checked",
+            "unknown"
+          ]
+        },
+        "archive_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "manifest_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "verified_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "receipt_present": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false,
+      "required": [
+        "backup_id",
+        "file_count",
+        "entry_count",
+        "total_bytes",
+        "consistency",
+        "archive_sha256",
+        "manifest_sha256",
+        "verified_at",
+        "receipt_present"
+      ]
+    },
+    "restored_files": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20000
+    },
+    "restored_entries": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 20000
+    },
+    "restored_bytes": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    }
+  },
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "state",
+    "backup",
+    "restored_files",
+    "restored_entries",
+    "restored_bytes"
+  ]
+}

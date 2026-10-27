@@ -48,7 +48,7 @@ impl Fixture {
     }
 }
 async fn wait(hub: &Hub, id: &str) -> BackupTask {
-    for _ in 0..500 {
+    for _ in 0..1500 {
         let task = hub.backup_task(id).await.unwrap();
         if !["running", "cancelling"].contains(&task.state.as_str()) {
             return task;
@@ -669,4 +669,491 @@ async fn standalone_restore_cli_requires_explicit_confirmation_and_reports_verif
     let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
     assert_eq!(result["state"], "verified");
     assert!(destination.join("data").is_dir());
+}
+
+async fn wait_restore(hub: &Hub, id: &str) -> hub_core::RestoreTask {
+    for _ in 0..1000 {
+        let task = hub.restore_task(id).await.unwrap();
+        if !["running", "cancelling"].contains(&task.state.as_str()) {
+            return task;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    panic!("restore should finish");
+}
+#[tokio::test]
+async fn managed_restore_requires_confirmation_and_audits_a_new_verified_directory() {
+    let f = Fixture::new().await;
+    std::fs::create_dir_all(f.source.join("world/empty")).unwrap();
+    std::fs::write(f.source.join("world/a"), b"unknown\0data").unwrap();
+    let backup = f.create().await;
+    let parent = f._temp.path().to_str().unwrap();
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, parent)
+        .await
+        .unwrap();
+    assert!(!std::path::Path::new(&plan.destination).exists());
+    let key = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        f.hub
+            .start_restore(&plan.id, &plan.plan_digest, &key, false)
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIRMATION_REQUIRED"
+    );
+    let task = f
+        .hub
+        .start_restore(&plan.id, &plan.plan_digest, &key, true)
+        .await
+        .unwrap();
+    let ended = wait_restore(&f.hub, &task.id).await;
+    assert_eq!(ended.state, "succeeded", "{ended:?}");
+    assert_eq!(
+        std::fs::read(std::path::Path::new(&plan.destination).join("data/world/a")).unwrap(),
+        b"unknown\0data"
+    );
+    assert!(
+        std::path::Path::new(&plan.destination)
+            .join("data/world/empty")
+            .is_dir()
+    );
+    assert_eq!(
+        f.hub.cancel_restore(&task.id).await.unwrap().state,
+        "succeeded"
+    );
+    assert_eq!(
+        f.hub
+            .start_restore(&plan.id, &plan.plan_digest, &key, true)
+            .await
+            .unwrap()
+            .id,
+        task.id
+    );
+    assert_eq!(
+        f.hub
+            .start_restore(&plan.id, "other", &key, true)
+            .await
+            .unwrap_err()
+            .code,
+        "REQUEST_CONFLICT"
+    );
+    let dashboard = f.hub.dashboard().await.unwrap();
+    assert_eq!(dashboard.restore_tasks[0].destination, plan.destination);
+    assert!(
+        dashboard
+            .operations
+            .iter()
+            .any(|operation| operation.task_id == task.id
+                && operation.status == "succeeded"
+                && operation.action == "backup.restore_new")
+    );
+    assert_eq!(
+        std::fs::read(f.source.join("world/a")).unwrap(),
+        b"unknown\0data"
+    );
+}
+#[tokio::test]
+async fn managed_restore_refuses_protected_roots_and_digest_changes() {
+    let f = Fixture::new().await;
+    let backup = f.create().await;
+    for parent in [&f.source, &f.backups, &f._temp.path().join("metadata")] {
+        assert_eq!(
+            f.hub
+                .prepare_restore(&backup.backup_id, parent.to_str().unwrap())
+                .await
+                .unwrap_err()
+                .code,
+            "RESTORE_PATH_OVERLAP"
+        );
+    }
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+        .await
+        .unwrap();
+    assert_eq!(
+        f.hub
+            .start_restore(&plan.id, "bad", &uuid::Uuid::new_v4().to_string(), true)
+            .await
+            .unwrap_err()
+            .code,
+        "PLAN_STALE"
+    );
+    assert!(!std::path::Path::new(&plan.destination).exists());
+}
+#[tokio::test]
+async fn changed_archive_or_preexisting_destination_never_gets_restored_or_overwritten() {
+    let f = Fixture::new().await;
+    let backup = f.create().await;
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+        .await
+        .unwrap();
+    std::fs::create_dir(&plan.destination).unwrap();
+    std::fs::write(
+        std::path::Path::new(&plan.destination).join("keep"),
+        b"keep",
+    )
+    .unwrap();
+    let task = f
+        .hub
+        .start_restore(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    let ended = wait_restore(&f.hub, &task.id).await;
+    assert_eq!(ended.error_code.as_deref(), Some("RESTORE_TARGET_EXISTS"));
+    assert_eq!(
+        std::fs::read(std::path::Path::new(&plan.destination).join("keep")).unwrap(),
+        b"keep"
+    );
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+        .await
+        .unwrap();
+    std::fs::write(
+        f.backups.join(&backup.backup_id).join("archive.tar.zst"),
+        b"corrupt",
+    )
+    .unwrap();
+    let task = f
+        .hub
+        .start_restore(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        wait_restore(&f.hub, &task.id).await.error_code.as_deref(),
+        Some("HASH_MISMATCH")
+    );
+    assert!(!std::path::Path::new(&plan.destination).exists());
+    assert_eq!(
+        f.hub.dashboard().await.unwrap().backups[0].verification,
+        "failed"
+    );
+}
+#[tokio::test]
+async fn replaced_parent_is_refused_even_when_the_path_text_is_unchanged() {
+    let f = Fixture::new().await;
+    let backup = f.create().await;
+    let parent = f._temp.path().join("chosen-parent");
+    std::fs::create_dir(&parent).unwrap();
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, parent.to_str().unwrap())
+        .await
+        .unwrap();
+    std::fs::rename(&parent, f._temp.path().join("old-parent")).unwrap();
+    std::fs::create_dir(&parent).unwrap();
+    assert_eq!(
+        f.hub
+            .start_restore(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "PLAN_STALE"
+    );
+    assert_eq!(std::fs::read_dir(&parent).unwrap().count(), 0);
+}
+#[tokio::test]
+async fn cancellation_and_conflict_gates_are_enforced_by_the_restore_backend() {
+    let f = Fixture::new().await;
+    std::fs::write(f.source.join("large"), vec![7_u8; 16 * 1024 * 1024]).unwrap();
+    let backup = f.create().await;
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+        .await
+        .unwrap();
+    let task = f
+        .hub
+        .start_restore(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        f.hub.prepare_backup().await.unwrap_err().code,
+        "TASK_CONFLICT"
+    );
+    assert_eq!(
+        f.hub
+            .start_world_scan(&uuid::Uuid::new_v4().to_string())
+            .await
+            .unwrap_err()
+            .code,
+        "TASK_CONFLICT"
+    );
+    assert_eq!(
+        f.hub
+            .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+            .await
+            .unwrap_err()
+            .code,
+        "TASK_CONFLICT"
+    );
+    f.hub.cancel_restore(&task.id).await.unwrap();
+    assert_eq!(wait_restore(&f.hub, &task.id).await.state, "cancelled");
+    assert!(
+        !std::path::Path::new(&plan.destination)
+            .join("restore-verification.json")
+            .exists()
+    );
+    f.hub.prepare_backup().await.unwrap();
+}
+#[tokio::test]
+async fn restore_terminal_persistence_failure_is_recoverable_without_replaying_files() {
+    let f = Fixture::new().await;
+    let backup = f.create().await;
+    let db = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f._temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("CREATE TRIGGER reject_restore_terminal BEFORE UPDATE OF state ON restore_task WHEN NEW.state != OLD.state BEGIN SELECT RAISE(ABORT,'injected'); END").execute(&db).await.unwrap();
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+        .await
+        .unwrap();
+    let task = f
+        .hub
+        .start_restore(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    let ended = wait_restore(&f.hub, &task.id).await;
+    assert_eq!(ended.state, "recovery_required");
+    assert_eq!(
+        ended.error_code.as_deref(),
+        Some("TASK_RESULT_PERSIST_FAILED")
+    );
+    f.hub.prepare_backup().await.unwrap();
+    let report = std::path::Path::new(&plan.destination).join("restore-verification.json");
+    let before = std::fs::read(&report).unwrap();
+    sqlx::query("DROP TRIGGER reject_restore_terminal")
+        .execute(&db)
+        .await
+        .unwrap();
+    f.hub.retry_task_recovery(&task.id).await.unwrap();
+    assert_eq!(std::fs::read(&report).unwrap(), before);
+    assert_eq!(
+        f.hub.restore_task(&task.id).await.unwrap().state,
+        "recovery_required"
+    );
+}
+#[tokio::test]
+async fn interrupted_restores_are_not_replayed_on_restart_and_request_identity_survives() {
+    let f = Fixture::new().await;
+    let backup = f.create().await;
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+        .await
+        .unwrap();
+    let key = uuid::Uuid::new_v4().to_string();
+    let task = f
+        .hub
+        .start_restore(&plan.id, &plan.plan_digest, &key, true)
+        .await
+        .unwrap();
+    assert_eq!(wait_restore(&f.hub, &task.id).await.state, "succeeded");
+    for _ in 0..100 {
+        if Arc::strong_count(&f.hub) == 1 {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let db = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f._temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query(
+        "UPDATE restore_task SET state='running',phase='extracting',finished_at=NULL WHERE id=?",
+    )
+    .bind(&task.id)
+    .execute(&db)
+    .await
+    .unwrap();
+    db.close().await;
+    let report = std::path::Path::new(&plan.destination).join("restore-verification.json");
+    let before = std::fs::read(&report).unwrap();
+    drop(f.hub);
+    let hub = Hub::open(&f._temp.path().join("metadata")).await.unwrap();
+    let reconciled = hub.restore_task(&task.id).await.unwrap();
+    assert_eq!(reconciled.state, "recovery_required");
+    assert_eq!(reconciled.error_code.as_deref(), Some("TASK_INTERRUPTED"));
+    assert_eq!(
+        hub.start_restore(&plan.id, &plan.plan_digest, &key, true)
+            .await
+            .unwrap()
+            .id,
+        task.id
+    );
+    assert_eq!(std::fs::read(&report).unwrap(), before);
+}
+
+#[tokio::test]
+async fn schema3_migration_preserves_archives_and_creates_a_valid_metadata_snapshot() {
+    let temp = tempfile::tempdir().unwrap();
+    let data = temp.path().join("metadata");
+    std::fs::create_dir(&data).unwrap();
+    let db = sqlx::SqlitePool::connect_with(
+        sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(data.join("metadata.sqlite"))
+            .create_if_missing(true),
+    )
+    .await
+    .unwrap();
+    sqlx::raw_sql(concat!(
+        include_str!("../src/schema.sql"),
+        include_str!("../src/migration-002.sql"),
+        include_str!("../src/migration-003.sql")
+    ))
+    .execute(&db)
+    .await
+    .unwrap();
+    sqlx::query(
+        "INSERT INTO workspace VALUES ('workspace','saves','backups','content','2026-01-01')",
+    )
+    .execute(&db)
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO backup_task (id,request_key,request_digest,workspace_id,backup_id,operation,state,phase,created_at) VALUES ('task','key','digest','workspace','backup','backup.create','succeeded','finished','2026-01-01')").execute(&db).await.unwrap();
+    sqlx::query("INSERT INTO backup_archive VALUES ('backup','task','workspace','backup','2026-01-01',0,0,'0','best_effort','verified','2026-01-01','archive-hash','manifest-hash')").execute(&db).await.unwrap();
+    db.close().await;
+    let hub = Hub::open(&data).await.unwrap();
+    let dashboard = hub.dashboard().await.unwrap();
+    assert_eq!(dashboard.backups[0].archive_sha256, "archive-hash");
+    assert!(dashboard.restore_tasks.is_empty());
+    let snapshot = std::fs::read_dir(&data)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .find(|path| {
+            path.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("metadata-v3-")
+        })
+        .unwrap();
+    let db = sqlx::SqlitePool::connect_with(
+        sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(snapshot)
+            .read_only(true),
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("PRAGMA user_version")
+            .fetch_one(&db)
+            .await
+            .unwrap(),
+        3
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("PRAGMA quick_check")
+            .fetch_one(&db)
+            .await
+            .unwrap(),
+        "ok"
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT archive_sha256 FROM backup_archive")
+            .fetch_one(&db)
+            .await
+            .unwrap(),
+        "archive-hash"
+    );
+}
+#[tokio::test]
+async fn failed_schema4_migration_rolls_back_without_changing_schema3_records() {
+    let temp = tempfile::tempdir().unwrap();
+    let data = temp.path().join("metadata");
+    std::fs::create_dir(&data).unwrap();
+    let db = sqlx::SqlitePool::connect_with(
+        sqlx::sqlite::SqliteConnectOptions::new()
+            .filename(data.join("metadata.sqlite"))
+            .create_if_missing(true),
+    )
+    .await
+    .unwrap();
+    sqlx::raw_sql(concat!(
+        include_str!("../src/schema.sql"),
+        include_str!("../src/migration-002.sql"),
+        include_str!("../src/migration-003.sql")
+    ))
+    .execute(&db)
+    .await
+    .unwrap();
+    sqlx::query("CREATE TABLE restore_task (sentinel TEXT)")
+        .execute(&db)
+        .await
+        .unwrap();
+    sqlx::query("INSERT INTO restore_task VALUES ('preserve')")
+        .execute(&db)
+        .await
+        .unwrap();
+    let error = Hub::open(&data).await.err().unwrap();
+    assert_eq!(error.code, "DB_MIGRATION_FAILED");
+    assert_eq!(
+        sqlx::query_scalar::<_, i64>("PRAGMA user_version")
+            .fetch_one(&db)
+            .await
+            .unwrap(),
+        3
+    );
+    assert_eq!(
+        sqlx::query_scalar::<_, String>("SELECT sentinel FROM restore_task")
+            .fetch_one(&db)
+            .await
+            .unwrap(),
+        "preserve"
+    );
+}
+
+#[tokio::test]
+async fn restore_preview_revokes_verified_status_when_the_registered_archive_is_missing() {
+    let f = Fixture::new().await;
+    let backup = f.create().await;
+    let previous = f.hub.dashboard().await.unwrap().backups[0].clone();
+    std::fs::remove_file(f.backups.join(&backup.backup_id).join("archive.tar.zst")).unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_restore(&backup.backup_id, f._temp.path().to_str().unwrap())
+            .await
+            .unwrap_err()
+            .code,
+        "BACKUP_IO_FAILED"
+    );
+    let current = f.hub.dashboard().await.unwrap().backups[0].clone();
+    assert_eq!(current.verification, "unavailable");
+    assert_eq!(current.verified_at, previous.verified_at);
+    assert!(f.hub.dashboard().await.unwrap().restore_tasks.is_empty());
 }

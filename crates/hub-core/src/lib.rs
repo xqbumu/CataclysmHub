@@ -16,3 +16,5 @@ mod task_recovery;
 
 mod restore;
 pub use restore::{RestoreVerification, restore_backup_to_new_directory};
+
+mod managed_restore;

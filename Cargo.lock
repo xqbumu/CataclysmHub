@@ -1550,6 +1550,7 @@ dependencies = [
  "cap-std",
  "chrono",
  "fs2",
+ "same-file",
  "serde",
  "serde_json",
  "sha2",

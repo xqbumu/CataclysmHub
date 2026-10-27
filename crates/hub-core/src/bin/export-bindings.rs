@@ -7,6 +7,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     Dashboard::export_all(&cfg)?;
     ScanReport::export_all(&cfg)?;
     hub_core::BackupPlan::export_all(&cfg)?;
+    hub_core::RestorePlan::export_all(&cfg)?;
     LaunchPlan::export_all(&cfg)?;
     WorkspaceInput::export_all(&cfg)?;
     HubError::export_all(&cfg)?;

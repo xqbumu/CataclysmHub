@@ -83,6 +83,7 @@ pub struct Dashboard {
     pub scan_tasks: Vec<ScanTask>,
     pub backup_tasks: Vec<BackupTask>,
     pub backups: Vec<BackupRecord>,
+    pub restore_tasks: Vec<RestoreTask>,
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct LaunchPlan {
@@ -209,4 +210,36 @@ pub struct BackupRecord {
     pub verified_at: String,
     pub archive_sha256: String,
     pub manifest_sha256: String,
+}
+
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct RestorePlan {
+    pub id: String,
+    pub plan_digest: String,
+    pub backup_id: String,
+    pub destination: String,
+    pub parent_dir: String,
+    pub entry_count: u32,
+    pub file_count: u32,
+    pub total_bytes: String,
+    pub consistency: String,
+    pub archive_sha256: String,
+    pub manifest_sha256: String,
+    pub expires_at: String,
+    pub warnings: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
+pub struct RestoreTask {
+    pub id: String,
+    pub request_key: String,
+    pub workspace_id: String,
+    pub backup_id: String,
+    pub destination: String,
+    pub state: String,
+    pub phase: String,
+    #[ts(type = "number")]
+    pub revision: i64,
+    pub error_code: Option<String>,
+    pub created_at: String,
+    pub finished_at: Option<String>,
 }

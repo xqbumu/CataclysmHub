@@ -8,6 +8,7 @@
 |---|---|---|
 | 完整备份内部清单 v1 | [backup-manifest.schema.json](backup-manifest.schema.json) | [backup-manifest.json](examples/backup-manifest.json) |
 | 外部回执 v1 | [backup-receipt.schema.json](backup-receipt.schema.json) | [backup-receipt.json](examples/backup-receipt.json) |
+| 恢复验证报告 v1 | [restore-verification.schema.json](restore-verification.schema.json) | [restore-verification.json](examples/restore-verification.json) |
 | 便携环境档案 v1 | [environment-profile.schema.json](environment-profile.schema.json) | [environment-profile.json](examples/environment-profile.json) |
 
 Schema 使用 JSON Schema 2020-12，均为设计草案；示例是合成数据，不代表真实 CDDA 存档或实际生成的归档。receipt 示例的摘要仅为格式占位，不应当作有效备份证据。
@@ -33,3 +34,10 @@ config_refs 仅保存可移植相对路径和摘要。未知字段允许在同�
 ## 演进策略
 
 添加纯描述扩展可用兼容扩展区；修改路径、摘要或恢复语义必须新 schema_version，并提供旧格式读取与迁移测试。不得就地覆写旧备份来升级格式；迁移生成新归档，验证通过后由用户决定旧归档保留。应用版本、数据库版本、清单版本、档案版本彼此独立。
+
+
+## 新目录恢复报告
+
+restore-verification.json 由已实现的独立/桌面恢复核心生成。示例来自合成 fixture 的原生恢复演练，不含私有绝对路径。schema_version=1、state=verified 只描述写入时逐项回读结果。restored_files / restored_entries / restored_bytes 必须与 backup 摘要里的对应值一致；仍须通过运行时语义校验，不能仅凭 Schema 或报告自述判定任意目录当前健康。
+
+报告不携带自动切换存档指令，不认证归档来源，不把 best_effort 升级为游戏语义一致。未完成标记存在、命令退出失败或任务为 recovery_required 时，不能按报告单独宣称恢复流程成功。桌面数据库与目录报告的提交不是跨介质原子事务。

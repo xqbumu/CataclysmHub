@@ -24,11 +24,11 @@
 | [数据模型](design/data-model.md) | 实体、关系、索引、不变量、事务和 schema 迁移 | 持久化 |
 | [游戏资源与迁移](design/game-content-and-migration.md) | 适配器、启动、资源组合、档案和非破坏迁移 | 游戏/资源 |
 | [只读候选扫描实现](design/read-only-world-inventory.md) | 当前扫描语义、持久任务、取消、限制和 schema 2 迁移 | 世界/核心服务 |
-| [新目录恢复实现](design/new-directory-restore-implementation.md) | 独立 CLI、拒绝覆盖、回读证明和未完成目录处置 | 备份/核心服务 |
+| [新目录恢复实现](design/new-directory-restore-implementation.md) | 桌面计划/任务、独立 CLI、拒绝覆盖、回读证明与 schema 4 | 备份/核心服务 |
 | [完整备份实现](design/full-backup-implementation.md) | 范围确认、冻结复制、独立归档、取消、校验工具与 schema 3 | 备份/核心服务 |
 | [交互规格](design/ux-specification.md) | 页面、空态、错误、危险确认、可访问性和本地化 | 设计/前端 |
 | [IPC 契约](contracts/ipc-api.md) | 命令、DTO、计划确认、事件、分页和错误码 | 前后端 |
-| [文件格式契约](contracts/file-formats.md) | 3 个 JSON Schema、合成正例和兼容演进 | 备份/档案 |
+| [文件格式契约](contracts/file-formats.md) | 4 个 JSON Schema、合成正例和兼容演进 | 备份/档案 |
 | [威胁模型](security/threat-model.md) | 信任边界、安全控制、隐私和供应链 | 安全 |
 | [测试与验收](quality/test-strategy.md) | 数据集、核心用例、故障注入、AC 和缺陷门禁 | QA |
 | [性能与兼容](quality/performance-and-compatibility.md) | 性能预算、平台与游戏资源验证矩阵 | QA/平台 |

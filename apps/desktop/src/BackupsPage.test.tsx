@@ -83,6 +83,9 @@ function client(): HubApi {
     backupPlan: vi.fn().mockResolvedValue(plan),
     createBackup: vi.fn().mockResolvedValue(task),
     verifyBackup: vi.fn().mockResolvedValue(task),
+    restorePlan: vi.fn(),
+    startRestore: vi.fn(),
+    cancelRestore: vi.fn(),
     retryTaskRecovery: vi.fn(),
     cancelBackup: vi.fn().mockResolvedValue({ ...task, state: 'cancelling' }),
   };
@@ -140,9 +143,7 @@ describe('full backup confirmation and integrity display', () => {
     show(api, { ...emptyDashboard, workspace, backups: [record] });
     expect(screen.getByText('最近校验通过')).toBeVisible();
     expect(screen.getByText('尽力快照 · 一致性未保证')).toBeVisible();
-    expect(
-      screen.queryByRole('button', { name: /恢复/ }),
-    ).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '恢复到新目录' })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: '重新校验' }));
     expect(api.verifyBackup).toHaveBeenCalledExactlyOnceWith(
       record.id,

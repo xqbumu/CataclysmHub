@@ -76,6 +76,9 @@ export default function WorldsPage({
   const backupActive = data.backup_tasks.some((task) =>
     ['running', 'cancelling'].includes(task.state),
   );
+  const restoreActive = data.restore_tasks.some((task) =>
+    ['running', 'cancelling'].includes(task.state),
+  );
   const gameActive = data.sessions.some((session) =>
     ['starting', 'running', 'interrupted_unknown'].includes(session.state),
   );
@@ -140,7 +143,12 @@ export default function WorldsPage({
         <button
           className="primary"
           disabled={
-            busy || !!active || gameActive || backupActive || !api.desktop
+            busy ||
+            !!active ||
+            gameActive ||
+            backupActive ||
+            restoreActive ||
+            !api.desktop
           }
           onClick={() =>
             void run(async () => {
@@ -161,10 +169,10 @@ export default function WorldsPage({
           目录只是世界候选，边界与角色归属尚未验证。扫描不会解析角色内容、改写存档或创建备份；结果也不能证明存档稳定。
         </span>
       </div>
-      {backupActive && (
+      {(backupActive || restoreActive) && (
         <div className="notice">
           <CircleHelp size={17} />
-          工作区正在备份或校验，请等待完成或取消后再扫描。
+          工作区正在备份、校验或恢复，请等待完成或取消后再扫描。
         </div>
       )}
       {gameActive && (

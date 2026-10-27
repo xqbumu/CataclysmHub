@@ -20,6 +20,7 @@ pub struct Hub {
     pub(crate) data_dir: PathBuf,
     pub(crate) mutation: Mutex<()>,
     pub(crate) plans: Mutex<HashMap<String, LaunchPlan>>,
+    pub(crate) restore_plans: Mutex<HashMap<String, crate::managed_restore::PreparedRestore>>,
     pub(crate) backup_plans: Mutex<HashMap<String, crate::backup::PreparedPlan>>,
     pub(crate) runtime_recovery: Mutex<HashMap<String, crate::task_recovery::RuntimeFailure>>,
     pub(crate) scan_controls: Mutex<HashMap<String, Arc<AtomicBool>>>,
@@ -66,7 +67,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 3 {
+        if version > 4 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -90,7 +91,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 3 {
+        if version > 0 && version < 4 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -131,7 +132,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 3 {
+        if version < 4 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -144,7 +145,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-003.sql"))
+            if version < 3 {
+                sqlx::raw_sql(include_str!("migration-003.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-004.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {
@@ -161,6 +173,7 @@ impl Hub {
             mutation: Mutex::new(()),
             plans: Mutex::new(HashMap::new()),
             backup_plans: Mutex::new(HashMap::new()),
+            restore_plans: Mutex::new(HashMap::new()),
             scan_controls: Mutex::new(HashMap::new()),
             runtime_recovery: Mutex::new(HashMap::new()),
             _lock: lock,
@@ -229,6 +242,25 @@ impl Hub {
                 .await
                 .map_err(HubError::db)?;
         }
+        let interrupted_restores: Vec<String> = sqlx::query_scalar(
+            "SELECT id FROM restore_task WHERE state IN ('running','cancelling')",
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(HubError::db)?;
+        for task in interrupted_restores {
+            sqlx::query("UPDATE restore_task SET state='recovery_required',phase='interrupted',error_code='TASK_INTERRUPTED',finished_at=?,revision=revision+1 WHERE id=?").bind(now()).bind(&task).execute(&mut *tx).await.map_err(HubError::db)?;
+            sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
+                .bind(id())
+                .bind(task)
+                .bind("backup.restore_new")
+                .bind("recovery_required")
+                .bind("TASK_INTERRUPTED")
+                .bind(now())
+                .execute(&mut *tx)
+                .await
+                .map_err(HubError::db)?;
+        }
         tx.commit().await.map_err(HubError::db)?;
         Ok(hub)
     }
@@ -266,12 +298,22 @@ impl Hub {
         .fetch_all(&mut *tx)
         .await
         .map_err(HubError::db)?;
+        let mut restore_tasks = sqlx::query_as::<_, crate::RestoreTask>(&format!(
+            "SELECT {} FROM restore_task ORDER BY created_at DESC,id LIMIT 20",
+            crate::managed_restore::COLUMNS
+        ))
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(HubError::db)?;
         tx.commit().await.map_err(HubError::db)?;
         for task in &mut scan_tasks {
             self.overlay_scan(task).await;
         }
         for task in &mut backup_tasks {
             self.overlay_backup(task).await;
+        }
+        for task in &mut restore_tasks {
+            self.overlay_restore(task).await;
         }
         Ok(Dashboard {
             workspace,
@@ -281,6 +323,7 @@ impl Hub {
             scan_tasks,
             backup_tasks,
             backups,
+            restore_tasks,
         })
     }
 

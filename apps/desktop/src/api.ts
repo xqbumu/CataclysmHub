@@ -11,6 +11,8 @@ import type { ScanTask } from './bindings/ScanTask';
 import type { ScanReport } from './bindings/ScanReport';
 import type { BackupPlan } from './bindings/BackupPlan';
 import type { BackupTask } from './bindings/BackupTask';
+import type { RestorePlan } from './bindings/RestorePlan';
+import type { RestoreTask } from './bindings/RestoreTask';
 import type { BackupRecord } from './bindings/BackupRecord';
 export type {
   Workspace,
@@ -25,6 +27,8 @@ export type {
   BackupPlan,
   BackupTask,
   BackupRecord,
+  RestorePlan,
+  RestoreTask,
 };
 export const emptyDashboard: Dashboard = {
   workspace: null,
@@ -34,6 +38,7 @@ export const emptyDashboard: Dashboard = {
   scan_tasks: [],
   backup_tasks: [],
   backups: [],
+  restore_tasks: [],
 };
 export interface HubApi {
   desktop: boolean;
@@ -54,6 +59,13 @@ export interface HubApi {
     requestKey: string,
   ): Promise<BackupTask>;
   verifyBackup(backupId: string, requestKey: string): Promise<BackupTask>;
+  restorePlan(backupId: string, parentDir: string): Promise<RestorePlan>;
+  startRestore(
+    planId: string,
+    planDigest: string,
+    requestKey: string,
+  ): Promise<RestoreTask>;
+  cancelRestore(taskId: string): Promise<RestoreTask>;
   retryTaskRecovery(taskId: string): Promise<void>;
   cancelBackup(taskId: string): Promise<BackupTask>;
 }
@@ -95,6 +107,16 @@ export const api: HubApi = {
     }),
   verifyBackup: (backupId, requestKey) =>
     desktopOnly('verify_backup', { backupId, requestKey }),
+  restorePlan: (backupId, parentDir) =>
+    desktopOnly('prepare_restore', { backupId, parentDir }),
+  startRestore: (planId, planDigest, requestKey) =>
+    desktopOnly('start_restore', {
+      planId,
+      planDigest,
+      requestKey,
+      confirmed: true,
+    }),
+  cancelRestore: (taskId) => desktopOnly('cancel_restore', { taskId }),
   retryTaskRecovery: (taskId) => desktopOnly('retry_task_recovery', { taskId }),
   cancelBackup: (taskId) => desktopOnly('cancel_backup', { taskId }),
 };

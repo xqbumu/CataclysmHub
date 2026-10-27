@@ -187,6 +187,36 @@ async fn retry_task_recovery(
     state.hub.retry_task_recovery(&task_id).await
 }
 
+#[tauri::command]
+async fn prepare_restore(
+    state: tauri::State<'_, AppState>,
+    backup_id: String,
+    parent_dir: String,
+) -> Result<hub_core::RestorePlan, HubError> {
+    authorized(&state, &parent_dir)?;
+    state.hub.prepare_restore(&backup_id, &parent_dir).await
+}
+#[tauri::command]
+async fn start_restore(
+    state: tauri::State<'_, AppState>,
+    plan_id: String,
+    plan_digest: String,
+    request_key: String,
+    confirmed: bool,
+) -> Result<hub_core::RestoreTask, HubError> {
+    state
+        .hub
+        .start_restore(&plan_id, &plan_digest, &request_key, confirmed)
+        .await
+}
+#[tauri::command]
+async fn cancel_restore(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<hub_core::RestoreTask, HubError> {
+    state.hub.cancel_restore(&task_id).await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -228,7 +258,10 @@ pub fn run() {
             create_backup,
             verify_backup,
             cancel_backup,
-            retry_task_recovery
+            retry_task_recovery,
+            prepare_restore,
+            start_restore,
+            cancel_restore
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

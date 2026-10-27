@@ -6,18 +6,21 @@ use crate::{
 pub(crate) enum TaskKind {
     Scan,
     Backup,
+    Restore,
 }
 impl TaskKind {
     fn table(self) -> &'static str {
         match self {
             Self::Scan => "task",
             Self::Backup => "backup_task",
+            Self::Restore => "restore_task",
         }
     }
     fn action(self) -> &'static str {
         match self {
             Self::Scan => "world.scan",
             Self::Backup => "backup.reconcile",
+            Self::Restore => "backup.restore_new",
         }
     }
 }
@@ -84,6 +87,15 @@ impl Hub {
         }
     }
     pub(crate) async fn overlay_backup(&self, task: &mut crate::BackupTask) {
+        if let Some(failure) = self.runtime_recovery.lock().await.get(&task.id) {
+            task.state = "recovery_required".into();
+            task.phase = "recording_failed".into();
+            task.error_code = Some("TASK_RESULT_PERSIST_FAILED".into());
+            task.finished_at = Some(failure.finished_at.clone());
+            task.revision += 1;
+        }
+    }
+    pub(crate) async fn overlay_restore(&self, task: &mut crate::RestoreTask) {
         if let Some(failure) = self.runtime_recovery.lock().await.get(&task.id) {
             task.state = "recovery_required".into();
             task.phase = "recording_failed".into();

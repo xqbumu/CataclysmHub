@@ -15,13 +15,13 @@ impl Hub {
                 "已有游戏运行或会话状态未知，请先确认游戏已关闭后再启动。",
             ));
         }
-        let active: Vec<String> = sqlx::query_scalar("SELECT id FROM task WHERE state IN ('running','cancelling') UNION ALL SELECT id FROM backup_task WHERE state IN ('running','cancelling')")
+        let active: Vec<String> = sqlx::query_scalar("SELECT id FROM task WHERE state IN ('running','cancelling') UNION ALL SELECT id FROM backup_task WHERE state IN ('running','cancelling') UNION ALL SELECT id FROM restore_task WHERE state IN ('running','cancelling')")
             .fetch_all(&self.pool).await.map_err(HubError::db)?;
         let recovery = self.runtime_recovery.lock().await;
         if active.iter().any(|id| !recovery.contains_key(id)) {
             return Err(HubError::new(
                 "TASK_CONFLICT",
-                "工作区有活动扫描或备份任务，请等待完成或取消后再操作。",
+                "工作区有活动扫描、备份或恢复任务，请等待完成或取消后再操作。",
             ));
         }
         Ok(())

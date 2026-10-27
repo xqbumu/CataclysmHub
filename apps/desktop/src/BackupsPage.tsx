@@ -10,6 +10,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import Modal from './Modal';
+import { RestoreButton, RestoreTasks } from './RestoreWorkflow';
 import type { BackupPlan, Dashboard, HubApi } from './api';
 const phases: Record<string, string> = {
   preflight: '检查范围',
@@ -59,6 +60,9 @@ export default function BackupsPage({
   );
   const blocked =
     !!active ||
+    data.restore_tasks.some((task) =>
+      ['running', 'cancelling'].includes(task.state),
+    ) ||
     data.scan_tasks.some((task) =>
       ['running', 'cancelling'].includes(task.state),
     ) ||
@@ -111,7 +115,7 @@ export default function BackupsPage({
       {blocked && !active && (
         <div className="alert">
           <TriangleAlert size={17} />
-          工作区正在扫描，或游戏仍在运行/状态未知。请完成或取消相关任务后再备份。
+          工作区正在扫描或恢复，或游戏仍在运行/状态未知。请先处理相关任务。
         </div>
       )}
       {latest && (
@@ -175,6 +179,12 @@ export default function BackupsPage({
           </span>
         </div>
       )}
+      <RestoreTasks
+        api={api}
+        tasks={data.restore_tasks}
+        busy={busy}
+        run={run}
+      />
       {data.backups.length === 0 ? (
         <section className="panel empty-library">
           <Archive size={36} />
@@ -237,6 +247,14 @@ export default function BackupsPage({
                   保留 archive.tar.zst 与 receipt.json；不依赖原数据库或 Git
                   校验。
                 </small>
+                <RestoreButton
+                  api={api}
+                  backupId={backup.id}
+                  busy={busy}
+                  blocked={blocked}
+                  error={error}
+                  run={run}
+                />
                 <button
                   className="secondary"
                   disabled={busy || blocked || !api.desktop}

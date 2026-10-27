@@ -7,7 +7,7 @@ use std::{
     collections::BTreeMap,
     io::Write,
     path::{Component, Path},
-    sync::atomic::AtomicBool,
+    sync::atomic::{AtomicBool, AtomicU8, Ordering},
 };
 
 #[derive(Debug, Serialize)]
@@ -143,14 +143,84 @@ fn restore(backup: &Path, destination: &Path, cancel: &AtomicBool) -> Result<Res
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(error) => return Err(io_error(error)),
     }
-    let (_, before) = verify_dir(&source, None, cancel)?;
+    stage_restore(
+        &source,
+        RestoreDestination {
+            parent: &parent,
+            parent_path: &parent_path,
+            name: name.to_str().ok_or_else(invalid)?,
+        },
+        None,
+        cancel,
+        &AtomicU8::new(0),
+    )?
+    .complete(cancel)
+}
+
+pub(crate) struct PendingRestore {
+    container: Dir,
+    parent: Dir,
+    result: RestoreVerification,
+}
+impl PendingRestore {
+    pub(crate) fn complete(self, cancel: &AtomicBool) -> Result<RestoreVerification> {
+        check_cancel(cancel)?;
+        let outcome = (|| {
+            write_json(&self.container, "restore-verification.json", &self.result)?;
+            sync_directory(&self.container)?;
+            self.container
+                .remove_file("RESTORE_INCOMPLETE.json")
+                .map_err(io_error)?;
+            sync_directory(&self.container)?;
+            sync_directory(&self.parent)?;
+            Ok(())
+        })();
+        if outcome.is_err()
+            && self
+                .container
+                .symlink_metadata("RESTORE_INCOMPLETE.json")
+                .is_err()
+        {
+            let _ = write_json(
+                &self.container,
+                "RESTORE_INCOMPLETE.json",
+                &serde_json::json!({"schema_version":1,"state":"incomplete","backup_id":self.result.backup.backup_id}),
+            );
+            let _ = sync_directory(&self.container);
+        }
+        outcome?;
+        Ok(self.result)
+    }
+}
+
+pub(crate) struct RestoreDestination<'a> {
+    pub parent: &'a Dir,
+    pub parent_path: &'a Path,
+    pub name: &'a str,
+}
+pub(crate) fn stage_restore(
+    source: &Dir,
+    target: RestoreDestination<'_>,
+    expected_archive: Option<&str>,
+    cancel: &AtomicBool,
+    phase: &AtomicU8,
+) -> Result<PendingRestore> {
+    let RestoreDestination {
+        parent,
+        parent_path,
+        name,
+    } = target;
+    check_cancel(cancel)?;
+    phase.store(1, Ordering::Release);
+    let (_, before) = verify_dir(source, expected_archive, cancel)?;
+    phase.store(2, Ordering::Release);
     let required = before
         .total_bytes
         .parse::<u64>()
         .map_err(|_| invalid())?
         .checked_add(16 * 1024 * 1024)
         .ok_or_else(invalid)?;
-    if fs2::available_space(&parent_path).map_err(io_error)? < required {
+    if fs2::available_space(parent_path).map_err(io_error)? < required {
         return Err(HubError::new(
             "DISK_FULL",
             "目标磁盘可用空间不足，恢复未开始。",
@@ -171,52 +241,84 @@ fn restore(backup: &Path, destination: &Path, cancel: &AtomicBool) -> Result<Res
         &serde_json::json!({"schema_version":1,"state":"incomplete","backup_id":before.backup_id}),
     )?;
     sync_directory(&container)?;
-    sync_directory(&parent)?;
-    let outcome = (|| {
-        container.create_dir("data").map_err(io_error)?;
-        let data = container.open_dir_nofollow("data").map_err(io_error)?;
-        let (manifest, verified) =
-            inspect_archive(&source, Some(&before.archive_sha256), cancel, Some(&data))?;
-        verify_tree(&data, &manifest, cancel)?;
-        check_cancel(cancel)?;
-        let result = RestoreVerification {
-            schema_version: 1,
-            state: "verified".into(),
-            restored_files: verified.file_count,
-            restored_entries: verified.entry_count,
-            restored_bytes: verified.total_bytes.clone(),
-            backup: verified,
-        };
-        write_json(&container, "restore-verification.json", &result)?;
-        sync_directory(&container)?;
-        container
-            .remove_file("RESTORE_INCOMPLETE.json")
-            .map_err(io_error)?;
-        sync_directory(&container)?;
-        sync_directory(&parent)?;
-        Ok(result)
-    })();
-    if outcome.is_err() {
-        // Completion may fail after marker removal (for example during a directory sync).
-        // Restore the warning best-effort; never delete a caller's partial data.
-        if container
-            .symlink_metadata("RESTORE_INCOMPLETE.json")
-            .is_err()
-        {
-            let _ = write_json(
-                &container,
-                "RESTORE_INCOMPLETE.json",
-                &serde_json::json!({"schema_version":1,"state":"incomplete","backup_id":before.backup_id}),
-            );
-            let _ = sync_directory(&container);
-        }
-    }
-    outcome
+    sync_directory(parent)?;
+    container.create_dir("data").map_err(io_error)?;
+    let data = container.open_dir_nofollow("data").map_err(io_error)?;
+    let (manifest, verified) =
+        inspect_archive(source, Some(&before.archive_sha256), cancel, Some(&data))?;
+    phase.store(3, Ordering::Release);
+    verify_tree(&data, &manifest, cancel)?;
+    check_cancel(cancel)?;
+    let result = RestoreVerification {
+        schema_version: 1,
+        state: "verified".into(),
+        restored_files: verified.file_count,
+        restored_entries: verified.entry_count,
+        restored_bytes: verified.total_bytes.clone(),
+        backup: verified,
+    };
+    Ok(PendingRestore {
+        container,
+        parent: parent.try_clone().map_err(io_error)?,
+        result,
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cancellation_at_completion_boundary_preserves_incomplete_marker_and_no_success_report() {
+        let temporary = tempfile::tempdir().unwrap();
+        let parent = Dir::open_ambient_dir(temporary.path(), cap_std::ambient_authority()).unwrap();
+        parent.create_dir("new").unwrap();
+        let container = parent.open_dir_nofollow("new").unwrap();
+        write_json(
+            &container,
+            "RESTORE_INCOMPLETE.json",
+            &serde_json::json!({"state":"incomplete"}),
+        )
+        .unwrap();
+        let result = RestoreVerification {
+            schema_version: 1,
+            state: "verified".into(),
+            restored_files: 0,
+            restored_entries: 0,
+            restored_bytes: "0".into(),
+            backup: BackupVerification {
+                backup_id: "backup".into(),
+                file_count: 0,
+                entry_count: 0,
+                total_bytes: "0".into(),
+                consistency: "best_effort".into(),
+                archive_sha256: "a".repeat(64),
+                manifest_sha256: "b".repeat(64),
+                verified_at: "2026-10-27T00:00:00Z".into(),
+                receipt_present: true,
+            },
+        };
+        let pending = PendingRestore {
+            parent,
+            container,
+            result,
+        };
+        assert_eq!(
+            pending.complete(&AtomicBool::new(true)).unwrap_err().code,
+            "TASK_CANCELLED"
+        );
+        assert!(
+            temporary
+                .path()
+                .join("new/RESTORE_INCOMPLETE.json")
+                .exists()
+        );
+        assert!(
+            !temporary
+                .path()
+                .join("new/restore-verification.json")
+                .exists()
+        );
+    }
     #[test]
     fn cancellation_before_work_never_creates_a_destination() {
         let temporary = tempfile::tempdir().unwrap();
