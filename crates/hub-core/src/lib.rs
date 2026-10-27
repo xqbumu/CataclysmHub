@@ -13,3 +13,6 @@ mod backup_format;
 pub use backup_format::verify_backup_directory;
 
 mod task_recovery;
+
+mod restore;
+pub use restore::{RestoreVerification, restore_backup_to_new_directory};

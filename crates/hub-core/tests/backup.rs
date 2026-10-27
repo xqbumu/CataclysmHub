@@ -305,6 +305,9 @@ async fn a_traversal_payload_is_rejected_without_writing_to_source_or_destinatio
     std::fs::write(root.join("archive.tar.zst"), bytes).unwrap();
     update_receipt(&root);
     assert!(verify_backup_directory(&root).is_err());
+    let target = f._temp.path().join("rejected-restore");
+    assert!(hub_core::restore_backup_to_new_directory(&root, &target).is_err());
+    assert!(!target.exists());
     assert!(!f.backups.join("escaped").exists());
     assert_eq!(std::fs::read(f.source.join("a")).unwrap(), b"bytes");
 }
@@ -462,4 +465,208 @@ async fn terminal_write_failure_is_visible_and_recording_can_retry_without_repla
     assert_eq!(std::fs::read_dir(&f.backups).unwrap().count(), published);
     assert!(f.hub.dashboard().await.unwrap().backups.is_empty());
     assert_eq!(f.create().await.state, "succeeded");
+}
+
+#[tokio::test]
+async fn standalone_restore_materializes_exact_bytes_and_empty_directories_without_metadata() {
+    let f = Fixture::new().await;
+    std::fs::create_dir_all(f.source.join("世界/empty")).unwrap();
+    let long = "x".repeat(150);
+    std::fs::write(f.source.join("世界").join(&long), b"unknown\0binary").unwrap();
+    std::fs::write(f.source.join("shared.json"), b"{invalid json").unwrap();
+    let task = f.create().await;
+    let archive = f.backups.join(&task.backup_id);
+    // Disaster recovery must not depend on the SQLite registry or the external receipt.
+    std::fs::remove_file(archive.join("receipt.json")).unwrap();
+    let output = f._temp.path().join("recovery");
+    let result = hub_core::restore_backup_to_new_directory(&archive, &output).unwrap();
+    assert_eq!(result.state, "verified");
+    assert_eq!(result.restored_files, 2);
+    assert_eq!(result.restored_entries, 4);
+    assert!(!result.backup.receipt_present);
+    assert!(output.join("data/世界/empty").is_dir());
+    assert_eq!(
+        std::fs::read(output.join("data/世界").join(&long)).unwrap(),
+        b"unknown\0binary"
+    );
+    assert_eq!(
+        std::fs::read(output.join("data/shared.json")).unwrap(),
+        b"{invalid json"
+    );
+    assert!(!output.join("RESTORE_INCOMPLETE.json").exists());
+    assert!(output.join("restore-verification.json").is_file());
+    assert_eq!(
+        std::fs::read(f.source.join("shared.json")).unwrap(),
+        b"{invalid json"
+    );
+    assert_eq!(
+        hub_core::restore_backup_to_new_directory(&archive, &output)
+            .unwrap_err()
+            .code,
+        "RESTORE_TARGET_EXISTS"
+    );
+}
+
+#[tokio::test]
+async fn restore_refuses_existing_empty_populated_and_overlapping_destinations() {
+    let f = Fixture::new().await;
+    let task = f.create().await;
+    let archive = f.backups.join(&task.backup_id);
+    for name in ["empty", "populated"] {
+        let output = f._temp.path().join(name);
+        std::fs::create_dir(&output).unwrap();
+        if name == "populated" {
+            std::fs::write(output.join("keep"), b"unchanged").unwrap();
+        }
+        assert_eq!(
+            hub_core::restore_backup_to_new_directory(&archive, &output)
+                .unwrap_err()
+                .code,
+            "RESTORE_TARGET_EXISTS"
+        );
+    }
+    assert_eq!(
+        hub_core::restore_backup_to_new_directory(&archive, &archive.join("nested"))
+            .unwrap_err()
+            .code,
+        "RESTORE_PATH_OVERLAP"
+    );
+    assert_eq!(
+        std::fs::read(f._temp.path().join("populated/keep")).unwrap(),
+        b"unchanged"
+    );
+}
+
+#[tokio::test]
+async fn restore_rejects_corruption_before_creating_any_target_directory() {
+    let f = Fixture::new().await;
+    let task = f.create().await;
+    let archive = f.backups.join(&task.backup_id);
+    std::fs::write(archive.join("archive.tar.zst"), b"corrupt").unwrap();
+    let output = f._temp.path().join("recovery");
+    assert_eq!(
+        hub_core::restore_backup_to_new_directory(&archive, &output)
+            .unwrap_err()
+            .code,
+        "HASH_MISMATCH"
+    );
+    assert!(!output.exists());
+}
+
+#[tokio::test]
+async fn restoring_an_empty_archive_still_requires_and_creates_a_new_container() {
+    let f = Fixture::new().await;
+    let task = f.create().await;
+    let output = f._temp.path().join("empty-recovery");
+    let result =
+        hub_core::restore_backup_to_new_directory(&f.backups.join(&task.backup_id), &output)
+            .unwrap();
+    assert_eq!(result.restored_entries, 0);
+    assert_eq!(std::fs::read_dir(output.join("data")).unwrap().count(), 0);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_refuses_a_target_symlink_without_touching_its_contents() {
+    let f = Fixture::new().await;
+    let task = f.create().await;
+    let output = f._temp.path().join("linked-target");
+    std::os::unix::fs::symlink(&f.source, &output).unwrap();
+    assert_eq!(
+        hub_core::restore_backup_to_new_directory(&f.backups.join(&task.backup_id), &output)
+            .unwrap_err()
+            .code,
+        "RESTORE_TARGET_EXISTS"
+    );
+    assert_eq!(std::fs::read_dir(&f.source).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn restore_never_silently_merges_case_colliding_archive_paths() {
+    let f = Fixture::new().await;
+    std::fs::write(f.source.join("a"), b"bytes").unwrap();
+    let insensitive = f.source.join("A").exists();
+    let task = f.create().await;
+    let root = f.backups.join(&task.backup_id);
+    let mut original = tar::Archive::new(
+        zstd::stream::read::Decoder::new(
+            std::fs::File::open(root.join("archive.tar.zst")).unwrap(),
+        )
+        .unwrap(),
+    );
+    let mut bytes = vec![];
+    original
+        .entries()
+        .unwrap()
+        .next()
+        .unwrap()
+        .unwrap()
+        .read_to_end(&mut bytes)
+        .unwrap();
+    let mut manifest: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    let mut alias = manifest["entries"][0].clone();
+    alias["relative_path"] = "A".into();
+    manifest["entries"].as_array_mut().unwrap().push(alias);
+    manifest["entry_count"] = 2.into();
+    manifest["file_count"] = 2.into();
+    manifest["total_bytes"] = "10".into();
+    let manifest = serde_json::to_vec(&manifest).unwrap();
+    let mut archive = tar::Builder::new(zstd::stream::write::Encoder::new(Vec::new(), 1).unwrap());
+    for (path, contents) in [
+        ("manifest.json", manifest.as_slice()),
+        ("data/a", b"bytes".as_slice()),
+        ("data/A", b"bytes".as_slice()),
+    ] {
+        let mut header = tar::Header::new_gnu();
+        header.set_size(contents.len() as u64);
+        header.set_mode(0o600);
+        header.set_cksum();
+        archive.append_data(&mut header, path, contents).unwrap();
+    }
+    std::fs::write(
+        root.join("archive.tar.zst"),
+        archive.into_inner().unwrap().finish().unwrap(),
+    )
+    .unwrap();
+    std::fs::remove_file(root.join("receipt.json")).unwrap();
+    verify_backup_directory(&root).unwrap();
+    let output = f._temp.path().join("collision-recovery");
+    let result = hub_core::restore_backup_to_new_directory(&root, &output);
+    if insensitive {
+        assert!(result.is_err());
+        assert!(output.join("RESTORE_INCOMPLETE.json").exists());
+        assert!(!output.join("restore-verification.json").exists());
+    } else {
+        assert_eq!(result.unwrap().restored_files, 2);
+    }
+    assert_eq!(std::fs::read(f.source.join("a")).unwrap(), b"bytes");
+}
+
+#[tokio::test]
+async fn standalone_restore_cli_requires_explicit_confirmation_and_reports_verified_output() {
+    let f = Fixture::new().await;
+    let task = f.create().await;
+    let root = f.backups.join(task.backup_id);
+    let destination = f._temp.path().join("cli-recovery");
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_restore-backup"))
+        .arg(&root)
+        .arg(&destination)
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(!destination.exists());
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_restore-backup"))
+        .arg(&root)
+        .arg(&destination)
+        .arg("--confirm-new-directory")
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let result: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(result["state"], "verified");
+    assert!(destination.join("data").is_dir());
 }

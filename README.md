@@ -2,7 +2,7 @@
 
 跨平台、本地优先的 Cataclysm 游戏、资源、世界存档、Git 历史与独立备份管理器。
 
-当前已提供 Tauri 2 + React 桌面开发预览：工作区配置、游戏导入与启动、进程监测、只读存档扫描、整个存档根目录的独立完整备份与回读校验，以及 SQLite 操作记录。Git 历史、空目录恢复与覆盖恢复仍在开发中。
+当前已提供 Tauri 2 + React 桌面开发预览：工作区配置、游戏导入与启动、进程监测、只读存档扫描、整个存档根目录的独立完整备份与回读校验，以及 SQLite 操作记录。另提供无需数据库的新目录恢复命令行工具；桌面恢复流程、Git 历史与覆盖恢复仍在开发中。
 
 ## 本地开发
 
@@ -46,6 +46,18 @@ cargo run -p hub-core --bin verify-backup -- /path/to/backup-id
 ```
 
 `receipt.json` 丢失时，工具仍可依照归档内部清单逐文件校验，并返回 `receipt_present: false`。哈希不证明发布者身份。当前仅支持本应用生成的 v1 存档根目录格式；跨平台恢复、ACL/xattr 和游戏加载兼容性尚未验证。
+
+## 恢复到全新目录（命令行）
+
+仅支持整个存档根目录 v1 归档。目标必须尚不存在，连已有空目录也不会写入。先关闭可能使用相关路径的游戏，执行：
+
+```sh
+cargo run -p hub-core --bin restore-backup -- /path/to/backup-id /path/to/new-recovery --confirm-new-directory
+```
+
+恢复文件位于 `new-recovery/data/`。工具先校验整个归档，再受控解包，最后重新读取目标文件核对路径集合、类型、大小与 SHA-256。成功返回 `state: verified` 并写入 `restore-verification.json`；该状态仅表示恢复字节与清单一致，不代表游戏可加载或兼容。
+
+失败保留 `RESTORE_INCOMPLETE.json` 和可能的部分文件，不会自动清理或重放；不要把未完成目录作为存档使用。真实磁盘故障可能使标记写入也失败，必须结合命令退出状态判断。工具不切换当前存档，不覆盖既有目录，也不依赖原应用数据库。桌面上的恢复预览、持久任务、取消与审计仍待接入。详细流程与限制见 [新目录恢复设计](docs/design/new-directory-restore-implementation.md)。
 
 ## 开发文档
 

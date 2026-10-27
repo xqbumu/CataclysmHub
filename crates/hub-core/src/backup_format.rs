@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io::{Read, Seek, SeekFrom},
+    io::{Read, Seek, SeekFrom, Write},
     path::Path,
     sync::atomic::{AtomicBool, Ordering},
 };
@@ -136,6 +136,14 @@ pub(crate) fn hash_reader(
     limit: u64,
     cancel: &AtomicBool,
 ) -> Result<(u64, String)> {
+    transfer_hashed(reader, &mut std::io::sink(), limit, cancel)
+}
+pub(crate) fn transfer_hashed(
+    reader: &mut impl Read,
+    writer: &mut impl Write,
+    limit: u64,
+    cancel: &AtomicBool,
+) -> Result<(u64, String)> {
     let mut hash = Sha256::new();
     let mut count = 0_u64;
     let mut buffer = [0_u8; 64 * 1024];
@@ -152,6 +160,7 @@ pub(crate) fn hash_reader(
                 "读取数据超过安全限制，已停止。",
             ));
         }
+        writer.write_all(&buffer[..n]).map_err(io_error)?;
         hash.update(&buffer[..n]);
     }
     Ok((count, format!("{:x}", hash.finalize())))
@@ -237,6 +246,15 @@ pub(crate) fn verify_dir(
     expected_archive: Option<&str>,
     cancel: &AtomicBool,
 ) -> Result<(Manifest, BackupVerification)> {
+    inspect_archive(root, expected_archive, cancel, None)
+}
+/// The only payload parser: optional extraction is confined to a caller-owned new directory.
+pub(crate) fn inspect_archive(
+    root: &Dir,
+    expected_archive: Option<&str>,
+    cancel: &AtomicBool,
+    destination: Option<&Dir>,
+) -> Result<(Manifest, BackupVerification)> {
     let receipt = match root.symlink_metadata("receipt.json") {
         Ok(_) => {
             let bytes = bounded_read(open_file(root, "receipt.json")?, 64 * 1024)?;
@@ -294,6 +312,17 @@ pub(crate) fn verify_dir(
         return Err(invalid());
     }
     let expected = validate_manifest(&manifest)?;
+    if let Some(destination) = destination {
+        // Lexical ordering puts every explicit directory ancestor before its descendants.
+        for planned in expected
+            .values()
+            .filter(|entry| entry.file_type == "directory")
+        {
+            check_cancel(cancel)?;
+            let (directory, name) = parent(destination, &planned.relative_path)?;
+            directory.create_dir(name).map_err(io_error)?;
+        }
+    }
     let mut seen = BTreeSet::new();
     let mut long_name: Option<String> = None;
     let mut raw_count = 0_usize;
@@ -346,7 +375,20 @@ pub(crate) fn verify_dir(
             if !kind.is_file() || entry.size() != size {
                 return Err(invalid());
             }
-            let (actual_size, hash) = hash_reader(&mut entry, size, cancel)?;
+            let (actual_size, hash) = if let Some(destination) = destination {
+                let (directory, name) = parent(destination, relative)?;
+                let mut options = OpenOptions::new();
+                options
+                    .write(true)
+                    .create_new(true)
+                    .follow(FollowSymlinks::No);
+                let mut output = directory.open_with(name, &options).map_err(io_error)?;
+                let result = transfer_hashed(&mut entry, &mut output, size, cancel)?;
+                output.sync_all().map_err(io_error)?;
+                result
+            } else {
+                hash_reader(&mut entry, size, cancel)?
+            };
             if actual_size != size || planned.sha256.as_deref() != Some(&hash) {
                 return Err(HubError::new("HASH_MISMATCH", "归档内文件摘要不匹配。"));
             }
