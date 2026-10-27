@@ -53,6 +53,10 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     acknowledge: vi.fn(),
     scanWorlds: vi.fn(),
     cancelScan: vi.fn(),
+    backupPlan: vi.fn(),
+    createBackup: vi.fn(),
+    verifyBackup: vi.fn(),
+    cancelBackup: vi.fn(),
     scanReport: vi.fn(),
   };
 }
@@ -60,7 +64,7 @@ describe('workspace and launch safety', () => {
   it('does not invent backup health or enable unimplemented actions', async () => {
     render(<App api={client()} />);
     expect(await screen.findByText('建立你的安全工作区')).toBeVisible();
-    expect(screen.getByRole('button', { name: /独立备份/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /存档历史/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /导入游戏/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /保存工作区/ })).toBeDisabled();
   });

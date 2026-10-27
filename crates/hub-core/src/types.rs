@@ -81,6 +81,8 @@ pub struct Dashboard {
     pub sessions: Vec<Session>,
     pub operations: Vec<OperationLog>,
     pub scan_tasks: Vec<ScanTask>,
+    pub backup_tasks: Vec<BackupTask>,
+    pub backups: Vec<BackupRecord>,
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct LaunchPlan {
@@ -145,4 +147,66 @@ pub struct ScanReport {
     pub candidates: Vec<WorldCandidate>,
     pub entries: Vec<ScanEntry>,
     pub issues: Vec<ScanIssue>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, TS)]
+#[serde(deny_unknown_fields)]
+pub struct BackupEntry {
+    pub relative_path: String,
+    pub file_type: String,
+    pub size: String,
+    pub sha256: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub mtime: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct BackupPlan {
+    pub id: String,
+    pub plan_digest: String,
+    pub source_root: String,
+    pub backup_dir: String,
+    pub entry_count: u32,
+    pub file_count: u32,
+    pub total_bytes: String,
+    pub required_free_bytes: String,
+    pub consistency: String,
+    pub expires_at: String,
+    pub entries: Vec<BackupEntry>,
+    pub warnings: Vec<String>,
+}
+#[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
+pub struct BackupTask {
+    pub id: String,
+    pub request_key: String,
+    pub workspace_id: String,
+    pub backup_id: String,
+    pub operation: String,
+    pub state: String,
+    pub phase: String,
+    #[ts(type = "number")]
+    pub processed_entries: i64,
+    #[ts(type = "number")]
+    pub revision: i64,
+    pub error_code: Option<String>,
+    pub created_at: String,
+    pub finished_at: Option<String>,
+}
+#[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
+pub struct BackupRecord {
+    pub id: String,
+    pub task_id: String,
+    pub workspace_id: String,
+    pub relative_dir: String,
+    pub created_at: String,
+    #[ts(type = "number")]
+    pub entry_count: i64,
+    #[ts(type = "number")]
+    pub file_count: i64,
+    pub total_bytes: String,
+    pub consistency: String,
+    pub verification: String,
+    pub verified_at: String,
+    pub archive_sha256: String,
+    pub manifest_sha256: String,
 }

@@ -231,6 +231,10 @@ fn inventory(
     }
     Ok(scan.report)
 }
+pub(crate) fn inspect_source(root: &Path, cancelled: &AtomicBool) -> Result<ScanReport> {
+    inventory(root, "preflight", cancelled, &AtomicU64::new(0), LIMITS)
+}
+
 impl Hub {
     pub async fn start_world_scan(self: &Arc<Self>, request_key: &str) -> Result<ScanTask> {
         let _guard = self.mutation.lock().await;

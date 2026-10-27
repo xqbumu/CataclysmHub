@@ -16,14 +16,14 @@ impl Hub {
             ));
         }
         let active: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM task WHERE state IN ('running','cancelling')")
+            sqlx::query_scalar("SELECT (SELECT COUNT(*) FROM task WHERE state IN ('running','cancelling')) + (SELECT COUNT(*) FROM backup_task WHERE state IN ('running','cancelling'))")
                 .fetch_one(&self.pool)
                 .await
                 .map_err(HubError::db)?;
         if active > 0 {
             return Err(HubError::new(
                 "TASK_CONFLICT",
-                "存档目录正在扫描，请等待完成或取消后再启动游戏。",
+                "工作区有活动扫描或备份任务，请等待完成或取消后再操作。",
             ));
         }
         Ok(())

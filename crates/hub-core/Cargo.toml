@@ -14,6 +14,9 @@ sha2 = "0.10"
 fs2 = "0.4"
 ts-rs = "12.0.1"
 cap-std = "4.0.3"
+cap-fs-ext = "4.0.3"
+tar = "0.4"
+zstd = "0.13"
 chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
 
 [dev-dependencies]

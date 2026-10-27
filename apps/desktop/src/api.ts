@@ -9,6 +9,9 @@ import type { Dashboard } from './bindings/Dashboard';
 import type { LaunchPlan } from './bindings/LaunchPlan';
 import type { ScanTask } from './bindings/ScanTask';
 import type { ScanReport } from './bindings/ScanReport';
+import type { BackupPlan } from './bindings/BackupPlan';
+import type { BackupTask } from './bindings/BackupTask';
+import type { BackupRecord } from './bindings/BackupRecord';
 export type {
   Workspace,
   WorkspaceInput,
@@ -19,6 +22,9 @@ export type {
   LaunchPlan,
   ScanTask,
   ScanReport,
+  BackupPlan,
+  BackupTask,
+  BackupRecord,
 };
 export const emptyDashboard: Dashboard = {
   workspace: null,
@@ -26,6 +32,8 @@ export const emptyDashboard: Dashboard = {
   sessions: [],
   operations: [],
   scan_tasks: [],
+  backup_tasks: [],
+  backups: [],
 };
 export interface HubApi {
   desktop: boolean;
@@ -39,6 +47,14 @@ export interface HubApi {
   scanWorlds(requestKey: string): Promise<ScanTask>;
   cancelScan(taskId: string): Promise<ScanTask>;
   scanReport(taskId: string): Promise<ScanReport>;
+  backupPlan(): Promise<BackupPlan>;
+  createBackup(
+    planId: string,
+    planDigest: string,
+    requestKey: string,
+  ): Promise<BackupTask>;
+  verifyBackup(backupId: string, requestKey: string): Promise<BackupTask>;
+  cancelBackup(taskId: string): Promise<BackupTask>;
 }
 function desktopOnly<T>(
   command: string,
@@ -68,6 +84,17 @@ export const api: HubApi = {
   scanWorlds: (requestKey) => desktopOnly('start_world_scan', { requestKey }),
   cancelScan: (taskId) => desktopOnly('cancel_world_scan', { taskId }),
   scanReport: (taskId) => desktopOnly('get_scan_report', { taskId }),
+  backupPlan: () => desktopOnly('prepare_backup'),
+  createBackup: (planId, planDigest, requestKey) =>
+    desktopOnly('create_backup', {
+      planId,
+      planDigest,
+      requestKey,
+      confirmed: true,
+    }),
+  verifyBackup: (backupId, requestKey) =>
+    desktopOnly('verify_backup', { backupId, requestKey }),
+  cancelBackup: (taskId) => desktopOnly('cancel_backup', { taskId }),
 };
 export function errorMessage(error: unknown): string {
   if (

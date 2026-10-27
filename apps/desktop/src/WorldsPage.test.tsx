@@ -81,6 +81,10 @@ function client(): HubApi {
     acknowledge: vi.fn(),
     scanWorlds: vi.fn().mockResolvedValue(task),
     cancelScan: vi.fn().mockResolvedValue({ ...task, state: 'cancelling' }),
+    backupPlan: vi.fn(),
+    createBackup: vi.fn(),
+    verifyBackup: vi.fn(),
+    cancelBackup: vi.fn(),
     scanReport: vi.fn().mockResolvedValue(report),
   };
 }
@@ -197,4 +201,29 @@ describe('read-only inventory', () => {
     await user.click(screen.getByRole('button', { name: '重试读取' }));
     await waitFor(() => expect(screen.getByRole('table')).toBeVisible());
   });
+});
+
+it('blocks scanning while a full backup owns the workspace', () => {
+  show(client(), {
+    ...emptyDashboard,
+    workspace,
+    backup_tasks: [
+      {
+        id: 'backup-task',
+        request_key: 'key',
+        workspace_id: workspace.id,
+        backup_id: 'backup',
+        operation: 'backup.create',
+        state: 'running',
+        phase: 'copying',
+        processed_entries: 1,
+        revision: 1,
+        error_code: null,
+        created_at: workspace.created_at,
+        finished_at: null,
+      },
+    ],
+  });
+  expect(screen.getByRole('button', { name: '只读扫描' })).toBeDisabled();
+  expect(screen.getByText(/工作区正在备份或校验/)).toBeVisible();
 });

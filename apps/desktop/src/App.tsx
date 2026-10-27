@@ -1,11 +1,7 @@
+import Modal from './Modal';
+import BackupsPage from './BackupsPage';
 import WorldsPage from './WorldsPage';
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   Activity,
   Archive,
@@ -44,11 +40,13 @@ import {
   type WorkspaceInput,
 } from './api';
 
-type Page = 'overview' | 'games' | 'worlds' | 'activity' | 'settings';
+type Page =
+  'overview' | 'games' | 'worlds' | 'backups' | 'activity' | 'settings';
 const pages: Record<Page, string> = {
   overview: '概览',
   games: '游戏库',
   worlds: '世界与角色',
+  backups: '独立备份',
   activity: '操作记录',
   settings: '工作区',
 };
@@ -77,6 +75,8 @@ const actionNames: Record<string, string> = {
   'process.reconcile': '重启后状态检查',
   'process.user_acknowledged': '人工确认游戏关闭',
   'world.scan': '只读扫描存档目录',
+  'backup.create': '创建独立完整备份',
+  'backup.verify': '重新校验备份',
 };
 function time(value: string) {
   return new Date(value).toLocaleString('zh-CN', {
@@ -87,47 +87,6 @@ function time(value: string) {
   });
 }
 
-function Modal({
-  title,
-  children,
-  onClose,
-}: {
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
-  return (
-    <dialog
-      ref={dialog}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      aria-labelledby="modal-title"
-    >
-      <div className="modal-head">
-        <div>
-          <span className="eyebrow">CATACLYSM HUB</span>
-          <h2 id="modal-title">{title}</h2>
-        </div>
-        <button
-          className="icon-button"
-          onClick={onClose}
-          aria-label="关闭对话框"
-        >
-          <X size={19} />
-        </button>
-      </div>
-      {children}
-    </dialog>
-  );
-}
 function NavItem({
   icon: Icon,
   children,
@@ -320,9 +279,16 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
     <div className="game-grid">
       {data.installations.map((game) => {
         const active = data.sessions.find((s) => s.installation_id === game.id);
-        const blocked = data.sessions.some((s) =>
-          ['running', 'starting', 'interrupted_unknown'].includes(s.state),
-        );
+        const blocked =
+          data.sessions.some((s) =>
+            ['running', 'starting', 'interrupted_unknown'].includes(s.state),
+          ) ||
+          data.scan_tasks.some((task) =>
+            ['running', 'cancelling'].includes(task.state),
+          ) ||
+          data.backup_tasks.some((task) =>
+            ['running', 'cancelling'].includes(task.state),
+          );
         return (
           <article className="panel game-card" key={game.id}>
             <div className="game-art">
@@ -361,7 +327,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                 onClick={() => openLaunch(game)}
               >
                 <Gamepad2 size={16} />
-                {blocked ? '运行中或待确认' : '启动预览'}
+                {blocked ? '工作区忙碌或待确认' : '启动预览'}
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -422,7 +388,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
           <NavItem icon={GitBranch} soon>
             存档历史
           </NavItem>
-          <NavItem icon={Archive} soon>
+          <NavItem
+            icon={Archive}
+            selected={page === 'backups'}
+            onClick={() => setPage('backups')}
+          >
             独立备份
           </NavItem>
           <span className="nav-label second">管理</span>
@@ -495,9 +465,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                     ? '并存管理本地安装，启动前确认环境与参数。'
                     : page === 'worlds'
                       ? '只读枚举世界候选、共享文件与无法确认的边界。'
-                      : page === 'activity'
-                        ? '查看本地操作和进程状态，追溯每一次变更。'
-                        : '分离数据目录，为后续的世界保护建立基础。'}
+                      : page === 'backups'
+                        ? '完整归档与独立校验，明确记录采集一致性和文件完整性。'
+                        : page === 'activity'
+                          ? '查看本地操作和进程状态，追溯每一次变更。'
+                          : '分离数据目录，为后续的世界保护建立基础。'}
               </p>
             </div>
             {(page === 'overview' || page === 'games') && (
@@ -589,9 +561,18 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                     <Stat
                       icon={Archive}
                       label="完整备份"
-                      value="—"
-                      detail="尚无已验证的独立备份"
-                      warning
+                      value={String(data.backups.length)}
+                      detail={
+                        data.backups.length
+                          ? `${data.backups.filter((backup) => backup.verification === 'verified').length} 份最近校验通过 · 尽力快照`
+                          : '尚无已验证的独立备份'
+                      }
+                      warning={
+                        data.backups.length === 0 ||
+                        data.backups.some(
+                          (backup) => backup.verification !== 'verified',
+                        )
+                      }
                     />
                   </div>
                   {!workspace ? (
@@ -711,12 +692,14 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                         <span className="eyebrow">BACKUP HEALTH</span>
                         <span className="pill warning">
                           <TriangleAlert size={12} />
-                          尚未建立保护
+                          {data.backups.length
+                            ? '已建立尽力快照'
+                            : '尚未建立保护'}
                         </span>
                       </div>
                       <h3>别让唯一的存档，成为唯一的机会。</h3>
                       <p>
-                        当前开发预览尚未提供备份与恢复，请继续保留你现有的备份方式。
+                        可在“独立备份”创建尽力快照并校验文件。恢复功能尚未开放，请继续保留现有备份方式。
                       </p>
                     </section>
                   </div>
@@ -727,6 +710,16 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                   api={api}
                   data={data}
                   busy={busy}
+                  run={act}
+                  onConfigure={() => setPage('settings')}
+                />
+              )}
+              {page === 'backups' && (
+                <BackupsPage
+                  api={api}
+                  data={data}
+                  busy={busy}
+                  error={error}
                   run={act}
                   onConfigure={() => setPage('settings')}
                 />

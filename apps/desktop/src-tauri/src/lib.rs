@@ -144,6 +144,41 @@ async fn get_scan_report(
     state.hub.scan_report(&task_id).await
 }
 
+#[tauri::command]
+async fn prepare_backup(
+    state: tauri::State<'_, AppState>,
+) -> Result<hub_core::BackupPlan, HubError> {
+    state.hub.prepare_backup().await
+}
+#[tauri::command]
+async fn create_backup(
+    state: tauri::State<'_, AppState>,
+    plan_id: String,
+    plan_digest: String,
+    request_key: String,
+    confirmed: bool,
+) -> Result<hub_core::BackupTask, HubError> {
+    state
+        .hub
+        .create_backup(&plan_id, &plan_digest, &request_key, confirmed)
+        .await
+}
+#[tauri::command]
+async fn verify_backup(
+    state: tauri::State<'_, AppState>,
+    backup_id: String,
+    request_key: String,
+) -> Result<hub_core::BackupTask, HubError> {
+    state.hub.verify_backup(&backup_id, &request_key).await
+}
+#[tauri::command]
+async fn cancel_backup(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<hub_core::BackupTask, HubError> {
+    state.hub.cancel_backup(&task_id).await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -180,7 +215,11 @@ pub fn run() {
             acknowledge_interrupted,
             start_world_scan,
             cancel_world_scan,
-            get_scan_report
+            get_scan_report,
+            prepare_backup,
+            create_backup,
+            verify_backup,
+            cancel_backup
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {
