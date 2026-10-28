@@ -41,6 +41,7 @@ pub struct ContentConfigReport {
     pub references: Vec<ContentReference>,
     pub issues: Vec<String>,
     pub binding_verified: bool,
+    pub discovery: crate::ContentDiscovery,
 }
 fn error() -> HubError {
     HubError::new(
@@ -272,6 +273,8 @@ impl Hub {
             let root =
                 Dir::open_ambient_dir(&path, cap_std::ambient_authority()).map_err(|_| error())?;
             let (sound, default_mods, worlds, references, issues) = observe(&root, &entries)?;
+            let mut discovery =
+                crate::content_discovery::discover(&path, &installation.working_dir);
             let held = same_file::Handle::from_file(
                 root.try_clone().map_err(|_| error())?.into_std_file(),
             )
@@ -282,7 +285,7 @@ impl Hub {
                 return Err(error());
             }
 
-            Ok(ContentConfigReport {
+            let mut report = ContentConfigReport {
                 instance_id: instance.id,
                 data_root: instance.data_root,
                 installation_version: installation.version,
@@ -293,7 +296,16 @@ impl Hub {
                 references,
                 issues,
                 binding_verified: false,
-            })
+                discovery: crate::ContentDiscovery {
+                    scopes: vec![],
+                    packages: vec![],
+                    findings: vec![],
+                    truncated: false,
+                },
+            };
+            crate::content_discovery::diagnose(&report, &mut discovery);
+            report.discovery = discovery;
+            Ok(report)
         })
         .await
         .map_err(|_| error())?

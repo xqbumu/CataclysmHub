@@ -1,6 +1,7 @@
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import type { ModReferenceFile } from './bindings/ModReferenceFile';
 import Modal from './Modal';
+import ContentDiscoveryPanel from './ContentDiscoveryPanel';
 const statuses: Record<string, string> = {
   read: '已读取声明',
   missing: '文件或目录缺失，不能推断默认值',
@@ -84,7 +85,7 @@ export default function ContentConfigDialog({
       <h3>资源引用与潜在影响范围</h3>
       <p>
         升级或移除某 ID
-        前，先核对下面引用它的配置并建立保护点。资源库匹配来自登记快照，不是目标游戏的资源发现结果；游戏内置资源尚未扫描。
+        前，先核对下面引用它的配置并建立保护点。资源库匹配来自登记快照，不是目标游戏的资源发现结果；候选目录的本次读取结果见下方。
       </p>
       {!report.references.length && (
         <p>本次成功读取的文件中未提取到引用；缺失或失败文件可能仍包含引用。</p>
@@ -121,6 +122,7 @@ export default function ContentConfigDialog({
           )}
         </article>
       ))}
+      <ContentDiscoveryPanel discovery={report.discovery} />
       <button onClick={onClose}>关闭</button>
     </Modal>
   );

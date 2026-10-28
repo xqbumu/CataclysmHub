@@ -168,3 +168,136 @@ async fn read_only_inspection_keeps_unknown_session_protection() {
     assert!(data.resource_claims.iter().any(|c| c.scope == "global"));
     assert!(data.operations.is_empty());
 }
+
+#[tokio::test]
+async fn discovers_candidates_and_diagnoses_dependencies_without_choosing_duplicate_ids() {
+    let f = Fixture::new().await;
+    let game = f.temp.path().join("game");
+    std::fs::create_dir_all(game.join("data/mods/core")).unwrap();
+    std::fs::write(game.join("data/mods/core/modinfo.json"), br#"[{"type":"MOD_INFO","id":"dda","name":"Core","dependencies":[]},{"type":"MOD_INFO","id":"duplicate","name":"Built in","dependencies":[]}]"#).unwrap();
+    let game = std::fs::canonicalize(game).unwrap();
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f.temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("UPDATE installation SET working_dir=? WHERE id='i'")
+        .bind(game.to_str().unwrap())
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    f.write(
+        "mods/local/modinfo.json",
+        br#"[
+      {"type":"MOD_INFO","id":"local","name":"Local","dependencies":["dda","missing","duplicate"]},
+      {"type":"MOD_INFO","id":"duplicate","name":"User","dependencies":[]},
+      {"type":"MOD_INFO","id":"unknown","name":"Unknown"},
+      {"type":"MOD_INFO","id":"a","name":"A","dependencies":["b"]},
+      {"type":"MOD_INFO","id":"b","name":"B","dependencies":["a"]}
+    ]"#,
+    );
+    f.write("sound/music/soundpack.txt", b"NAME: music\nVIEW: Music\n");
+    f.write("save/World/mods.json", br#"["local","external"]"#);
+    f.write(
+        "config/options.json",
+        br#"[{"name":"SOUNDPACKS","value":"music"}]"#,
+    );
+    let external = f.temp.path().join("external");
+    std::fs::create_dir(&external).unwrap();
+    std::fs::write(
+        external.join("modinfo.json"),
+        br#"{"type":"MOD_INFO","id":"external","name":"External","dependencies":[]}"#,
+    )
+    .unwrap();
+    f.hub
+        .register_content(external.to_str().unwrap(), "mod")
+        .await
+        .unwrap();
+    let report = f.hub.inspect_content_config("p").await.unwrap();
+    let d = &report.discovery;
+    assert_eq!(d.packages.len(), 3);
+    assert!(!d.truncated);
+    assert_eq!(d.scopes.iter().filter(|s| s.status == "scanned").count(), 3);
+    let has = |code: &str, id: &str, dep: Option<&str>| {
+        d.findings
+            .iter()
+            .any(|x| x.code == code && x.content_id == id && x.related_id.as_deref() == dep)
+    };
+    assert!(has("duplicate_id", "duplicate", None));
+    assert!(has("dependency_not_observed", "local", Some("missing")));
+    assert!(has("ambiguous_dependency", "local", Some("duplicate")));
+    assert!(has("dependencies_unknown", "unknown", None));
+    assert!(has("dependency_cycle", "b", Some("a")));
+    assert!(has("dependency_not_listed", "local", Some("dda")));
+    assert!(has("reference_not_observed", "external", None));
+    assert!(!has("dependency_not_observed", "local", Some("dda")));
+    assert!(!has("reference_not_observed", "music", None));
+    assert_eq!(
+        std::fs::read(f.root.join("save/World/mods.json")).unwrap(),
+        br#"["local","external"]"#
+    );
+}
+
+#[tokio::test]
+async fn candidate_discovery_reports_invalid_metadata_and_bounded_depth() {
+    let f = Fixture::new().await;
+    f.write("mods/bad/modinfo.json", b"broken");
+    f.write(
+        "mods/deep/a/b/c/d/e/f/g/h/i/modinfo.json",
+        br#"{"type":"MOD_INFO","id":"deep","name":"Deep"}"#,
+    );
+    f.write("sound/huge/soundpack.txt", &vec![b'a'; 1024 * 1024 + 1]);
+    let report = f.hub.inspect_content_config("p").await.unwrap();
+    assert!(report.discovery.truncated);
+    assert!(report.discovery.packages.is_empty());
+    assert!(
+        report
+            .discovery
+            .findings
+            .iter()
+            .any(|f| f.code == "invalid_metadata")
+    );
+    assert!(
+        report
+            .discovery
+            .scopes
+            .iter()
+            .filter(|s| s.basis == "instance_userdir")
+            .all(|s| s.status == "partial")
+    );
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn candidate_discovery_never_follows_external_directory_or_metadata_links() {
+    use std::os::unix::fs::symlink;
+    let f = Fixture::new().await;
+    let external = f.temp.path().join("outside");
+    std::fs::create_dir(&external).unwrap();
+    std::fs::write(
+        external.join("modinfo.json"),
+        br#"{"type":"MOD_INFO","id":"outside","name":"Outside"}"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(f.root.join("mods/file")).unwrap();
+    symlink(&external, f.root.join("mods/directory")).unwrap();
+    symlink(
+        external.join("modinfo.json"),
+        f.root.join("mods/file/modinfo.json"),
+    )
+    .unwrap();
+    symlink(&external, f.root.join("sound")).unwrap();
+    let report = f.hub.inspect_content_config("p").await.unwrap();
+    assert!(report.discovery.packages.is_empty());
+    assert_eq!(report.discovery.scopes[0].status, "partial");
+    assert_eq!(report.discovery.scopes[1].status, "unsafe_path");
+    assert!(
+        report
+            .discovery
+            .findings
+            .iter()
+            .any(|f| f.code == "unsafe_metadata")
+    );
+}

@@ -66,9 +66,24 @@ fn inspect(root: &str, kind: &str) -> Result<ContentEntry> {
     if bytes.len() > 1024 * 1024 {
         return Err(invalid());
     }
+    let definitions = parse_metadata(kind, &bytes)?;
+    Ok(ContentEntry {
+        id: id(),
+        kind: kind.into(),
+        root: root.into(),
+        definitions,
+        metadata_sha256: format!("{:x}", Sha256::digest(&bytes)),
+        checked_at: now(),
+        last_error: None,
+    })
+}
+pub(crate) fn parse_metadata(kind: &str, bytes: &[u8]) -> Result<Vec<ContentDefinition>> {
+    if !matches!(kind, "mod" | "soundpack") || bytes.len() > 1024 * 1024 {
+        return Err(invalid());
+    }
     let mut definitions = Vec::new();
     if kind == "mod" {
-        let json: Value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+        let json: Value = serde_json::from_slice(bytes).map_err(|_| invalid())?;
         let values = match &json {
             Value::Array(items) => items.as_slice(),
             Value::Object(_) => std::slice::from_ref(&json),
@@ -106,7 +121,7 @@ fn inspect(root: &str, kind: &str) -> Result<ContentEntry> {
             });
         }
     } else {
-        let source = std::str::from_utf8(&bytes).map_err(|_| invalid())?;
+        let source = std::str::from_utf8(bytes).map_err(|_| invalid())?;
         let mut fields = std::collections::HashMap::new();
         for line in source
             .lines()
@@ -135,16 +150,9 @@ fn inspect(root: &str, kind: &str) -> Result<ContentEntry> {
     if definitions.is_empty() || definitions.len() > 256 {
         return Err(invalid());
     }
-    Ok(ContentEntry {
-        id: id(),
-        kind: kind.into(),
-        root: root.into(),
-        definitions,
-        metadata_sha256: format!("{:x}", Sha256::digest(&bytes)),
-        checked_at: now(),
-        last_error: None,
-    })
+    Ok(definitions)
 }
+
 impl Hub {
     pub async fn content_entries(&self) -> Result<Vec<ContentEntry>> {
         let rows: Vec<String> =

@@ -66,3 +66,6 @@ mod content_config;
 pub use content_config::{
     ContentConfigReport, ContentReference, ModReferenceFile, SoundConfiguration,
 };
+
+mod content_discovery;
+pub use content_discovery::{ContentDiscovery, ContentFinding, ContentScope, DiscoveredContent};
