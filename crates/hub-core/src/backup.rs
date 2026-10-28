@@ -468,8 +468,12 @@ impl Hub {
         }
 
         let installation = self.installation(&instance.installation_id).await?;
-        self.instance_identity(&instance, &installation.working_dir)
-            .await?;
+        self.instance_identity(
+            &instance,
+            &installation.working_dir,
+            &installation.executable,
+        )
+        .await?;
         self.prepare_backup_inner(Some(instance)).await
     }
     async fn prepare_backup_inner(
@@ -683,8 +687,12 @@ impl Hub {
                 return Err(changed());
             }
             let installation = self.installation(&current.installation_id).await?;
-            self.instance_identity(&current, &installation.working_dir)
-                .await?;
+            self.instance_identity(
+                &current,
+                &installation.working_dir,
+                &installation.executable,
+            )
+            .await?;
         }
         let (play_instance_id, source_root) = match &work {
             Work::Create(p) => (

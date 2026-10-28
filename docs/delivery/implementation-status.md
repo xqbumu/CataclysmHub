@@ -230,3 +230,8 @@ H/I 官方本体已由 Hub 桌面顺序启动，配置/日志写入各自新实�
 新增显式 macOS H/I 原生本体入口方案，用已有 MacOS Mach-O 本体直接启动并监测、使用同包 Resources cwd；不自动改包或执行脚本。原有 Resources v1/v2 保留，schema 仍为 10。177 项 Rust、55 项前端测试及 fmt/类型/Clippy/production build/macOS debug 打包通过；首轮 rustdoc 产物定位失败在打包结束后串行复跑通过。
 
 固定 I QA 包已通过 Hub 原生启动、新世界 Kaibito/角色 Galen Nielsen 创建、保存、同进程卸载重载、再保存和正常退出，未观察到两个对照实例及保护哨兵变化。该包是已有原生入口的本地封装，不是默认官方脚本包；H、跨进程重载及完整隔离/并发仍未验收，绑定与全局互斥不提升。见 [验证记录](../quality/macos-native-entry-verification.md)。
+
+
+## 2026-10-28：三提交复审与跨进程存档验证
+
+最近三次提交 fa87eab → eecfc56 审查：规范轴 1 项 P2 已修复，需求轴 0 项。增加程序父目录身份句柄，拒绝预览后 MacOS 同路径同字节替换。Rust 178 项、fmt/Clippy/macOS debug 打包通过。H 新建 Hardtner / Lashonda Kohler 并跨进程重载，I 原有 Kaibito / Galen Nielsen 也跨进程重载成功；三个阶段仅观察到当前实例变化。完整隔离、原始脚本包默认适配及并发仍未完成。见 [验证记录](../quality/macos-native-entry-verification.md)。

@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "sample_kind": "locally adjusted QA bundles with byte-identical official MacOS bodies, warm caches and seeded records; not pristine release bundles",
+  "hub_builds": {
+    "i_restart": "eecfc56 before identity fix",
+    "h_create_and_restart": "eecfc56 plus parent identity fix; rebuilt debug app"
+  },
+  "sessions": [
+    {
+      "id": "53b3cc6f-a348-4126-92ab-5089149b415d",
+      "installation_id": "9290cf0d-8321-4836-ac4a-76352b83d5b5",
+      "state": "exited_unverified",
+      "pid": 59593,
+      "started_at": "2026-10-28T06:18:06.624127+00:00",
+      "finished_at": "2026-10-28T06:20:58.963358+00:00",
+      "exit_code": 0,
+      "play_instance_id": "48f7a83b-6d71-4fd8-9512-6fec6808b972",
+      "launch_profile_id": "cdda-0i-1-macos-native-trial-v1",
+      "instance_data_root": "/private/tmp/hub-window-qa-haihv653/hub-i"
+    },
+    {
+      "id": "9651bae5-bd0a-42f2-b214-f7c658db0d40",
+      "installation_id": "9290cf0d-8321-4836-ac4a-76352b83d5b5",
+      "state": "exited_unverified",
+      "pid": 84453,
+      "started_at": "2026-10-28T06:35:01.964485+00:00",
+      "finished_at": "2026-10-28T06:38:46.702268+00:00",
+      "exit_code": 0,
+      "play_instance_id": "48f7a83b-6d71-4fd8-9512-6fec6808b972",
+      "launch_profile_id": "cdda-0i-1-macos-native-trial-v1",
+      "instance_data_root": "/private/tmp/hub-window-qa-haihv653/hub-i"
+    },
+    {
+      "id": "f61cae7e-a97e-4254-8bf6-de8a341592aa",
+      "installation_id": "24fab6df-0448-4460-8cb8-3223d95cc9ce",
+      "state": "exited_unverified",
+      "pid": 91950,
+      "started_at": "2026-10-28T06:40:24.711579+00:00",
+      "finished_at": "2026-10-28T06:42:00.748383+00:00",
+      "exit_code": 0,
+      "play_instance_id": "812c7ff5-f502-4c9c-979f-a5f29b432c81",
+      "launch_profile_id": "cdda-0h-release-macos-native-trial-v1",
+      "instance_data_root": "/private/tmp/hub-window-qa-haihv653/hub-h"
+    },
+    {
+      "id": "7a3d8810-2c46-4ded-9930-4676c4b0c7ea",
+      "installation_id": "24fab6df-0448-4460-8cb8-3223d95cc9ce",
+      "state": "exited_unverified",
+      "pid": 93662,
+      "started_at": "2026-10-28T06:42:36.904357+00:00",
+      "finished_at": "2026-10-28T06:44:04.428422+00:00",
+      "exit_code": 0,
+      "play_instance_id": "812c7ff5-f502-4c9c-979f-a5f29b432c81",
+      "launch_profile_id": "cdda-0h-release-macos-native-trial-v1",
+      "instance_data_root": "/private/tmp/hub-window-qa-haihv653/hub-h"
+    }
+  ],
+  "native_ui": {
+    "i": {
+      "world": "Kaibito",
+      "character": "Galen Nielsen",
+      "previous_pid": 59593,
+      "restart_pid": 84453,
+      "loaded_time": "Spring day 61 08:00:03",
+      "continued_and_saved_time": "Spring day 61 08:00:04"
+    },
+    "h": {
+      "world": "Hardtner",
+      "character": "Lashonda Kohler",
+      "create_pid": 91950,
+      "restart_pid": 93662,
+      "first_saved_time": "Spring day 61 08:00:01",
+      "loaded_time": "Spring day 61 08:00:01",
+      "continued_and_saved_time": "Spring day 61 08:00:02",
+      "initial_path_lookup": "timeoutReached",
+      "existing_bundle_id_lookup": "recognized direct game process"
+    },
+    "normal_menu_save_and_exit": true,
+    "hub_resource_claims_released": true,
+    "stale_game_data_error_counts": {
+      "h": 0,
+      "i": 0
+    }
+  },
+  "stages": [
+    {
+      "stage": "diff-i-restart.json",
+      "changed_entries_by_scope": {
+        "instance-i": 31
+      },
+      "unexpected_scopes": [],
+      "observation_check": "within_declared_allowance"
+    },
+    {
+      "stage": "diff-h-create.json",
+      "changed_entries_by_scope": {
+        "instance-h": 95
+      },
+      "unexpected_scopes": [],
+      "observation_check": "within_declared_allowance"
+    },
+    {
+      "stage": "diff-h-restart.json",
+      "changed_entries_by_scope": {
+        "instance-h": 64
+      },
+      "unexpected_scopes": [],
+      "observation_check": "within_declared_allowance"
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "before-i-restart.json",
+      "bytes": 7726462,
+      "sha256": "9aab119884a2091c9f35d55392f4776f3d120d963df9a1c77d225fcc86c561b7"
+    },
+    {
+      "name": "after-i-restart.json",
+      "bytes": 7727088,
+      "sha256": "c52a2a2f0ee80e3e583e5009bbe96a7cb3fc78b52d49c248184521a7f77cd653"
+    },
+    {
+      "name": "diff-i-restart.json",
+      "bytes": 19335,
+      "sha256": "9c507d6e3a4c2a178476b1cf4e4015dcef27c0d4962d760a52802cc86f12e018"
+    },
+    {
+      "name": "after-h-create.json",
+      "bytes": 7753566,
+      "sha256": "5867e546aed8c68b047a8b059aee042d41192eb4ebc3f2322cf8083a3e878942"
+    },
+    {
+      "name": "diff-h-create.json",
+      "bytes": 35955,
+      "sha256": "28254dc1f0774edb9747d781c32ecd9f69ff5b859184b951317ced314465af0e"
+    },
+    {
+      "name": "after-h-restart.json",
+      "bytes": 7754506,
+      "sha256": "775a4c85257eaca02224fe60aaed02949c10f1773abe9c3052df2e1ddaf68380"
+    },
+    {
+      "name": "diff-h-restart.json",
+      "bytes": 40674,
+      "sha256": "9846315b70486d831d70b2b66aff3bcaf12a9cb9ba57476fdb2e5d964e78bdf7"
+    },
+    {
+      "name": "i-restart-start.json",
+      "bytes": 434,
+      "sha256": "6e76011e449b0f6b18e2e79e18bd7232cc76c31465b51a255b3a18ee32a63c79"
+    },
+    {
+      "name": "i-restart-end.json",
+      "bytes": 471,
+      "sha256": "5eeecf293616c403f78fea6f486816ca4088811cc54824bc7705ea12df3529d8"
+    },
+    {
+      "name": "h-start.json",
+      "bytes": 468,
+      "sha256": "40b1e9958e3cc4202d19e8fdc681bada977ed64bd606c2628f976f161de2be12"
+    },
+    {
+      "name": "h-restart-start.json",
+      "bytes": 971,
+      "sha256": "6eca08f5d546c8aeac3bc0fc56ad4fc8da81f9b0e95d2799faf83610aa94b57b"
+    },
+    {
+      "name": "h-i-final-sessions.json",
+      "bytes": 2002,
+      "sha256": "4e29e12986c087849d13972d895fc87f702beb23eb76c9982b1da3d2a984fbb5"
+    }
+  ],
+  "final_saves": [
+    {
+      "instance": "hub-i",
+      "path": "save/Kaibito/#R2FsZW4gTmllbHNlbg==.sav.zzip",
+      "bytes": 18180,
+      "sha256": "b113ac2263afffdee2cb32b044c857164deea2403a2a4f19db32385c31765841"
+    },
+    {
+      "instance": "hub-h",
+      "path": "save/Hardtner/#TGFzaG9uZGEgS29obGVy.sav",
+      "bytes": 67558,
+      "sha256": "b2dfaa0ddddbb3e7194332bf1e0a005f38d641045ef9324512808c210473f021"
+    }
+  ],
+  "raw_evidence_root": "/private/tmp/hub-window-qa-haihv653/evidence",
+  "binding_verified": false,
+  "concurrency_accepted": false,
+  "limitations": [
+    "snapshot omits transient and out-of-scope writes; not OS tracing",
+    "original shell wrapper preparation and automatic binding not accepted",
+    "no concurrent sessions, child-process recovery or coordinated backup acceptance",
+    "temporary raw evidence is not durable archival"
+  ]
+}

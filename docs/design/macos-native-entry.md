@@ -14,6 +14,6 @@
 
 安装记录继续保存实际所选程序与其默认父目录。只有显式选择原生方案时，LaunchPlan.executable 保持该 MacOS 本体，working_dir 改为同包 Resources；固定 userdir/savedir/configdir 参数与实例内 HOME/临时/XDG 覆盖沿用 v2。预览展示实际程序、cwd、环境和摘要，不接受任意自定义环境或额外参数覆盖。
 
-通过同一个 tokio Command 直接启动并 wait/reap 实际本体，不运行 open、LaunchServices、shell 或辅助启动器，不通过这些入口的退出推断游戏退出。启动时复核程序摘要、实例/工作目录身份、框架与角色目录。实际资源保护仍按完整 .app 与实例根派生，旧会话重启后仍未知且保守保护；不因实际 cwd 与安装默认目录不同而漏掉 Resources。
+通过同一个 tokio Command 直接启动并 wait/reap 实际本体，不运行 open、LaunchServices、shell 或辅助启动器，不通过这些入口的退出推断游戏退出。启动时复核程序摘要、实例根、工作目录及实际程序父目录的物理身份、框架与角色目录。MacOS 与 Resources 分别持有目录句柄；预览后即使替换 MacOS 并放回同字节程序，也拒绝启动。实际资源保护仍按完整 .app 与实例根派生，旧会话重启后仍未知且保守保护；不因实际 cwd 与安装默认目录不同而漏掉 Resources。
 
 全局互斥保持，保存成功、原生窗口识别和文件完整性仍是不同证据。版本/平台/具体封装没有通过验收时继续未验证。

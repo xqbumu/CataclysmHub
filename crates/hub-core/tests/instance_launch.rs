@@ -845,3 +845,35 @@ async fn native_entry_rejects_resources_redirect_outside_its_bundle() {
     );
     assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
 }
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn native_entry_rejects_identical_body_in_replaced_macos_directory() {
+    let f = Fixture::new().await;
+    let (instance, executable, _) = native_fixture(&f).await;
+    let plan = f
+        .hub
+        .instance_launch_plan(&instance, "cdda-0i-1-macos-native-trial-v1")
+        .await
+        .unwrap();
+    let parent = executable.parent().unwrap();
+    let old_parent = parent.with_file_name("MacOS-before");
+    std::fs::rename(parent, &old_parent).unwrap();
+    std::fs::create_dir(parent).unwrap();
+    std::fs::copy(
+        old_parent.join(executable.file_name().unwrap()),
+        &executable,
+    )
+    .unwrap();
+    assert_eq!(
+        f.hub.launch(&plan.id, true).await.unwrap_err().code,
+        "INSTANCE_PATH_CHANGED"
+    );
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+    assert_eq!(
+        std::fs::read_dir(f.temp.path().join("native-instance"))
+            .unwrap()
+            .count(),
+        0
+    );
+}

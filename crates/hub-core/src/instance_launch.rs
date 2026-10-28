@@ -285,7 +285,8 @@ impl Hub {
         &self,
         instance: &PlayInstance,
         working_dir: &str,
-    ) -> Result<(same_file::Handle, same_file::Handle)> {
+        executable: &str,
+    ) -> Result<(same_file::Handle, same_file::Handle, same_file::Handle)> {
         let dashboard = self.dashboard().await?;
         let workspace = dashboard
             .workspace
@@ -310,6 +311,10 @@ impl Hub {
                 .map(|item| PathBuf::from(item.data_root)),
         );
         let root = instance.data_root.clone();
+        let executable_parent = Path::new(executable)
+            .parent()
+            .ok_or(HubError::new("PATH_INVALID", "游戏程序缺少父目录。"))?
+            .to_owned();
         let working_dir = working_dir.to_owned();
         tokio::task::spawn_blocking(move || {
             let canonical = paths::canonical(&root, true)?;
@@ -342,7 +347,10 @@ impl Hub {
             }
             let working_handle = same_file::Handle::from_path(working)
                 .map_err(|_| HubError::new("PATH_INVALID", "无法打开游戏工作目录身份。"))?;
-            Ok((root_handle, working_handle))
+            // Native entries live in MacOS while cwd is Resources. Pin both directories.
+            let executable_parent_handle = same_file::Handle::from_path(executable_parent)
+                .map_err(|_| HubError::new("PATH_INVALID", "无法打开游戏程序父目录身份。"))?;
+            Ok((root_handle, working_handle, executable_parent_handle))
         })
         .await
         .map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "实例检查未完成。"))?
@@ -376,7 +384,9 @@ impl Hub {
             &instance.data_root,
         )
         .await?;
-        let identity = self.instance_identity(&instance, &working_dir).await?;
+        let identity = self
+            .instance_identity(&instance, &working_dir, &installation.executable)
+            .await?;
         let mut plan = self
             .launch_plan_inner(&instance.installation_id, profile_args(&instance.data_root))
             .await?;
@@ -413,7 +423,7 @@ impl Hub {
     pub(crate) async fn revalidate_instance_launch(
         &self,
         plan: &LaunchPlan,
-        identity: &(same_file::Handle, same_file::Handle),
+        identity: &(same_file::Handle, same_file::Handle, same_file::Handle),
     ) -> Result<()> {
         let instance = self
             .instance(
@@ -441,8 +451,10 @@ impl Hub {
         {
             return Err(HubError::new("PLAN_STALE", "实例预览已变化，请重新生成。"));
         }
-        let current = self.instance_identity(&instance, &plan.working_dir).await?;
-        if current.0 != identity.0 || current.1 != identity.1 {
+        let current = self
+            .instance_identity(&instance, &plan.working_dir, &plan.executable)
+            .await?;
+        if current.0 != identity.0 || current.1 != identity.1 || current.2 != identity.2 {
             return Err(HubError::new(
                 "INSTANCE_PATH_CHANGED",
                 "预览后实例或安装目录被替换，启动已取消。",
@@ -454,7 +466,7 @@ impl Hub {
 
 pub(crate) async fn prepare_instance_directories(
     plan: &LaunchPlan,
-    identity: Arc<(same_file::Handle, same_file::Handle)>,
+    identity: Arc<(same_file::Handle, same_file::Handle, same_file::Handle)>,
 ) -> Result<()> {
     let path = plan
         .instance_data_root

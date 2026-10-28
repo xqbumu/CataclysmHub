@@ -76,3 +76,8 @@ snapshot/diff 仅写新的证据文件，不修改所选范围、不覆盖已有
 新增 cdda-0h-release-macos-native-trial-v1 / cdda-0i-1-macos-native-trial-v1，适用于已经有 Contents/MacOS 下原生 Mach-O 本体的包。导入实际本体，方案以同包 Resources 为 cwd，仍直接监测游戏 PID；不会自动生成入口、更改 Info.plist 或运行官方包装脚本。原始默认脚本包不能因此宣称已适配。
 
 [本轮 Hub I 验证](macos-native-entry-verification.md)完成固定本体的新世界/角色、保存、同进程卸载重载、继续操作、再保存和正常退出。数据均落于新实例的声明范围，两个对照实例和保护哨兵在采集点未变化。绑定标记不自动提升；H、跨进程重载、完整 OS 写入和 Hub 并发仍待验收。
+
+
+## 2026-10-28：三提交复审与跨进程存档验证
+
+后续完成 H 新建世界、保存及 H/I 新进程读取同一角色、继续操作并保存，进程均正常退出且资源释放。三个阶段分别只观察到当前实例变化。样本仍为本地原生入口 QA 封装；原始官方脚本包、根外写入/子进程故障和 Hub 并发未通过，绑定不提升、全局互斥不解除。见 [验证记录](macos-native-entry-verification.md)。

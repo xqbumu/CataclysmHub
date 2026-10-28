@@ -7,7 +7,7 @@ use std::{process::Stdio, sync::Arc};
 
 pub(crate) struct PreparedLaunch {
     pub plan: LaunchPlan,
-    pub instance_identity: Option<Arc<(same_file::Handle, same_file::Handle)>>,
+    pub instance_identity: Option<Arc<(same_file::Handle, same_file::Handle, same_file::Handle)>>,
 }
 
 impl Hub {
