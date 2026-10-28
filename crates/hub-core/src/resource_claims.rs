@@ -51,6 +51,36 @@ impl Hub {
                     }
             })
         });
+        drop(recovery);
+        // Only a child admitted and still supervised by this Hub can narrow its
+        // global claim. Restart, unknown state, changed paths or incomplete
+        // projection keep the original global protection.
+        let candidates = self.candidate_sessions.lock().await;
+        let scoped: std::collections::HashSet<&str> = candidates
+            .iter()
+            .filter_map(|(id, binding)| {
+                let owned: Vec<_> = claims
+                    .iter()
+                    .filter(|c| c.owner_kind == "session" && c.owner_id == *id)
+                    .collect();
+                (owned.len() == 3
+                    && owned.iter().all(|c| c.state == "running")
+                    && binding.paths_unchanged()
+                    && binding.roots.iter().all(|path| {
+                        owned.iter().any(|c| {
+                            c.scope == "directory"
+                                && c.access == "write"
+                                && c.path.as_ref() == Some(path)
+                        })
+                    }))
+                .then_some(id.as_str())
+            })
+            .collect();
+        claims.retain(|c| {
+            !(c.owner_kind == "session"
+                && c.scope == "global"
+                && scoped.contains(c.owner_id.as_str()))
+        });
     }
 
     pub(crate) async fn check_resource_claims(&self) -> Result<()> {

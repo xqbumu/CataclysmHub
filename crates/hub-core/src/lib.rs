@@ -53,3 +53,5 @@ pub use installation_copy::{
 
 mod managed_installation_copy;
 pub use managed_installation_copy::{InstallationCopyTask, ManagedInstallationCopyPlan};
+
+mod candidate_launch;

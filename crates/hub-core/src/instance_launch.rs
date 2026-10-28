@@ -14,9 +14,11 @@ const RUNTIME_DIR: &str = ".hub-runtime";
 const RUNTIME_ROLES: [&str; 6] = ["home", "tmp", "config", "cache", "data", "state"];
 
 fn has_runtime(profile: &str) -> bool {
+    let profile = crate::candidate_launch::base_profile(profile);
     matches!(profile, MAC_H_V2 | MAC_I_V2 | MAC_H_NATIVE | MAC_I_NATIVE)
 }
 fn native_entry(profile: &str) -> bool {
+    let profile = crate::candidate_launch::base_profile(profile);
     matches!(profile, MAC_H_NATIVE | MAC_I_NATIVE)
 }
 fn layout_error() -> HubError {
@@ -67,6 +69,8 @@ fn check_role(path: &Path) -> Result<()> {
 }
 
 fn validate_profile(profile: &str) -> Result<()> {
+    crate::candidate_launch::ensure_enabled(profile)?;
+    let profile = crate::candidate_launch::base_profile(profile);
     if ![
         PROFILE,
         MAC_H,
@@ -99,7 +103,7 @@ async fn profile_environment(
     data_root: &str,
 ) -> Result<std::collections::BTreeMap<String, String>> {
     validate_profile(profile)?;
-    if profile == PROFILE {
+    if crate::candidate_launch::base_profile(profile) == PROFILE {
         return Ok(Default::default());
     }
     let mut environment = std::collections::BTreeMap::new();
@@ -121,6 +125,13 @@ async fn profile_environment(
         ] {
             environment.insert(key.into(), paths::text(&runtime.join(role))?);
         }
+    }
+    if crate::candidate_launch::base_profile(profile) != profile {
+        environment.insert(
+            "CFFIXED_USER_HOME".into(),
+            paths::text(&Path::new(data_root).join(RUNTIME_DIR).join("home"))?,
+        );
+        environment.insert("PATH".into(), "/usr/bin:/bin".into());
     }
     let native = native_entry(profile);
     let executable = executable.to_owned();
@@ -445,7 +456,7 @@ impl Hub {
         .await
         .map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "实例检查未完成。"))?
     }
-    /// Explicitly selected source-derived trial. Never grants verified binding or concurrency.
+    /// Explicit trial or feature-gated candidate. Neither grants verified binding.
     pub async fn instance_launch_plan(
         &self,
         instance_id: &str,
@@ -477,8 +488,19 @@ impl Hub {
         let identity = self
             .instance_identity(&instance, &working_dir, &installation.executable)
             .await?;
+        let candidate = crate::candidate_launch::prepare(
+            profile_id,
+            &installation.executable,
+            &working_dir,
+            &instance.data_root,
+        )
+        .await?;
         let mut plan = self
-            .launch_plan_inner(&instance.installation_id, profile_args(&instance.data_root))
+            .launch_plan_inner(
+                &instance.installation_id,
+                profile_args(&instance.data_root),
+                candidate.as_ref().map(|_| instance_id),
+            )
             .await?;
         plan.working_dir = working_dir;
         plan.play_instance_id = Some(instance.id);
@@ -495,7 +517,15 @@ impl Hub {
                 .into(),
             "只监测直接进程；退出不代表子进程已关闭或存档稳定。实例数据可单独备份，安装缓存不在其中。".into(),
         ];
-        if has_runtime(profile_id) {
+        if candidate.is_some() {
+            plan.warnings = vec![
+                "并发实验候选：仅适用于固定 QA 程序和静态资源组合，未完成真实双开验收，不代表正式版本支持。".into(),
+                "完整安装包与完整实例根参与写入冲突判定；同包、同实例及未知会话仍会阻止启动。文件任务继续串行。".into(),
+                "仅监测直接进程；异常退出、结果记录失败或 Hub 重启后恢复全局保护。进程退出不证明存档一致。".into(),
+                "进程环境仅使用预览中的变量，不继承其他环境；目录检查不是操作系统沙箱。请仅用可丢弃测试数据。".into(),
+            ];
+        }
+        if has_runtime(profile_id) && candidate.is_none() {
             plan.warnings.push("新版方案还将在实例 .hub-runtime 内准备 HOME、临时及 XDG 配置/缓存/数据/状态目录；其他环境仍继承，系统 API 或绝对路径仍可能写到其他位置，这不是沙箱或完整隔离证明。".into());
         }
         if native_entry(profile_id) {
@@ -506,6 +536,7 @@ impl Hub {
             PreparedLaunch {
                 plan: plan.clone(),
                 instance_identity: Some(Arc::new(identity)),
+                candidate,
             },
         );
         Ok(plan)

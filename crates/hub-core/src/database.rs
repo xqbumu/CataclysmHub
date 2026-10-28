@@ -19,6 +19,8 @@ pub struct Hub {
     pub(crate) pool: SqlitePool,
     pub(crate) data_dir: PathBuf,
     pub(crate) mutation: Mutex<()>,
+    pub(crate) candidate_sessions:
+        Mutex<HashMap<String, Arc<crate::candidate_launch::CandidateBinding>>>,
     pub(crate) plans: Mutex<HashMap<String, crate::process::PreparedLaunch>>,
     pub(crate) restore_plans: Mutex<HashMap<String, crate::managed_restore::PreparedRestore>>,
     pub(crate) backup_plans: Mutex<HashMap<String, crate::backup::PreparedPlan>>,
@@ -259,6 +261,7 @@ impl Hub {
             data_dir,
             mutation: Mutex::new(()),
             plans: Mutex::new(HashMap::new()),
+            candidate_sessions: Mutex::new(HashMap::new()),
             backup_plans: Mutex::new(HashMap::new()),
             restore_plans: Mutex::new(HashMap::new()),
             scan_controls: Mutex::new(HashMap::new()),

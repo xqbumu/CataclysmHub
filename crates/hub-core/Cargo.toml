@@ -22,3 +22,7 @@ chrono = { version = "0.4", default-features = false, features = ["clock", "serd
 
 [dev-dependencies]
 tempfile = "3"
+
+[features]
+default = []
+candidate-concurrency = []

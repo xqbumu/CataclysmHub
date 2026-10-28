@@ -7,6 +7,7 @@ use std::{process::Stdio, sync::Arc};
 
 pub(crate) struct PreparedLaunch {
     pub plan: LaunchPlan,
+    pub candidate: Option<Arc<crate::candidate_launch::CandidateBinding>>,
     pub instance_identity: Option<Arc<(same_file::Handle, same_file::Handle, same_file::Handle)>>,
 }
 
@@ -17,12 +18,14 @@ impl Hub {
         args: Vec<String>,
     ) -> Result<LaunchPlan> {
         let _guard = self.mutation.lock().await;
-        self.launch_plan_inner(installation_id, args).await
+        self.launch_plan_inner(installation_id, args, None).await
     }
+    // Callers hold mutation. Only a validated candidate may pass scoped_instance.
     pub(crate) async fn launch_plan_inner(
         &self,
         installation_id: &str,
         args: Vec<String>,
+        scoped_instance: Option<&str>,
     ) -> Result<LaunchPlan> {
         if args.len() > 64
             || args.iter().map(String::len).sum::<usize>() > 8192
@@ -33,7 +36,11 @@ impl Hub {
                 "启动参数过多、过长或含无效字符。",
             ));
         }
-        self.check_resource_claims().await?;
+        if let Some(instance) = scoped_instance {
+            self.check_instance_resources(instance).await?;
+        } else {
+            self.check_resource_claims().await?;
+        }
         let installation = self.installation(installation_id).await?;
         let workspace = self
             .dashboard()
@@ -80,6 +87,7 @@ impl Hub {
             PreparedLaunch {
                 plan: plan.clone(),
                 instance_identity: None,
+                candidate: None,
             },
         );
         Ok(plan)
@@ -103,7 +111,24 @@ impl Hub {
         if plan.expires_at <= now() {
             return Err(HubError::new("PLAN_STALE", "启动预览已过期，请重新生成。"));
         }
-        self.check_resource_claims().await?;
+        if let Some(binding) = &prepared.candidate {
+            let current = crate::candidate_launch::prepare(
+                plan.launch_profile_id.as_deref().unwrap_or(""),
+                &plan.executable,
+                &plan.working_dir,
+                plan.instance_data_root.as_deref().unwrap_or(""),
+            )
+            .await?
+            .ok_or(HubError::new("PLAN_STALE", "并发候选预览已失效。"))?;
+            if !binding.matches(&current) {
+                return Err(HubError::new(
+                    "PLAN_STALE",
+                    "并发候选程序、静态资源或目录身份已变化。",
+                ));
+            }
+        } else {
+            self.check_resource_claims().await?;
+        }
         let path = paths::canonical(&plan.executable, false)?;
         if paths::text(&path)? != plan.executable
             || paths::digest(path.clone()).await? != plan.executable_sha256
@@ -160,7 +185,13 @@ impl Hub {
                 .await?;
             return Err(error);
         }
-        let child = tokio::process::Command::new(&path)
+        let mut command = tokio::process::Command::new(&path);
+        if prepared.candidate.is_some() {
+            // Do not inherit loader injection or shared HOME overrides into a
+            // fixed candidate. All candidate environment is shown in its plan.
+            command.env_clear();
+        }
+        let child = command
             .args(&plan.args)
             .envs(&plan.environment)
             .current_dir(&plan.working_dir)
@@ -186,15 +217,33 @@ impl Hub {
             .bind(&session_id)
             .execute(&self.pool)
             .await;
+        let candidate = prepared.candidate.is_some();
+        if recorded.is_ok()
+            && let Some(binding) = prepared.candidate
+        {
+            self.candidate_sessions
+                .lock()
+                .await
+                .insert(session_id.clone(), binding);
+        }
         // Always reap the child, including when recording its running state failed.
         let hub = Arc::clone(self);
         let watched_id = session_id.clone();
         tokio::spawn(async move {
             let outcome = child.wait().await;
             let (state, code, error) = match outcome {
+                Ok(exit) if candidate && !exit.success() => (
+                    "interrupted_unknown",
+                    exit.code().map(i64::from),
+                    Some("CANDIDATE_EXIT_UNKNOWN"),
+                ),
                 Ok(exit) => ("exited_unverified", exit.code().map(i64::from), None),
                 Err(_) => ("interrupted_unknown", None, Some("PROCESS_WAIT_FAILED")),
             };
+            // Revoke immediately, including while another launch owns the gate.
+            // If recording termination fails, the surviving intent is global.
+            hub.candidate_sessions.lock().await.remove(&watched_id);
+            let _gate = hub.mutation.lock().await;
             // Preserve the earlier starting/running intent if persistence fails; restart reconciles it as unknown.
             if hub
                 .finish_session(&watched_id, state, code, error)

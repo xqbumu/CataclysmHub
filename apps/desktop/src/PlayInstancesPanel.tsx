@@ -24,6 +24,10 @@ export default function PlayInstancesPanel({
   const [plan, setPlan] = useState<LaunchPlan | null>(null);
   const [profileSelected, setProfileSelected] = useState(false);
   const [profileId, setProfileId] = useState('cdda-0h-source-trial-v1');
+  const candidateProfile = [
+    'cdda-0h-macos-concurrency-candidate-v1',
+    'cdda-0i-1-macos-concurrency-candidate-v1',
+  ].includes(profileId);
   async function perform(action: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -42,7 +46,9 @@ export default function PlayInstancesPanel({
         一个安装可以登记多个实例。数据目录用于后续隔离存档、配置、缓存与日志。
       </p>
       <p className="warning">
-        实际目录绑定尚未验证。原有启动不使用实例目录；试运行须显式选择参数方案，并行启动尚未开放。可在“独立备份”选择实例数据根创建尽力快照，安装与共享缓存不在其中。
+        实际目录绑定尚未验证。原有启动不使用实例目录；试运行须显式选择参数方案，普通方案并行启动尚未开放；固定
+        QA
+        组合可在实验构建中选择并发候选，尚未完成真实双开验收。可在“独立备份”选择实例数据根创建尽力快照，安装与共享缓存不在其中。
       </p>
       <label>
         <input
@@ -63,6 +69,12 @@ export default function PlayInstancesPanel({
             setProfileSelected(false);
           }}
         >
+          <option value="cdda-0h-macos-concurrency-candidate-v1">
+            CDDA H · 固定 QA 并发候选（实验构建限定）
+          </option>
+          <option value="cdda-0i-1-macos-concurrency-candidate-v1">
+            CDDA I · 固定 QA 并发候选（实验构建限定）
+          </option>
           <option value="cdda-0h-source-trial-v1">
             CDDA 0.H 源码参数（通用）
           </option>
@@ -120,7 +132,7 @@ export default function PlayInstancesPanel({
               busy ||
               !api.desktop ||
               !profileSelected ||
-              data.resource_claims.length > 0
+              (data.resource_claims.length > 0 && !candidateProfile)
             }
             onClick={() =>
               void perform(async () => {

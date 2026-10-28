@@ -249,3 +249,62 @@ it('can inspect conflicts while launch is blocked without choosing a profile or 
   expect(screen.queryByText('other-instance-session')).not.toBeInTheDocument();
   expect(launch).not.toHaveBeenCalled();
 });
+
+it('lets an explicit candidate request backend admission while other claims exist', async () => {
+  const user = userEvent.setup();
+  const instanceLaunchPlan = vi
+    .fn()
+    .mockRejectedValue(new Error('candidate unavailable'));
+  render(
+    <PlayInstancesPanel
+      api={{ ...api, desktop: true, instanceLaunchPlan }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'instance',
+            name: 'Candidate',
+            installation_id: 'game',
+            installation_sha256: 'hash',
+            data_root: '/instance',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+        resource_claims: [
+          {
+            owner_kind: 'session',
+            owner_id: 'other',
+            operation: 'game.launch',
+            state: 'running',
+            scope: 'directory',
+            access: 'write',
+            path: '/other',
+            reason: 'declared_directory',
+          },
+        ],
+      }}
+      onRefresh={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('checkbox'));
+  expect(
+    screen.getByRole('button', { name: '预览 Candidate 试运行' }),
+  ).toBeDisabled();
+  await user.selectOptions(
+    screen.getByLabelText('试运行参数方案'),
+    'cdda-0i-1-macos-concurrency-candidate-v1',
+  );
+  expect(
+    screen.getByRole('button', { name: '预览 Candidate 试运行' }),
+  ).toBeDisabled();
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(
+    screen.getByRole('button', { name: '预览 Candidate 试运行' }),
+  );
+  expect(instanceLaunchPlan).toHaveBeenCalledWith(
+    'instance',
+    'cdda-0i-1-macos-concurrency-candidate-v1',
+  );
+  expect(await screen.findByRole('alert')).toBeInTheDocument();
+});
