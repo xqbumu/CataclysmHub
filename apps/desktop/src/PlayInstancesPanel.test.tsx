@@ -49,3 +49,60 @@ it('requires a native selection and keeps binding uncertainty explicit', async (
   });
   expect(onRefresh).toHaveBeenCalled();
 });
+
+it('requires choosing a trial profile and a separate confirmation before launch', async () => {
+  const user = userEvent.setup();
+  const instanceLaunchPlan = vi.fn().mockResolvedValue({
+    id: 'plan',
+    play_instance_id: 'instance',
+    launch_profile_id: 'cdda-0h-source-trial-v1',
+    instance_data_root: '/isolated',
+    installation_id: 'game',
+    executable: '/game/exe',
+    working_dir: '/game',
+    args: ['--userdir', '/isolated/'],
+    executable_sha256: 'abc',
+    save_dir: '/isolated/save',
+    save_binding_verified: false,
+    expires_at: '2030-01-01',
+    warnings: ['仍可能写入安装缓存，不允许并发'],
+  });
+  const launch = vi.fn().mockResolvedValue({});
+  render(
+    <PlayInstancesPanel
+      api={{ ...api, desktop: true, instanceLaunchPlan, launch }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'instance',
+            installation_id: 'game',
+            installation_sha256: 'abc',
+            name: '独立实例',
+            data_root: '/isolated',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+      }}
+      onRefresh={vi.fn().mockResolvedValue(undefined)}
+    />,
+  );
+  const preview = screen.getByRole('button', { name: '预览 独立实例 试运行' });
+  expect(preview).toBeDisabled();
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(preview);
+  expect(instanceLaunchPlan).toHaveBeenCalledWith(
+    'instance',
+    'cdda-0h-source-trial-v1',
+  );
+  expect(launch).not.toHaveBeenCalled();
+  expect(
+    screen.getByText('仍可能写入安装缓存，不允许并发'),
+  ).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '取消' }));
+  expect(launch).not.toHaveBeenCalled();
+  await user.click(preview);
+  await user.click(screen.getByRole('button', { name: '确认单实例试运行' }));
+  expect(launch).toHaveBeenCalledWith('plan');
+});

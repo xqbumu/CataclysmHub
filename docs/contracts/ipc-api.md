@@ -112,3 +112,7 @@ preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`
 ## 当前实现补充：游玩实例登记（schema 7）
 
 `register_play_instance({ input: { installation_id, name, data_root } }) -> PlayInstance`；数据目录须由本机选择器授权。`get_dashboard -> Dashboard` 新增 `play_instances`。本阶段绑定状态恒为 `unverified`，无实例启动/并发授权接口。实际输入输出使用 Rust 生成的类型；范围、重试与错误见 [实例登记](../design/play-instance-registration.md)。
+
+## 当前实现补充：实例参数试运行（schema 8）
+
+`create_instance_launch_plan({ instanceId, profileId }) -> LaunchPlan`，当前唯一参数方案 `cdda-0h-source-trial-v1`，由用户显式选择，不代表检测通过；随后使用既有 `launch_game` 确认执行。LaunchPlan/Session 新增可空 `play_instance_id`、`launch_profile_id`、`instance_data_root`，旧会话为空。实际绑定仍未验证，全局互斥保留，详细字段、重验和限制见 [试运行设计](../design/instance-launch-trial.md)。

@@ -55,6 +55,9 @@ pub struct Installation {
 }
 #[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
 pub struct Session {
+    pub play_instance_id: Option<String>,
+    pub launch_profile_id: Option<String>,
+    pub instance_data_root: Option<String>,
     pub id: String,
     pub installation_id: String,
     pub state: String,
@@ -89,6 +92,9 @@ pub struct Dashboard {
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct LaunchPlan {
+    pub play_instance_id: Option<String>,
+    pub launch_profile_id: Option<String>,
+    pub instance_data_root: Option<String>,
     pub id: String,
     pub installation_id: String,
     pub executable: String,

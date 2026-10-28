@@ -1,3 +1,5 @@
+import Modal from './Modal';
+import type { LaunchPlan } from './api';
 import { useState } from 'react';
 import { type Dashboard, type HubApi, errorMessage } from './api';
 
@@ -15,6 +17,8 @@ export default function PlayInstancesPanel({
   const [root, setRoot] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [plan, setPlan] = useState<LaunchPlan | null>(null);
+  const [profileSelected, setProfileSelected] = useState(false);
   async function perform(action: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -33,8 +37,17 @@ export default function PlayInstancesPanel({
         一个安装可以登记多个实例。数据目录用于后续隔离存档、配置、缓存与日志。
       </p>
       <p className="warning">
-        当前仅登记目录，尚未验证游戏实际使用该目录。原有启动不使用实例目录；并行启动尚未开放。
+        实际目录绑定尚未验证。原有启动不使用实例目录；试运行须显式选择参数方案，并行启动尚未开放。实例数据尚未接入工作区备份。
       </p>
+      <label>
+        <input
+          type="checkbox"
+          checked={profileSelected}
+          disabled={busy}
+          onChange={(event) => setProfileSelected(event.target.checked)}
+        />
+        使用 CDDA 0.H 源码参数方案试运行（本地程序版本未验证）
+      </label>
       {data.play_instances.map((item) => (
         <article key={item.id}>
           <h3>{item.name} · 绑定未验证</h3>
@@ -46,8 +59,93 @@ export default function PlayInstancesPanel({
             }
           </p>
           <p className="mono">{item.data_root}</p>
+          {data.sessions
+            .filter((session) => session.play_instance_id === item.id)
+            .slice(0, 3)
+            .map((session) => (
+              <p key={session.id}>
+                实例会话：
+                {session.state === 'running'
+                  ? '运行中'
+                  : session.state === 'interrupted_unknown'
+                    ? '状态未知，请先确认关闭'
+                    : session.state === 'exited_unverified'
+                      ? '进程已退出，存档未验证'
+                      : session.state}{' '}
+                · PID {session.pid ?? '未知'} ·{' '}
+                {new Date(session.started_at).toLocaleString('zh-CN')}
+              </p>
+            ))}
+          <button
+            className="secondary"
+            disabled={busy || !api.desktop || !profileSelected}
+            onClick={() =>
+              void perform(async () => {
+                setPlan(
+                  await api.instanceLaunchPlan(
+                    item.id,
+                    'cdda-0h-source-trial-v1',
+                  ),
+                );
+              })
+            }
+          >
+            预览 {item.name} 试运行
+          </button>
         </article>
       ))}
+      {error && !plan && <p role="alert">{error}</p>}
+      {plan && (
+        <Modal
+          title="确认实例参数试运行"
+          onClose={() => {
+            if (!busy) setPlan(null);
+          }}
+        >
+          <dl className="launch-details">
+            <dt>游戏程序</dt>
+            <dd>{plan.executable}</dd>
+            <dt>工作目录（可能写入缓存）</dt>
+            <dd>{plan.working_dir}</dd>
+            <dt>实例数据目录</dt>
+            <dd>{plan.instance_data_root}</dd>
+            <dt>目标存档目录（参数指定，绑定未验证）</dt>
+            <dd>{plan.save_dir}</dd>
+            <dt>固定参数</dt>
+            <dd>{JSON.stringify(plan.args)}</dd>
+            <dt>程序 SHA-256</dt>
+            <dd>{plan.executable_sha256}</dd>
+          </dl>
+          <ul className="plan-warnings">
+            {plan.warnings.map((warning) => (
+              <li key={warning}>{warning}</li>
+            ))}
+          </ul>
+          {error && <p role="alert">{error}</p>}
+          <div className="modal-actions">
+            <button
+              className="secondary"
+              disabled={busy}
+              onClick={() => setPlan(null)}
+            >
+              取消
+            </button>
+            <button
+              className="primary"
+              disabled={busy}
+              onClick={() =>
+                void perform(async () => {
+                  await api.launch(plan.id);
+                  setPlan(null);
+                  await onRefresh();
+                })
+              }
+            >
+              确认单实例试运行
+            </button>
+          </div>
+        </Modal>
+      )}
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -104,7 +202,6 @@ export default function PlayInstancesPanel({
           选择实例空目录
         </button>
         <p className="mono">{root || '尚未选择'}</p>
-        {error && <p role="alert">{error}</p>}
         <button
           className="primary-button"
           disabled={

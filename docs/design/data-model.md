@@ -78,3 +78,7 @@ backup_archive 新增 display_name / notes（默认空）、retention_locked（�
 ## 当前实现补充：schema 7 游玩实例（2026-10-28）
 
 `play_instance(id, installation_id, installation_sha256, name, data_root, binding_status, created_at)`；安装外键、目录唯一、绑定状态固定 `unverified`。单安装多实例，实例登记尚不构成实际目录绑定。详细不变量与迁移见 [实例登记](play-instance-registration.md)。
+
+## 当前实现补充：schema 8 实例会话（2026-10-28）
+
+session 增加可空 play_instance_id（外键）、launch_profile_id、instance_data_root。旧会话为空；实例会话记录当次方案和数据根，重启未知保留这些字段，不用退出结果反填实例绑定已验证。实现见 [实例试运行](instance-launch-trial.md)。

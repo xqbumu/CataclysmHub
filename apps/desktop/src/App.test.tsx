@@ -30,6 +30,9 @@ const game: Installation = {
   imported_at: workspace.created_at,
 };
 const plan: LaunchPlan = {
+  play_instance_id: null,
+  launch_profile_id: null,
+  instance_data_root: null,
   id: 'plan',
   installation_id: game.id,
   executable: game.executable,
@@ -49,6 +52,7 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     initialize: vi.fn(),
     importInstallation: vi.fn(),
     registerPlayInstance: vi.fn(),
+    instanceLaunchPlan: vi.fn(),
     launchPlan: vi.fn().mockResolvedValue(plan),
     launch: vi.fn(),
     acknowledge: vi.fn(),

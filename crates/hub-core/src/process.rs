@@ -5,6 +5,11 @@ use crate::{
 };
 use std::{process::Stdio, sync::Arc};
 
+pub(crate) struct PreparedLaunch {
+    pub plan: LaunchPlan,
+    pub instance_identity: Option<(same_file::Handle, same_file::Handle)>,
+}
+
 impl Hub {
     pub(crate) async fn check_sessions(&self, _installation_id: &str) -> Result<()> {
         let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM session WHERE state IN ('starting','running','interrupted_unknown')")
@@ -32,6 +37,13 @@ impl Hub {
         args: Vec<String>,
     ) -> Result<LaunchPlan> {
         let _guard = self.mutation.lock().await;
+        self.launch_plan_inner(installation_id, args).await
+    }
+    pub(crate) async fn launch_plan_inner(
+        &self,
+        installation_id: &str,
+        args: Vec<String>,
+    ) -> Result<LaunchPlan> {
         if args.len() > 64
             || args.iter().map(String::len).sum::<usize>() > 8192
             || args.iter().any(|a| a.contains('\0'))
@@ -59,6 +71,9 @@ impl Hub {
             ));
         }
         let plan = LaunchPlan {
+            play_instance_id: None,
+            launch_profile_id: None,
+            instance_data_root: None,
             id: id(),
             installation_id: installation.id,
             executable: installation.executable,
@@ -75,11 +90,17 @@ impl Hub {
             ],
         };
         let mut plans = self.plans.lock().await;
-        plans.retain(|_, p| p.expires_at > now());
+        plans.retain(|_, p| p.plan.expires_at > now());
         if plans.len() >= 100 {
             return Err(HubError::new("PLAN_LIMIT", "启动预览过多，请稍后重试。"));
         }
-        plans.insert(plan.id.clone(), plan.clone());
+        plans.insert(
+            plan.id.clone(),
+            PreparedLaunch {
+                plan: plan.clone(),
+                instance_identity: None,
+            },
+        );
         Ok(plan)
     }
 
@@ -91,12 +112,13 @@ impl Hub {
                 "请检查启动预览并明确确认。",
             ));
         }
-        let plan = self
+        let prepared = self
             .plans
             .lock()
             .await
             .remove(plan_id)
             .ok_or(HubError::new("PLAN_STALE", "启动预览已失效，请重新生成。"))?;
+        let plan = prepared.plan;
         if plan.expires_at <= now() {
             return Err(HubError::new("PLAN_STALE", "启动预览已过期，请重新生成。"));
         }
@@ -111,15 +133,26 @@ impl Hub {
             ));
         }
         paths::executable(&path)?;
+        if let Some(ref identity) = prepared.instance_identity {
+            self.revalidate_instance_launch(&plan, identity).await?;
+        } else if plan.play_instance_id.is_some() {
+            return Err(HubError::new(
+                "PLAN_STALE",
+                "实例预览缺少目录身份，请重新生成。",
+            ));
+        }
         let session_id = id();
         let started = now();
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
         sqlx::query(
-            "INSERT INTO session (id,installation_id,state,started_at) VALUES (?,?,'starting',?)",
+            "INSERT INTO session (id,installation_id,state,started_at,play_instance_id,launch_profile_id,instance_data_root) VALUES (?,?,'starting',?,?,?,?)",
         )
         .bind(&session_id)
         .bind(&plan.installation_id)
         .bind(&started)
+        .bind(&plan.play_instance_id)
+        .bind(&plan.launch_profile_id)
+        .bind(&plan.instance_data_root)
         .execute(&mut *tx)
         .await
         .map_err(HubError::db)?;
@@ -184,6 +217,9 @@ impl Hub {
             )
         })?;
         Ok(Session {
+            play_instance_id: plan.play_instance_id,
+            launch_profile_id: plan.launch_profile_id,
+            instance_data_root: plan.instance_data_root,
             id: session_id,
             installation_id: plan.installation_id,
             state: "running".into(),

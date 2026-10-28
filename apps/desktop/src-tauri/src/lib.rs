@@ -107,6 +107,17 @@ async fn register_play_instance(
     state.hub.register_play_instance(input).await
 }
 #[tauri::command]
+async fn create_instance_launch_plan(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+    profile_id: String,
+) -> Result<LaunchPlan, HubError> {
+    state
+        .hub
+        .instance_launch_plan(&instance_id, &profile_id)
+        .await
+}
+#[tauri::command]
 async fn create_launch_plan(
     state: tauri::State<'_, AppState>,
     installation_id: String,
@@ -293,6 +304,7 @@ pub fn run() {
             import_installation,
             register_play_instance,
             create_launch_plan,
+            create_instance_launch_plan,
             launch_game,
             acknowledge_interrupted,
             start_world_scan,

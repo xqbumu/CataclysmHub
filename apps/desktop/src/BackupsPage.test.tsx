@@ -81,6 +81,7 @@ function client(): HubApi {
     initialize: vi.fn(),
     importInstallation: vi.fn(),
     registerPlayInstance: vi.fn(),
+    instanceLaunchPlan: vi.fn(),
     launchPlan: vi.fn(),
     launch: vi.fn(),
     acknowledge: vi.fn(),

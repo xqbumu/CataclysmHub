@@ -59,6 +59,10 @@ export interface HubApi {
   pickPath(kind: 'directory' | 'executable'): Promise<string | null>;
   initialize(input: WorkspaceInput): Promise<Workspace>;
   importInstallation(executable: string, name: string): Promise<Installation>;
+  instanceLaunchPlan(
+    instanceId: string,
+    profileId: string,
+  ): Promise<LaunchPlan>;
   launchPlan(installationId: string, args: string[]): Promise<LaunchPlan>;
   launch(planId: string): Promise<Session>;
   acknowledge(sessionId: string): Promise<void>;
@@ -111,6 +115,8 @@ export const api: HubApi = {
   initialize: (input) => desktopOnly('initialize_workspace', { input }),
   importInstallation: (executable, name) =>
     desktopOnly('import_installation', { executable, name }),
+  instanceLaunchPlan: (instanceId, profileId) =>
+    desktopOnly('create_instance_launch_plan', { instanceId, profileId }),
   launchPlan: (installationId, args) =>
     desktopOnly('create_launch_plan', { installationId, args }),
   launch: (planId) => desktopOnly('launch_game', { planId, confirmed: true }),

@@ -74,3 +74,6 @@
 本套文档采用企业开发常用的责任分工、追踪、变更和门禁机制，不代表已完成认证、代码安全审计或游戏兼容性验证。
 
 - [游玩实例登记基础与并发前置边界](design/play-instance-registration.md)
+- [实例参数试运行与会话关联](design/instance-launch-trial.md)
+- [实例试运行验证](quality/instance-launch-trial-verification.md)
+- [CDDA 0.H 目录与缓存源码证据](research/cdda-0h-directory-evidence.md)
