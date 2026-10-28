@@ -335,7 +335,7 @@ async fn schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot() 
     let f = Fixture::new().await;
     let data = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; PRAGMA user_version=8;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; PRAGMA user_version=8;").execute(&pool).await.unwrap();
     pool.close().await;
     drop(f.hub);
     let hub = Hub::open(&data).await.unwrap();
@@ -351,7 +351,7 @@ async fn schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot() 
             .fetch_one(&pool)
             .await
             .unwrap(),
-        10
+        11
     );
     let snapshot = std::fs::read_dir(&data)
         .unwrap()
@@ -391,7 +391,7 @@ async fn failed_schema_nine_migration_rolls_back_earlier_source_columns() {
     let f = Fixture::new().await;
     let data = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; PRAGMA user_version=8;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; PRAGMA user_version=8;").execute(&pool).await.unwrap();
     pool.close().await;
     drop(f.hub);
     assert_eq!(

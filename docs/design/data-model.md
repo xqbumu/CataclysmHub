@@ -98,3 +98,7 @@ backup_task 与 backup_archive 各新增 nullable play_instance_id（引用 play
 ### 安装目录范围派生补充
 
 installation.working_dir 继续保存实际启动 cwd。资源声明和范围校验通过共享函数派生保护根：若存在大小写不敏感的 .app 祖先，则保护最近的整个包；否则保护原 working_dir。该派生不修改安装/会话记录，schema 仍为 10。会话安装目录声明使用显式内部角色进行派生，实例目录声明保留原根，即使实例路径包含 .app 字样也不扩大；未知旧会话重启后同样按整包保护。后缀只是保守边界，不证明真实布局、签名或可信绑定。
+
+## Schema 11：本地内容资源登记
+
+`content_entry(id, root, kind, snapshot)` 使用 `(root, kind)` 唯一约束保存模组／声音包的元数据快照。快照含资源定义、可选依赖／版本声明、描述文件摘要、成功读取时间和最近刷新错误。它不是安装状态、完整包校验或世界引用记录；不新增资源信任字段。迁移前保留数据库快照，失败整笔回滚。详见[本地资源库](local-content-registry.md)。

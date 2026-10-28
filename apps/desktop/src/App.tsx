@@ -1,3 +1,4 @@
+import ContentPage from './ContentPage';
 import InstallationCopiesPanel from './InstallationCopiesPanel';
 import ResourceClaimsPanel from './ResourceClaimsPanel';
 import PlayInstancesPanel from './PlayInstancesPanel';
@@ -44,12 +45,19 @@ import {
 } from './api';
 
 type Page =
-  'overview' | 'games' | 'worlds' | 'backups' | 'activity' | 'settings';
+  | 'overview'
+  | 'games'
+  | 'worlds'
+  | 'backups'
+  | 'content'
+  | 'activity'
+  | 'settings';
 const pages: Record<Page, string> = {
   overview: '概览',
   games: '游戏库',
   worlds: '世界与角色',
   backups: '独立备份',
+  content: '内容资源',
   activity: '操作记录',
   settings: '工作区',
 };
@@ -417,7 +425,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             独立备份
           </NavItem>
           <span className="nav-label second">管理</span>
-          <NavItem icon={Puzzle} soon>
+          <NavItem
+            icon={Puzzle}
+            selected={page === 'content'}
+            onClick={() => setPage('content')}
+          >
             内容资源
           </NavItem>
           <NavItem
@@ -488,9 +500,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       ? '只读枚举世界候选、共享文件与无法确认的边界。'
                       : page === 'backups'
                         ? '完整归档与独立校验，明确记录采集一致性和文件完整性。'
-                        : page === 'activity'
-                          ? '查看本地操作和进程状态，追溯每一次变更。'
-                          : '分离数据目录，为后续的世界保护建立基础。'}
+                        : page === 'content'
+                          ? '登记本地模组和声音包，核对元数据与依赖提示。'
+                          : page === 'activity'
+                            ? '查看本地操作和进程状态，追溯每一次变更。'
+                            : '分离数据目录，为后续的世界保护建立基础。'}
               </p>
             </div>
             {(page === 'overview' || page === 'games') && (
@@ -747,6 +761,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                   onConfigure={() => setPage('settings')}
                 />
               )}
+              {page === 'content' && <ContentPage api={api} />}
               {page === 'settings' && setup}
               {page === 'games' &&
                 (data.installations.length ? (

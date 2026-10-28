@@ -76,6 +76,32 @@ async fn pick_path(
     Ok(Some(text))
 }
 #[tauri::command]
+async fn content_entries(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<hub_core::ContentEntry>, HubError> {
+    state.hub.content_entries().await
+}
+#[tauri::command]
+async fn register_content(
+    state: tauri::State<'_, AppState>,
+    root: String,
+    kind: String,
+) -> Result<hub_core::ContentEntry, HubError> {
+    authorized(&state, &root)?;
+    state.hub.register_content(&root, &kind).await
+}
+#[tauri::command]
+async fn refresh_content(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<hub_core::ContentEntry, HubError> {
+    state.hub.refresh_content(&id).await
+}
+#[tauri::command]
+async fn forget_content(state: tauri::State<'_, AppState>, id: String) -> Result<(), HubError> {
+    state.hub.forget_content(&id).await
+}
+#[tauri::command]
 async fn prepare_installation_copy(
     state: tauri::State<'_, AppState>,
     installation_id: String,
@@ -357,6 +383,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            content_entries,
+            register_content,
+            refresh_content,
+            forget_content,
             pick_path,
             get_dashboard,
             prepare_installation_copy,

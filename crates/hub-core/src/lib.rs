@@ -55,3 +55,6 @@ mod managed_installation_copy;
 pub use managed_installation_copy::{InstallationCopyTask, ManagedInstallationCopyPlan};
 
 mod candidate_launch;
+
+mod content;
+pub use content::{ContentDefinition, ContentEntry};

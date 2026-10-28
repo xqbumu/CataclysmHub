@@ -1,3 +1,4 @@
+import type { ContentEntry } from './bindings/ContentEntry';
 import type { ManagedInstallationCopyPlan } from './bindings/ManagedInstallationCopyPlan';
 import type { InstallationCopyTask } from './bindings/InstallationCopyTask';
 import type { InstanceResourcePreview } from './bindings/InstanceResourcePreview';
@@ -58,6 +59,10 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  contentEntries(): Promise<ContentEntry[]>;
+  registerContent(root: string, kind: string): Promise<ContentEntry>;
+  refreshContent(id: string): Promise<ContentEntry>;
+  forgetContent(id: string): Promise<void>;
   prepareInstallationCopy(
     installationId: string,
     sourceRoot: string,
@@ -132,6 +137,11 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  contentEntries: () => desktopOnly('content_entries'),
+  registerContent: (root, kind) =>
+    desktopOnly('register_content', { root, kind }),
+  refreshContent: (id) => desktopOnly('refresh_content', { id }),
+  forgetContent: (id) => desktopOnly('forget_content', { id }),
   prepareInstallationCopy: (installationId, sourceRoot, parentDir) =>
     desktopOnly('prepare_installation_copy', {
       installationId,

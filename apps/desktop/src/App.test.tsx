@@ -48,6 +48,10 @@ const plan: LaunchPlan = {
 function client(data: Dashboard = emptyDashboard): HubApi {
   return {
     desktop: true,
+    contentEntries: vi.fn().mockResolvedValue([]),
+    registerContent: vi.fn(),
+    refreshContent: vi.fn(),
+    forgetContent: vi.fn(),
     prepareInstallationCopy: vi.fn(),
     startInstallationCopy: vi.fn(),
     cancelInstallationCopy: vi.fn(),
