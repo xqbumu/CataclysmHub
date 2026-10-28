@@ -44,3 +44,9 @@ mod resource_conflicts;
 pub use resource_conflicts::{
     InstanceResourcePreview, ResourceConflict, ResourceScope, ResourceScopeIssue,
 };
+
+mod installation_copy;
+pub use installation_copy::{
+    InstallationCopyEntry, InstallationCopyPlan, InstallationCopyVerification,
+    copy_installation_to_new_directory, plan_installation_copy, verify_installation_copy,
+};

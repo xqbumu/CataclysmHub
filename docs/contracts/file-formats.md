@@ -57,3 +57,11 @@ Schema 以相对 $ref 引用 restore-verification.schema.json，应从同目录�
 实例数据根备份使用 [backup-manifest-v2.schema.json](backup-manifest-v2.schema.json)，[示例](examples/backup-manifest-v2.json)为合成空范围，不是有效归档证据。v2 明确 scope=instance_data_root、source_token=实例 UUID，extensions.instance_source 保存登记安装 UUID/SHA-256 和未验证状态；不写源绝对路径。读取器还要求 source_token 与实例 UUID 一致、所有路径/摘要/计数/预算校验通过，不接受擅自提升绑定/边界状态。当前 v2 仅 best_effort，game/profile/adapter/world/character 等未实现语义不作兼容声明。
 
 工作区清单仍为 v1/save_root，旧 v1 的读取与新目录恢复保留；外部 receipt 仍为 v1，仅描述归档/清单摘要，不代表内部清单也必须为 v1。旧 reader 遇到 v2 应明确拒绝。恢复的 data/ 包含实例根下的相对路径，不自动复原安装或登记游玩绑定。
+
+## 当前实现补充：独立安装副本控制文件 v1
+
+新容器包含 payload/<源目录名>/、copy-manifest.json、copy-verification.json；未完成阶段保留 INSTALLATION_COPY_INCOMPLETE.json。此格式不是备份归档格式，不被 backup reader 自动识别或登记。
+
+清单 v1 记录复制 UUID、创建时间、payload 根、普通可执行文件相对路径与 SHA-256、根权限及完整条目。条目记录相对路径、directory/file/symlink 类型、十进制大小、可空摘要/相对链接文本、链接目标目录提示、可空 Unix 模式及 readonly。原生平台权限语义不保证跨平台等价，不写本机源绝对路径。
+
+回执 v1 绑定清单摘要、复制 ID、payload/程序路径与摘要、文件/链接数、字节量和观察时间；binding_verified/isolation_verified 必须为 false。serde 拒绝未知控制字段，读取受大小/条目/路径约束，并全量重读当前 payload；不能通过修改回执提升来源、绑定或隔离证据。未完成、内容/集合变化、额外控制或同级 payload 均拒绝。清单/回执未签名，不提供官方来源认证。详情见 [复制与验证协议](../design/installation-copy.md)。

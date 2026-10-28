@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "sample_kind": "existing locally adjusted QA app bundles containing official H/I-1 executable bytes; not pristine release bundles",
+  "results": [
+    {
+      "tag": "0.H-RELEASE",
+      "copy_exit": 0,
+      "seconds": 162.38,
+      "stderr": "",
+      "verify_exit": 0,
+      "file_count": 9731,
+      "link_count": 16,
+      "bytes": "427881845",
+      "executable_sha256": "ba92c296d23758eab4fe4a74ee5ee624f01edaac051c3777c3c138cac45de21d",
+      "not_same_file": true,
+      "binding_verified": false,
+      "isolation_verified": false,
+      "entry_count": 10857,
+      "manifest_sha256": "0c27c8378f9fa7679e976d5f645b4d6c5f93503bb37dee17cd410ae285b3d943"
+    },
+    {
+      "tag": "0.I-1",
+      "copy_exit": 0,
+      "seconds": 182.66,
+      "stderr": "",
+      "verify_exit": 0,
+      "file_count": 11135,
+      "link_count": 16,
+      "bytes": "539327971",
+      "executable_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+      "not_same_file": true,
+      "binding_verified": false,
+      "isolation_verified": false,
+      "entry_count": 12444,
+      "manifest_sha256": "487b9c03a9c9d29683c634c73e1ed361dd71fce62831ffe024bacedbeee6b80d"
+    }
+  ],
+  "binding_verified": false,
+  "isolation_verified": false,
+  "hub_concurrency_accepted": false,
+  "artifacts": [
+    {
+      "name": "preview.json",
+      "sha256": "8c944982a88b40f28f1683459ecdd237ea5a6a0075b5c07de8ceb4570f5f0d47",
+      "bytes": 3691360
+    },
+    {
+      "name": "h-copy-copy.json",
+      "sha256": "a598e9f48ee42530cc10690e7410e41c7d7c906cf4a4db2502d4f0a2a036d214",
+      "bytes": 552
+    },
+    {
+      "name": "h-copy-verify.json",
+      "sha256": "13e50da9fd98214ad4b28557f7cd6942a475d5576e2ec3c494e51e73eca952bd",
+      "bytes": 552
+    },
+    {
+      "name": "i-copy-copy.json",
+      "sha256": "778a1091db0af31031a3bb54a5adcf8e5d68491d6a5ce3acac1d44a52c84cb2c",
+      "bytes": 547
+    },
+    {
+      "name": "i-copy-verify.json",
+      "sha256": "3b306d08e1d1904fab66ac5433b7a650b9ba08269b32854618be55d24f483c4d",
+      "bytes": 547
+    },
+    {
+      "name": "results.json",
+      "sha256": "79abbcf671e60180acc4787a056579f6a83a1d220bb5d929cab19bcd0de3e439",
+      "bytes": 743
+    }
+  ]
+}
