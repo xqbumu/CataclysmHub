@@ -7,6 +7,17 @@ use crate::{
 impl Hub {
     pub async fn import_installation(&self, executable: &str, name: &str) -> Result<Installation> {
         let _guard = self.mutation.lock().await;
+        let installation = self.prepare_installation(executable, name).await?;
+        let mut tx = self.pool.begin().await.map_err(HubError::db)?;
+        Self::write_installation(&mut tx, &installation).await?;
+        tx.commit().await.map_err(HubError::db)?;
+        Ok(installation)
+    }
+    pub(crate) async fn prepare_installation(
+        &self,
+        executable: &str,
+        name: &str,
+    ) -> Result<Installation> {
         if self.dashboard().await?.workspace.is_none() {
             return Err(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"));
         }
@@ -61,8 +72,13 @@ impl Hub {
             arch: std::env::consts::ARCH.to_owned(),
             imported_at: now(),
         };
-        let mut tx = self.pool.begin().await.map_err(HubError::db)?;
-        sqlx::query("INSERT INTO installation VALUES (?,?,?,?,?,?,?,?,?,?)")
+        Ok(installation)
+    }
+    pub(crate) async fn write_installation(
+        tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+        installation: &Installation,
+    ) -> Result<()> {
+        let inserted = sqlx::query("INSERT INTO installation VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(executable) DO NOTHING")
             .bind(&installation.id)
             .bind(&installation.name)
             .bind(&installation.executable)
@@ -73,9 +89,24 @@ impl Hub {
             .bind(&installation.platform)
             .bind(&installation.arch)
             .bind(&installation.imported_at)
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await
-            .map_err(HubError::db)?;
+            .map_err(HubError::db)?.rows_affected();
+        if inserted == 0 {
+            let existing: String =
+                sqlx::query_scalar("SELECT id FROM installation WHERE executable=?")
+                    .bind(&installation.executable)
+                    .fetch_one(&mut **tx)
+                    .await
+                    .map_err(HubError::db)?;
+            if existing != installation.id {
+                return Err(HubError::new(
+                    "INSTALLATION_CHANGED",
+                    "安装记录已变化，请重新检查。",
+                ));
+            }
+            return Ok(());
+        }
         sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
             .bind(id())
             .bind(&installation.id)
@@ -83,11 +114,10 @@ impl Hub {
             .bind("succeeded")
             .bind(Option::<String>::None)
             .bind(now())
-            .execute(&mut *tx)
+            .execute(&mut **tx)
             .await
             .map_err(HubError::db)?;
-        tx.commit().await.map_err(HubError::db)?;
-        Ok(installation)
+        Ok(())
     }
     pub(crate) async fn installation(&self, installation_id: &str) -> Result<Installation> {
         sqlx::query_as("SELECT * FROM installation WHERE id=?")

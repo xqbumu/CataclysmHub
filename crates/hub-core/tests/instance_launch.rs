@@ -266,7 +266,7 @@ async fn schema_seven_upgrade_preserves_old_sessions_and_snapshots() {
     let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", db.display()))
         .await
         .unwrap();
-    sqlx::raw_sql("ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN launch_profile_id; ALTER TABLE session DROP COLUMN instance_data_root; PRAGMA user_version=7;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN launch_profile_id; ALTER TABLE session DROP COLUMN instance_data_root; PRAGMA user_version=7;").execute(&pool).await.unwrap();
     sqlx::query("INSERT INTO session(id,installation_id,state,started_at) VALUES ('old',?,'exited_unverified','2026-10-28T00:00:00Z')").bind(&f.installation).execute(&pool).await.unwrap();
     pool.close().await;
     let reopened = Hub::open(&f.temp.path().join("metadata")).await.unwrap();
@@ -292,7 +292,7 @@ async fn failed_schema_eight_upgrade_does_not_partially_alter_sessions() {
     let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", db.display()))
         .await
         .unwrap();
-    sqlx::raw_sql("ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN instance_data_root; PRAGMA user_version=7;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN instance_data_root; PRAGMA user_version=7;").execute(&pool).await.unwrap();
     pool.close().await;
     assert!(Hub::open(&f.temp.path().join("metadata")).await.is_err());
     let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", db.display()))

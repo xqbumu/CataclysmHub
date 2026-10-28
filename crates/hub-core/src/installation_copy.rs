@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     io::Write,
     path::{Component, Path, PathBuf},
-    sync::atomic::AtomicBool,
+    sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
 };
 
 const MAX_ENTRIES: usize = 20_000;
@@ -131,12 +131,8 @@ fn set_modes(dir: &Dir, name: &str, mode: Option<u32>, _readonly: bool) -> Resul
         dir.set_permissions(name, permissions).map_err(io)
     }
 }
-fn hash(dir: &Dir, path: &str, limit: u64) -> Result<(u64, String)> {
-    format::hash_reader(
-        &mut format::open_file(dir, path)?,
-        limit,
-        &AtomicBool::new(false),
-    )
+fn hash(dir: &Dir, path: &str, limit: u64, cancel: &AtomicBool) -> Result<(u64, String)> {
+    format::hash_reader(&mut format::open_file(dir, path)?, limit, cancel)
 }
 fn safe_link(dir: &Dir, path: &str) -> Result<(String, bool)> {
     let (parent, name) = format::parent(dir, path)?;
@@ -161,7 +157,11 @@ fn safe_link(dir: &Dir, path: &str) -> Result<(String, bool)> {
     }
     Ok((text, metadata.is_dir()))
 }
-fn inventory(root: &Dir, independent: bool) -> Result<Vec<InstallationCopyEntry>> {
+fn inventory(
+    root: &Dir,
+    independent: bool,
+    cancel: &AtomicBool,
+) -> Result<Vec<InstallationCopyEntry>> {
     fn walk(
         root: &Dir,
         dir: &Dir,
@@ -169,8 +169,10 @@ fn inventory(root: &Dir, independent: bool) -> Result<Vec<InstallationCopyEntry>
         depth: usize,
         entries: &mut Vec<InstallationCopyEntry>,
         bytes: &mut u64,
-        independent: bool,
+        controls: (bool, &AtomicBool),
     ) -> Result<()> {
+        let (independent, cancel) = controls;
+        format::check_cancel(cancel)?;
         if depth > 32 {
             return Err(HubError::new(
                 "COPY_LIMIT_EXCEEDED",
@@ -178,6 +180,7 @@ fn inventory(root: &Dir, independent: bool) -> Result<Vec<InstallationCopyEntry>
             ));
         }
         for item in dir.entries().map_err(io)? {
+            format::check_cancel(cancel)?;
             let item = item.map_err(io)?;
             let name = paths::text(Path::new(&item.file_name()))?;
             let path = if prefix.is_empty() {
@@ -214,7 +217,7 @@ fn inventory(root: &Dir, independent: bool) -> Result<Vec<InstallationCopyEntry>
                 entry.kind = "directory".into();
                 entries.push(entry);
                 let child = dir.open_dir_nofollow(&name).map_err(io)?;
-                walk(root, &child, &path, depth + 1, entries, bytes, independent)?;
+                walk(root, &child, &path, depth + 1, entries, bytes, controls)?;
             } else if metadata.is_file() {
                 #[cfg(unix)]
                 {
@@ -234,7 +237,7 @@ fn inventory(root: &Dir, independent: bool) -> Result<Vec<InstallationCopyEntry>
                         "安装复制总量超过 64 GiB。",
                     ));
                 }
-                let (size, digest) = hash(root, &path, remaining)?;
+                let (size, digest) = hash(root, &path, remaining, cancel)?;
                 if size != metadata.len() {
                     return Err(changed());
                 }
@@ -260,14 +263,22 @@ fn inventory(root: &Dir, independent: bool) -> Result<Vec<InstallationCopyEntry>
         Ok(())
     }
     let mut entries = Vec::new();
-    walk(root, root, "", 0, &mut entries, &mut 0, independent)?;
+    walk(
+        root,
+        root,
+        "",
+        0,
+        &mut entries,
+        &mut 0,
+        (independent, cancel),
+    )?;
     entries.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
     if serde_json::to_vec(&entries).map_err(|_| invalid())?.len() > MAX_METADATA / 2 {
         return Err(invalid());
     }
     Ok(entries)
 }
-struct Prepared {
+pub(crate) struct Prepared {
     root: Dir,
     parent: Dir,
     source: PathBuf,
@@ -275,7 +286,7 @@ struct Prepared {
     leaf: String,
     manifest: Manifest,
 }
-fn prepare(source: &Path, executable: &str, destination: &Path) -> Result<Prepared> {
+pub(crate) fn prepare(source: &Path, executable: &str, destination: &Path) -> Result<Prepared> {
     format::validate_path(executable)?;
     let source = std::fs::canonicalize(source).map_err(io)?;
     let root = Dir::open_ambient_dir(&source, cap_std::ambient_authority()).map_err(io)?;
@@ -310,7 +321,7 @@ fn prepare(source: &Path, executable: &str, destination: &Path) -> Result<Prepar
     let name = paths::text(Path::new(source.file_name().ok_or_else(invalid)?))?;
     format::validate_path(&name)?;
     let (root_unix_mode, root_readonly) = modes(&root.dir_metadata().map_err(io)?)?;
-    let entries = inventory(&root, false)?;
+    let entries = inventory(&root, false, &AtomicBool::new(false))?;
     let executable_entry = entries
         .iter()
         .find(|e| e.relative_path == executable && e.kind == "file")
@@ -349,21 +360,35 @@ pub fn plan_installation_copy(
     destination: &Path,
 ) -> Result<InstallationCopyPlan> {
     let p = prepare(source, executable, destination)?;
-    Ok(InstallationCopyPlan {
-        source_root: paths::text(&p.source)?,
-        destination: paths::text(&p.parent_path.join(&p.leaf))?,
-        executable_relative: p.manifest.executable_relative,
-        executable_sha256: p.manifest.executable_sha256,
-        total_bytes: total(&p.manifest.entries)?.to_string(),
-        entries: p.manifest.entries,
-        warnings: vec![
-            "仅生成只读范围预览；确认执行时会重新检查源内容。".into(),
-            "副本不证明完整写入隔离、签名有效、游戏兼容性或可安全并发。".into(),
-            "不复制 ACL、扩展属性或所有者；不会执行、重新签名或自动登记游戏。".into(),
-            "不重写配置中的绝对路径；仍须建立独立玩家目录与启动环境。".into(),
-        ],
-    })
+    p.preview()
 }
+impl Prepared {
+    pub(crate) fn identity(&self) -> Result<(String, String, String)> {
+        Ok((
+            self.manifest.copy_id.clone(),
+            self.manifest.payload_root.clone(),
+            format::sha(&serde_json::to_vec_pretty(&self.manifest).map_err(|_| invalid())?),
+        ))
+    }
+    pub(crate) fn preview(&self) -> Result<InstallationCopyPlan> {
+        let p = self;
+        Ok(InstallationCopyPlan {
+            source_root: paths::text(&p.source)?,
+            destination: paths::text(&p.parent_path.join(&p.leaf))?,
+            executable_relative: p.manifest.executable_relative.clone(),
+            executable_sha256: p.manifest.executable_sha256.clone(),
+            total_bytes: total(&p.manifest.entries)?.to_string(),
+            entries: p.manifest.entries.clone(),
+            warnings: vec![
+                "仅生成只读范围预览；确认执行时会重新检查源内容。".into(),
+                "副本不证明完整写入隔离、签名有效、游戏兼容性或可安全并发。".into(),
+                "不复制 ACL、扩展属性或所有者；不会执行、重新签名或自动登记游戏。".into(),
+                "不重写配置中的绝对路径；仍须建立独立玩家目录与启动环境。".into(),
+            ],
+        })
+    }
+}
+
 fn write_json(root: &Dir, name: &str, value: &impl Serialize) -> Result<Vec<u8>> {
     let bytes = serde_json::to_vec_pretty(value).map_err(|_| invalid())?;
     if bytes.len() > MAX_METADATA {
@@ -420,6 +445,22 @@ pub fn copy_installation_to_new_directory(
 ) -> Result<InstallationCopyVerification> {
     copy_with_hook(source, executable, destination, |_| Ok(()))
 }
+pub(crate) struct CopyControl {
+    pub cancel: AtomicBool,
+    pub processed: AtomicU64,
+    pub phase: AtomicU8,
+    pub published: AtomicBool,
+}
+impl CopyControl {
+    pub(crate) fn new() -> Self {
+        Self {
+            cancel: AtomicBool::new(false),
+            processed: AtomicU64::new(0),
+            phase: AtomicU8::new(0),
+            published: AtomicBool::new(false),
+        }
+    }
+}
 fn copy_with_hook(
     source: &Path,
     executable: &str,
@@ -427,6 +468,15 @@ fn copy_with_hook(
     before_commit: impl FnOnce(&Dir) -> Result<()>,
 ) -> Result<InstallationCopyVerification> {
     let p = prepare(source, executable, destination)?;
+    execute_prepared(&p, &CopyControl::new(), before_commit)
+}
+pub(crate) fn execute_prepared<T>(
+    p: &Prepared,
+    control: &CopyControl,
+    before_commit: impl FnOnce(&Dir) -> Result<T>,
+) -> Result<InstallationCopyVerification> {
+    format::check_cancel(&control.cancel)?;
+    control.phase.store(1, Ordering::Release);
     let required = total(&p.manifest.entries)?
         .checked_add(16 * 1024 * 1024)
         .ok_or_else(invalid)?;
@@ -457,6 +507,7 @@ fn copy_with_hook(
     payload_parent.create_dir(&name).map_err(io)?;
     let target = payload_parent.open_dir_nofollow(&name).map_err(io)?;
     for entry in &p.manifest.entries {
+        format::check_cancel(&control.cancel)?;
         let (parent, name) = format::parent(&target, &entry.relative_path)?;
         match entry.kind.as_str() {
             "directory" => parent.create_dir(&name).map_err(io)?,
@@ -469,7 +520,7 @@ fn copy_with_hook(
                     &mut source,
                     &mut dest,
                     entry.size.parse().map_err(|_| invalid())?,
-                    &AtomicBool::new(false),
+                    &control.cancel,
                 )?;
                 if size.to_string() != entry.size || Some(digest) != entry.sha256 {
                     return Err(changed());
@@ -487,9 +538,13 @@ fn copy_with_hook(
             "symlink" => (),
             _ => return Err(invalid()),
         }
+        if entry.kind != "symlink" {
+            control.processed.fetch_add(1, Ordering::Release);
+        }
     }
     for entry in p.manifest.entries.iter().filter(|e| e.kind == "symlink") {
         let (parent, name) = format::parent(&target, &entry.relative_path)?;
+        format::check_cancel(&control.cancel)?;
         let link = entry.link_target.as_ref().ok_or_else(invalid)?;
         #[cfg(not(windows))]
         parent.symlink(link, &name).map_err(io)?;
@@ -502,6 +557,7 @@ fn copy_with_hook(
             }
             .map_err(io)?;
         }
+        control.processed.fetch_add(1, Ordering::Release);
     }
     for entry in p
         .manifest
@@ -510,6 +566,7 @@ fn copy_with_hook(
         .rev()
         .filter(|e| e.kind == "directory")
     {
+        format::check_cancel(&control.cancel)?;
         let (parent, name) = format::parent(&target, &entry.relative_path)?;
         set_modes(&parent, &name, entry.unix_mode, entry.readonly)?;
     }
@@ -519,6 +576,10 @@ fn copy_with_hook(
         p.manifest.root_unix_mode,
         p.manifest.root_readonly,
     )?;
+    control.phase.store(2, Ordering::Release);
+    let source_entries = inventory(&p.root, false, &control.cancel)?;
+    control.phase.store(3, Ordering::Release);
+    let target_entries = inventory(&target, true, &control.cancel)?;
     if modes(&p.root.dir_metadata().map_err(io)?)?
         != (p.manifest.root_unix_mode, p.manifest.root_readonly)
         || modes(&target.dir_metadata().map_err(io)?)?
@@ -527,15 +588,17 @@ fn copy_with_hook(
             &target,
             &p.parent_path.join(&p.leaf).join(&p.manifest.payload_root),
         )?
-        || inventory(&p.root, false)? != p.manifest.entries
-        || inventory(&target, true)? != p.manifest.entries
+        || source_entries != p.manifest.entries
+        || target_entries != p.manifest.entries
         || !same_dir(&p.parent, &p.parent_path)?
         || !same_dir(&p.root, &p.source)?
         || !same_dir(&container, &p.parent_path.join(&p.leaf))?
     {
         return Err(changed());
     }
-    before_commit(&container)?;
+    control.phase.store(4, Ordering::Release);
+    let _commit_guard = before_commit(&container)?;
+    format::check_cancel(&control.cancel)?;
     let manifest_bytes = write_json(&container, MANIFEST, &p.manifest)?;
     let verified = result(&p.manifest, format::sha(&manifest_bytes))?;
     write_json(&container, RECEIPT, &verified)?;
@@ -545,6 +608,7 @@ fn copy_with_hook(
     container.remove_file(MARKER).map_err(io)?;
     sync_dir(&container)?;
     sync_dir(&p.parent)?;
+    control.published.store(true, Ordering::Release);
     Ok(verified)
 }
 fn sync_tree(root: &Dir, entries: &[InstallationCopyEntry]) -> Result<()> {
@@ -616,7 +680,7 @@ pub fn verify_installation_copy(container: &Path) -> Result<InstallationCopyVeri
     let payload = parent.open_dir_nofollow(name).map_err(io)?;
     if modes(&payload.dir_metadata().map_err(io)?)?
         != (manifest.root_unix_mode, manifest.root_readonly)
-        || inventory(&payload, true)? != manifest.entries
+        || inventory(&payload, true, &AtomicBool::new(false))? != manifest.entries
     {
         return Err(invalid());
     }

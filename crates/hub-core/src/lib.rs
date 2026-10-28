@@ -50,3 +50,6 @@ pub use installation_copy::{
     InstallationCopyEntry, InstallationCopyPlan, InstallationCopyVerification,
     copy_installation_to_new_directory, plan_installation_copy, verify_installation_copy,
 };
+
+mod managed_installation_copy;
+pub use managed_installation_copy::{InstallationCopyTask, ManagedInstallationCopyPlan};

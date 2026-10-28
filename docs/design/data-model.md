@@ -90,3 +90,7 @@ session 增加可空 play_instance_id（外键）、launch_profile_id、instance
 ## 当前实现补充：实例备份来源（schema 9）
 
 backup_task 与 backup_archive 各新增 nullable play_instance_id（引用 play_instance）、source_root。旧记录为 null，保持历史，不通过当前目录推断来源。新计划及任务由服务端记录实际源根；归档保存实例关联，独立清单 v2 带登记安装身份快照。恢复不自动绑定实例，保留预览不混合不同实例范围。见 [来源与迁移契约](instance-backup.md)。
+
+## Schema 10：持久安装复制
+
+新增 installation_copy_task，保留 request_key（唯一）、request_digest、source_installation_id 外键、来源/目标路径、程序与原始清单 SHA、copy_id/payload_root、条目/文件/链接计数、字节字符串、状态/阶段/进度/revision、错误与完成/核验时间，以及可选 registered_installation_id 外键。destination 唯一。安装登记、任务关联和两类审计同事务提交。升级前保存 schema 9 快照；迁移失败回滚。重启不重放复制，将活动任务标记 recovery_required。完整字段约束以 migration-010.sql 为准。

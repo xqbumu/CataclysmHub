@@ -1,3 +1,4 @@
+import InstallationCopiesPanel from './InstallationCopiesPanel';
 import ResourceClaimsPanel from './ResourceClaimsPanel';
 import PlayInstancesPanel from './PlayInstancesPanel';
 import Modal from './Modal';
@@ -72,6 +73,9 @@ const statusNames: Record<string, string> = {
 const actionNames: Record<string, string> = {
   'workspace.initialize': '工作区初始化',
   'installation.import': '导入游戏安装',
+  'installation.copy': '复制独立安装',
+  'installation.copy_cancel': '取消安装复制',
+  'installation.copy_register': '登记已核验副本',
   'instance.register': '登记游玩实例',
   'game.launch': '启动游戏',
   'game.process_result': '记录进程结果',
@@ -757,6 +761,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                 ))}
               {page === 'games' && workspace && (
                 <>
+                  <InstallationCopiesPanel
+                    api={api}
+                    data={data}
+                    onRefresh={refresh}
+                  />
                   <PlayInstancesPanel
                     api={api}
                     data={data}

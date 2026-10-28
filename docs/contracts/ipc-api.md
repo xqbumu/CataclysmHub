@@ -133,3 +133,12 @@ preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`
 ## 当前实现补充：实例完整备份（schema 9）
 
 `prepare_instance_backup({ instanceId }) -> BackupPlan`，来源仅由已登记实例解析，计划新增可空 play_instance_id。后续沿用 create_backup 的计划 ID、摘要、单次确认和幂等请求键。BackupTask/BackupRecord 新增可空 play_instance_id、source_root；旧历史保留 null。实例清单使用 manifest v2，工作区继续 v1；receipt 仍为 v1。INSTANCE_CONTEXT_INVALID 表示来源元数据不能生成可读归档，未写临时目录。范围、目录身份、保留预览排除及独立恢复边界见 [实例备份](../design/instance-backup.md)。
+
+## 2026-10-28 桌面持久安装复制补充
+
+- `prepare_installation_copy({installationId, sourceRoot, parentDir})`：来源与父目录必须是本进程原生目录选择器授权路径；返回 ManagedInstallationCopyPlan，包含实际范围、目标、程序/清单摘要、统计、有效期及 warnings。
+- `start_installation_copy({planId, planDigest, requestKey, confirmed})`：消费有效缓存计划；请求键 UUID 持久幂等，返回 InstallationCopyTask。
+- `cancel_installation_copy({taskId})`：持久取消意图；发布完成后 COPY_COMMITTING。
+- `register_copied_installation({taskId, name})`：独立回读并核对原确认清单，显式登记；返回 Installation。失败回滚安装、关联及审计。
+
+Dashboard 新增 copy_tasks（最近 20 条）。任务包含来源、目标、清单/程序摘要、计数、状态、阶段、条目进度、revision、错误、时间及可选 registered_installation_id。字节数使用十进制字符串。TASK_RESULT_PERSIST_FAILED 继续使用已有 retry_task_recovery。DTO 由 Rust 导出，调用方不能传入已验证绑定或隔离标记。详见 [设计](../design/managed-installation-copy.md)。

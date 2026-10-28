@@ -1,3 +1,5 @@
+import type { ManagedInstallationCopyPlan } from './bindings/ManagedInstallationCopyPlan';
+import type { InstallationCopyTask } from './bindings/InstallationCopyTask';
 import type { InstanceResourcePreview } from './bindings/InstanceResourcePreview';
 import type { PlayInstance } from './bindings/PlayInstance';
 import type { PlayInstanceInput } from './bindings/PlayInstanceInput';
@@ -42,6 +44,7 @@ export type {
   InspectionTask,
 };
 export const emptyDashboard: Dashboard = {
+  copy_tasks: [],
   resource_claims: [],
   workspace: null,
   installations: [],
@@ -55,6 +58,23 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  prepareInstallationCopy(
+    installationId: string,
+    sourceRoot: string,
+    parentDir: string,
+  ): Promise<ManagedInstallationCopyPlan>;
+  startInstallationCopy(
+    planId: string,
+    planDigest: string,
+    requestKey: string,
+    confirmed: boolean,
+  ): Promise<InstallationCopyTask>;
+  cancelInstallationCopy(taskId: string): Promise<InstallationCopyTask>;
+  registerCopiedInstallation(
+    taskId: string,
+    name: string,
+  ): Promise<Installation>;
+
   previewInstanceResources(
     instanceId: string,
   ): Promise<InstanceResourcePreview>;
@@ -112,6 +132,24 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  prepareInstallationCopy: (installationId, sourceRoot, parentDir) =>
+    desktopOnly('prepare_installation_copy', {
+      installationId,
+      sourceRoot,
+      parentDir,
+    }),
+  startInstallationCopy: (planId, planDigest, requestKey, confirmed) =>
+    desktopOnly('start_installation_copy', {
+      planId,
+      planDigest,
+      requestKey,
+      confirmed,
+    }),
+  cancelInstallationCopy: (taskId) =>
+    desktopOnly('cancel_installation_copy', { taskId }),
+  registerCopiedInstallation: (taskId, name) =>
+    desktopOnly('register_copied_installation', { taskId, name }),
+
   previewInstanceResources: (instanceId) =>
     desktopOnly('preview_instance_resources', { instanceId }),
   registerPlayInstance: (input) =>

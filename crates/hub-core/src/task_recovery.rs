@@ -8,6 +8,7 @@ pub(crate) enum TaskKind {
     Backup,
     Restore,
     Inspection,
+    InstallationCopy,
 }
 impl TaskKind {
     fn table(self) -> &'static str {
@@ -16,6 +17,7 @@ impl TaskKind {
             Self::Backup => "backup_task",
             Self::Restore => "restore_task",
             Self::Inspection => "inspection_task",
+            Self::InstallationCopy => "installation_copy_task",
         }
     }
     fn action(self) -> &'static str {
@@ -24,6 +26,7 @@ impl TaskKind {
             Self::Backup => "backup.reconcile",
             Self::Restore => "backup.restore_new",
             Self::Inspection => "backup.inspect_restored",
+            Self::InstallationCopy => "installation.copy",
         }
     }
 }

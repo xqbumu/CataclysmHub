@@ -76,6 +76,10 @@ const record: BackupRecord = {
 function client(): HubApi {
   return {
     desktop: true,
+    prepareInstallationCopy: vi.fn(),
+    startInstallationCopy: vi.fn(),
+    cancelInstallationCopy: vi.fn(),
+    registerCopiedInstallation: vi.fn(),
     dashboard: vi.fn(),
     pickPath: vi.fn(),
     initialize: vi.fn(),

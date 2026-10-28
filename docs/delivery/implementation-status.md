@@ -194,3 +194,9 @@ schema 9 为备份任务和归档增加实例/源根关联，旧记录为 null�
 核心不执行、重新签名、登记或绑定游戏，不修改 schema 9/IPC/前端；桌面持久复制任务与来源关联仍待接入。副本不自动重写配置、包标识或环境里的绝对路径，binding_verified/isolation_verified 恒 false，全局并发保护未撤销。
 
 本机 Rust 149 项及 Clippy/格式检查通过。合成用例覆盖源离线独立验证、缓存互不影响、非覆盖/链接/硬链接/权限负例和完成边界真实强杀。两个既有真实 macOS QA 包复制/独立校验均退出 0，H 9731 文件、I-1 11135 文件，各 16 链接，程序摘要保持一致；未运行副本或宣称签名/完整隔离通过。见 [设计](../design/installation-copy.md)、[验证及样本限制](../quality/installation-copy-verification.md)。
+
+## 2026-10-28：桌面持久安装复制
+
+独立复制已接入游戏库：原生授权来源/目标、摘要预览、明确确认、持久任务与进度、取消、重启中断恢复、独立核验后显式登记。schema 10；不自动绑定或启动。核心全套 160 项、前端 53 项通过，Clippy/格式/类型/production build/macOS debug 打包通过。
+
+原生 UI 本轮仅确认来源选择与 schema 升级；目标目录选择遇到辅助接口 noWindowsAvailable，完整复制与登记界面流程尚未验收。详情见 [验证记录](../quality/managed-installation-copy-verification.md)。真实绑定、存档影响和多版本并发仍未验收，全局互斥未解除。

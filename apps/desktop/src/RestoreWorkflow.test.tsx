@@ -35,6 +35,10 @@ const task: RestoreTask = {
 function client() {
   return {
     desktop: true,
+    prepareInstallationCopy: vi.fn(),
+    startInstallationCopy: vi.fn(),
+    cancelInstallationCopy: vi.fn(),
+    registerCopiedInstallation: vi.fn(),
     dashboard: vi.fn(),
     pickPath: vi.fn().mockResolvedValue('/chosen'),
     initialize: vi.fn(),

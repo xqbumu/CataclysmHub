@@ -38,6 +38,7 @@ impl Hub {
                         crate::task_recovery::TaskKind::Backup => "backup",
                         crate::task_recovery::TaskKind::Restore => "restore",
                         crate::task_recovery::TaskKind::Inspection => "inspection",
+                        crate::task_recovery::TaskKind::InstallationCopy => "installation_copy",
                     }
             })
         });

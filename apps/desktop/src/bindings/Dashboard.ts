@@ -3,6 +3,7 @@ import type { BackupRecord } from "./BackupRecord";
 import type { BackupTask } from "./BackupTask";
 import type { InspectionTask } from "./InspectionTask";
 import type { Installation } from "./Installation";
+import type { InstallationCopyTask } from "./InstallationCopyTask";
 import type { OperationLog } from "./OperationLog";
 import type { PlayInstance } from "./PlayInstance";
 import type { ResourceClaim } from "./ResourceClaim";
@@ -11,4 +12,4 @@ import type { ScanTask } from "./ScanTask";
 import type { Session } from "./Session";
 import type { Workspace } from "./Workspace";
 
-export type Dashboard = { resource_claims: Array<ResourceClaim>, workspace: Workspace | null, installations: Array<Installation>, play_instances: Array<PlayInstance>, sessions: Array<Session>, operations: Array<OperationLog>, scan_tasks: Array<ScanTask>, backup_tasks: Array<BackupTask>, backups: Array<BackupRecord>, restore_tasks: Array<RestoreTask>, inspection_tasks: Array<InspectionTask>, };
+export type Dashboard = { copy_tasks: Array<InstallationCopyTask>, resource_claims: Array<ResourceClaim>, workspace: Workspace | null, installations: Array<Installation>, play_instances: Array<PlayInstance>, sessions: Array<Session>, operations: Array<OperationLog>, scan_tasks: Array<ScanTask>, backup_tasks: Array<BackupTask>, backups: Array<BackupRecord>, restore_tasks: Array<RestoreTask>, inspection_tasks: Array<InspectionTask>, };

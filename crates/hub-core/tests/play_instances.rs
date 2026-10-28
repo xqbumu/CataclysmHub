@@ -186,7 +186,7 @@ async fn schema_six_upgrade_keeps_a_snapshot_and_records() {
     let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", db.display()))
         .await
         .unwrap();
-    sqlx::raw_sql("ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN launch_profile_id; ALTER TABLE session DROP COLUMN instance_data_root; DROP TABLE play_instance; PRAGMA user_version=6;")
+    sqlx::raw_sql("DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN launch_profile_id; ALTER TABLE session DROP COLUMN instance_data_root; DROP TABLE play_instance; PRAGMA user_version=6;")
         .execute(&pool)
         .await
         .unwrap();

@@ -1662,3 +1662,27 @@ select:focus-visible {
   border-bottom: 1px solid var(--line);
   padding: 12px 0;
 }
+
+.installation-copies {
+  margin-top: 24px;
+  padding: 24px;
+}
+.installation-copies > label,
+.installation-copies > label select {
+  display: block;
+  margin: 12px 0;
+}
+.copy-path {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 12px 0;
+}
+.installation-copies code {
+  overflow-wrap: anywhere;
+}
+.copy-task {
+  padding: 16px 0;
+  margin-top: 16px;
+  border-top: 1px solid var(--line);
+}

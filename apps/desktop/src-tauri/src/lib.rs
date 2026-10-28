@@ -76,6 +76,51 @@ async fn pick_path(
     Ok(Some(text))
 }
 #[tauri::command]
+async fn prepare_installation_copy(
+    state: tauri::State<'_, AppState>,
+    installation_id: String,
+    source_root: String,
+    parent_dir: String,
+) -> Result<hub_core::ManagedInstallationCopyPlan, HubError> {
+    authorized(&state, &source_root)?;
+    authorized(&state, &parent_dir)?;
+    state
+        .hub
+        .prepare_managed_installation_copy(&installation_id, &source_root, &parent_dir)
+        .await
+}
+#[tauri::command]
+async fn start_installation_copy(
+    state: tauri::State<'_, AppState>,
+    plan_id: String,
+    plan_digest: String,
+    request_key: String,
+    confirmed: bool,
+) -> Result<hub_core::InstallationCopyTask, HubError> {
+    state
+        .hub
+        .start_installation_copy(&plan_id, &plan_digest, &request_key, confirmed)
+        .await
+}
+#[tauri::command]
+async fn cancel_installation_copy(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+) -> Result<hub_core::InstallationCopyTask, HubError> {
+    state.hub.cancel_installation_copy(&task_id).await
+}
+#[tauri::command]
+async fn register_copied_installation(
+    state: tauri::State<'_, AppState>,
+    task_id: String,
+    name: String,
+) -> Result<Installation, HubError> {
+    state
+        .hub
+        .register_copied_installation(&task_id, &name)
+        .await
+}
+#[tauri::command]
 async fn get_dashboard(state: tauri::State<'_, AppState>) -> Result<Dashboard, HubError> {
     state.hub.dashboard().await
 }
@@ -314,6 +359,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             pick_path,
             get_dashboard,
+            prepare_installation_copy,
+            start_installation_copy,
+            cancel_installation_copy,
+            register_copied_installation,
             initialize_workspace,
             import_installation,
             register_play_instance,
