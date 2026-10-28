@@ -78,6 +78,7 @@ pub struct OperationLog {
 pub struct Dashboard {
     pub workspace: Option<Workspace>,
     pub installations: Vec<Installation>,
+    pub play_instances: Vec<crate::PlayInstance>,
     pub sessions: Vec<Session>,
     pub operations: Vec<OperationLog>,
     pub scan_tasks: Vec<ScanTask>,

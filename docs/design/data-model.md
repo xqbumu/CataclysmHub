@@ -74,3 +74,7 @@ schema 1～4 打开前创建 VACUUM 一致性副本、quick_check 与持久化�
 ## 当前实现：schema 6 备份标注（2026-10-28）
 
 backup_archive 新增 display_name / notes（默认空）、retention_locked（默认 false）、metadata_revision（默认 0，限制为 JS 安全整数范围）与 metadata_updated_at（默认 null）。这些字段不纳入原始归档格式，不改变独立恢复的数据库无关性。更新使用预期修订比较与事务审计，内容相同的请求不重复推进版本，审计失败回滚全部变更。升级前创建 schema 1～5 的一致性副本；ALTER 失败整体回滚。详情见 [标注设计](backup-details-implementation.md)。
+
+## 当前实现补充：schema 7 游玩实例（2026-10-28）
+
+`play_instance(id, installation_id, installation_sha256, name, data_root, binding_status, created_at)`；安装外键、目录唯一、绑定状态固定 `unverified`。单安装多实例，实例登记尚不构成实际目录绑定。详细不变量与迁移见 [实例登记](play-instance-registration.md)。

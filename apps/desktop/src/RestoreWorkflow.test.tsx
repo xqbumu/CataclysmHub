@@ -39,6 +39,7 @@ function client() {
     pickPath: vi.fn().mockResolvedValue('/chosen'),
     initialize: vi.fn(),
     importInstallation: vi.fn(),
+    registerPlayInstance: vi.fn(),
     launchPlan: vi.fn(),
     launch: vi.fn(),
     acknowledge: vi.fn(),

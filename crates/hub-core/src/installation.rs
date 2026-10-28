@@ -33,6 +33,22 @@ impl Hub {
             path.parent()
                 .ok_or(HubError::new("PATH_INVALID", "程序缺少有效工作目录。"))?,
         )?;
+        let roots = self.play_instances().await?;
+        let candidate_dir = std::path::PathBuf::from(&working_dir);
+        tokio::task::spawn_blocking(move || {
+            for instance in roots {
+                let root = paths::canonical(&instance.data_root, true)?;
+                if crate::play_instances::overlaps(&candidate_dir, &root)? {
+                    return Err(HubError::new(
+                        "INSTANCE_SCOPE_OVERLAP",
+                        "游戏安装目录不能与已登记实例目录重叠。",
+                    ));
+                }
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "实例目录检查未完成。"))??;
         let installation = Installation {
             id: id(),
             name: name.to_owned(),

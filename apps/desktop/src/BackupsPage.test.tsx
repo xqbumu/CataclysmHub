@@ -80,6 +80,7 @@ function client(): HubApi {
     pickPath: vi.fn(),
     initialize: vi.fn(),
     importInstallation: vi.fn(),
+    registerPlayInstance: vi.fn(),
     launchPlan: vi.fn(),
     launch: vi.fn(),
     acknowledge: vi.fn(),

@@ -1,3 +1,5 @@
+import type { PlayInstance } from './bindings/PlayInstance';
+import type { PlayInstanceInput } from './bindings/PlayInstanceInput';
 import { invoke, isTauri } from '@tauri-apps/api/core';
 
 import type { Workspace } from './bindings/Workspace';
@@ -41,6 +43,7 @@ export type {
 export const emptyDashboard: Dashboard = {
   workspace: null,
   installations: [],
+  play_instances: [],
   sessions: [],
   operations: [],
   scan_tasks: [],
@@ -50,6 +53,7 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  registerPlayInstance(input: PlayInstanceInput): Promise<PlayInstance>;
   desktop: boolean;
   dashboard(): Promise<Dashboard>;
   pickPath(kind: 'directory' | 'executable'): Promise<string | null>;
@@ -98,6 +102,8 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  registerPlayInstance: (input) =>
+    desktopOnly('register_play_instance', { input }),
   desktop: isTauri(),
   dashboard: () =>
     isTauri() ? desktopOnly('get_dashboard') : Promise.resolve(emptyDashboard),

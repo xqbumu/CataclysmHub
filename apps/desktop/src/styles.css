@@ -1612,3 +1612,25 @@ select:focus-visible {
   margin-top: 6px;
   overflow-wrap: anywhere;
 }
+
+.instances-panel {
+  margin-top: 24px;
+  padding: 24px;
+}
+.instances-panel p {
+  overflow-wrap: anywhere;
+  margin: 12px 0;
+}
+.instances-panel form {
+  display: grid;
+  gap: 12px;
+  max-width: 680px;
+}
+.instances-panel label {
+  display: grid;
+  gap: 8px;
+}
+.instances-panel article {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}

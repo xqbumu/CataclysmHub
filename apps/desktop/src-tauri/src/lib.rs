@@ -99,6 +99,14 @@ async fn import_installation(
     state.hub.import_installation(&executable, &name).await
 }
 #[tauri::command]
+async fn register_play_instance(
+    state: tauri::State<'_, AppState>,
+    input: hub_core::PlayInstanceInput,
+) -> Result<hub_core::PlayInstance, HubError> {
+    authorized(&state, &input.data_root)?;
+    state.hub.register_play_instance(input).await
+}
+#[tauri::command]
 async fn create_launch_plan(
     state: tauri::State<'_, AppState>,
     installation_id: String,
@@ -283,6 +291,7 @@ pub fn run() {
             get_dashboard,
             initialize_workspace,
             import_installation,
+            register_play_instance,
             create_launch_plan,
             launch_game,
             acknowledge_interrupted,

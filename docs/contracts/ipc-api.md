@@ -108,3 +108,7 @@ update_backup_details 接受 `{ input: BackupDetailsInput }`，字段为 backup_
 preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`，返回 RetentionPreview（Rust 单一源 DTO）。上限 1000 / 366 / 104，0 关闭规则。报告最多 5000 条完整记录；RETENTION_LIMIT_EXCEEDED 不返回截断候选，日期/容量非法为 RETENTION_METADATA_INVALID，规则越界为 RETENTION_POLICY_INVALID。
 
 报告为只读元数据模拟，无审计写入或文件操作，version_context=unverified / deletion_available=false。日/周按 UTC 计算，窗口并非自动检查点设置。逐项原因及逻辑容量不能充当介质复检、兼容证明或删除授权。游戏版本与存档影响的实施门见 [范围说明](../design/version-save-impact-scope.md)。
+
+## 当前实现补充：游玩实例登记（schema 7）
+
+`register_play_instance({ input: { installation_id, name, data_root } }) -> PlayInstance`；数据目录须由本机选择器授权。`get_dashboard -> Dashboard` 新增 `play_instances`。本阶段绑定状态恒为 `unverified`，无实例启动/并发授权接口。实际输入输出使用 Rust 生成的类型；范围、重试与错误见 [实例登记](../design/play-instance-registration.md)。

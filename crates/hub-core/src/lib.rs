@@ -31,3 +31,6 @@ mod backup_details;
 
 mod retention;
 pub use retention::{RetentionItem, RetentionPolicy, RetentionPreview};
+
+mod play_instances;
+pub use play_instances::{PlayInstance, PlayInstanceInput};

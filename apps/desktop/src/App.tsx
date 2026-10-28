@@ -1,3 +1,4 @@
+import PlayInstancesPanel from './PlayInstancesPanel';
 import Modal from './Modal';
 import BackupsPage from './BackupsPage';
 import WorldsPage from './WorldsPage';
@@ -70,6 +71,7 @@ const statusNames: Record<string, string> = {
 const actionNames: Record<string, string> = {
   'workspace.initialize': '工作区初始化',
   'installation.import': '导入游戏安装',
+  'instance.register': '登记游玩实例',
   'game.launch': '启动游戏',
   'game.process_result': '记录进程结果',
   'process.reconcile': '重启后状态检查',
@@ -751,6 +753,9 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                     onSetup={() => setPage('settings')}
                   />
                 ))}
+              {page === 'games' && workspace && (
+                <PlayInstancesPanel api={api} data={data} onRefresh={refresh} />
+              )}
               {page === 'activity' && (
                 <section className="panel activity-panel">
                   <div className="section-heading">
