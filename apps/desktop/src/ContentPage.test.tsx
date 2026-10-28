@@ -24,6 +24,10 @@ function client(entries: ContentEntry[] = []): HubApi {
   return {
     ...native,
     desktop: true,
+    prepareContentInstall: vi.fn(),
+    startContentInstall: vi.fn(),
+    contentInstallTasks: vi.fn().mockResolvedValue([]),
+    cancelContentInstall: vi.fn(),
     contentEntries: vi.fn().mockResolvedValue(entries),
     pickPath: vi.fn().mockResolvedValue('/mods/example'),
     registerContent: vi.fn().mockResolvedValue(entry),
@@ -42,7 +46,7 @@ it('registers a chosen package type without installing or enabling it', async ()
     '/mods/example',
     'soundpack',
   );
-  expect(screen.getByText(/不复制、安装或启用资源/)).toBeInTheDocument();
+  expect(screen.getByText(/登记不复制或启用资源/)).toBeInTheDocument();
 });
 it('shows duplicate IDs and unresolved catalog dependencies and requires confirmation to forget', async () => {
   const api = client([entry, { ...entry, id: 'two', root: '/mods/other' }]);

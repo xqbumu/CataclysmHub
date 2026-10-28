@@ -186,7 +186,7 @@ fn safe_link(dir: &Dir, path: &str) -> Result<(String, bool)> {
     }
     Ok((text, metadata.is_dir()))
 }
-fn inventory(
+pub(crate) fn inventory(
     root: &Dir,
     independent: bool,
     cancel: &AtomicBool,

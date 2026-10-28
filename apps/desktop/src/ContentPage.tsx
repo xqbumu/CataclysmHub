@@ -1,3 +1,7 @@
+import {
+  ContentInstallButton,
+  ContentInstallTasks,
+} from './ContentInstallWorkflow';
 import { useEffect, useState } from 'react';
 import type { HubApi } from './api';
 import { errorMessage } from './api';
@@ -9,6 +13,7 @@ export default function ContentPage({ api }: { api: HubApi }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [kind, setKind] = useState('mod');
+  const [installRevision, setInstallRevision] = useState(0);
   const [removing, setRemoving] = useState<ContentEntry | null>(null);
   useEffect(() => {
     let alive = true;
@@ -53,7 +58,7 @@ export default function ContentPage({ api }: { api: HubApi }) {
     <section className="panel">
       <h2>模组与声音包资源库</h2>
       <p>
-        登记本地包目录并读取元数据，不复制、安装或启用资源。模组组合属于世界配置；声音包需在游戏设置中选择。所有游戏版本的兼容性均未验证。
+        登记本地包目录并读取元数据，登记不复制或启用资源；安装副本需另行预览确认。模组组合属于世界配置；声音包需在游戏设置中选择。所有游戏版本的兼容性均未验证。
       </p>
       <label>
         资源类型{' '}
@@ -80,7 +85,7 @@ export default function ContentPage({ api }: { api: HubApi }) {
       </button>
       <p className="inline-note">
         选择直接包含 modinfo.json 或 soundpack.txt
-        的单个包目录。可重复登记以刷新；源文件保持原样。远端下载、安装、启用、升级与文件删除尚未开放。
+        的单个包目录。可重复登记以刷新；源文件保持原样。支持安装到独立资源目录；远端下载、启用、升级与文件删除尚未开放。
       </p>
       {error && (
         <p role="alert" className="alert">
@@ -135,6 +140,12 @@ export default function ContentPage({ api }: { api: HubApi }) {
               )}
             </div>
           ))}
+          <ContentInstallButton
+            api={api}
+            entryId={entry.id}
+            unavailable={busy || !!entry.last_error}
+            onStarted={() => setInstallRevision((r) => r + 1)}
+          />
           <details>
             <summary>元数据记录</summary>
             <p>最近成功读取：{entry.checked_at}</p>
@@ -157,6 +168,7 @@ export default function ContentPage({ api }: { api: HubApi }) {
           </button>
         </article>
       ))}
+      <ContentInstallTasks api={api} revision={installRevision} />
       {removing && (
         <Modal
           title="移除资源登记"

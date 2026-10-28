@@ -102,3 +102,7 @@ installation.working_dir 继续保存实际启动 cwd。资源声明和范围校
 ## Schema 11：本地内容资源登记
 
 `content_entry(id, root, kind, snapshot)` 使用 `(root, kind)` 唯一约束保存模组／声音包的元数据快照。快照含资源定义、可选依赖／版本声明、描述文件摘要、成功读取时间和最近刷新错误。它不是安装状态、完整包校验或世界引用记录；不新增资源信任字段。迁移前保留数据库快照，失败整笔回滚。详见[本地资源库](local-content-registry.md)。
+
+## Schema 12：资源包安装任务
+
+`content_install_task` 保存请求键／摘要、源登记 ID、源与目标路径、payload 路径、完整清单摘要及状态。沿用既有 running/cancelling/succeeded/failed/cancelled/recovery_required 生命周期、全局资源占用、审计事务和结束后补记录机制。来源登记 ID 是历史关联，移除登记不删除任务或副本；不代表游戏安装／世界引用。升级前保存数据库快照，失败整笔回滚。

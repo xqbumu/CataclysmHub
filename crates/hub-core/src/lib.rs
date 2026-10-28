@@ -58,3 +58,6 @@ mod candidate_launch;
 
 mod content;
 pub use content::{ContentDefinition, ContentEntry};
+
+mod content_install;
+pub use content_install::{ContentFile, ContentInstallPlan, ContentInstallTask};

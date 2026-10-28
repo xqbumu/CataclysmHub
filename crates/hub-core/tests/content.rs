@@ -155,7 +155,7 @@ async fn schema10_upgrade_backs_up_metadata_and_failed_migration_preserves_versi
         let url = format!("sqlite://{}", data.join("metadata.sqlite").display());
         let pool = sqlx::SqlitePool::connect(&url).await.unwrap();
         if !fail {
-            sqlx::query("DROP TABLE content_entry")
+            sqlx::raw_sql("DROP TABLE content_install_task; DROP TABLE content_entry")
                 .execute(&pool)
                 .await
                 .unwrap();
@@ -172,7 +172,7 @@ async fn schema10_upgrade_backs_up_metadata_and_failed_migration_preserves_versi
                 .fetch_one(&pool)
                 .await
                 .unwrap(),
-            if fail { 10 } else { 11 }
+            if fail { 10 } else { 12 }
         );
         assert!(std::fs::read_dir(&data).unwrap().any(|p| {
             p.unwrap()

@@ -2,6 +2,7 @@ import type { ResourceClaim } from './bindings/ResourceClaim';
 
 const operations: Record<string, string> = {
   'game.launch': '游戏会话',
+  'content.install': '资源包安装',
   'installation.copy': '复制独立安装',
   'world.scan': '存档扫描',
   'backup.create': '创建备份',

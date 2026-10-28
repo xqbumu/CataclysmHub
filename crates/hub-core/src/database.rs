@@ -28,6 +28,8 @@ pub struct Hub {
     pub(crate) scan_controls: Mutex<HashMap<String, Arc<AtomicBool>>>,
     pub(crate) copy_plans: Mutex<HashMap<String, crate::managed_installation_copy::PreparedCopy>>,
     pub(crate) copy_controls: Mutex<HashMap<String, Arc<crate::installation_copy::CopyControl>>>,
+    pub(crate) content_install_plans:
+        Mutex<HashMap<String, Arc<crate::content_install::PreparedContentInstall>>>,
     _lock: WorkspaceLock,
 }
 // Only this guard owns the lock lifecycle. A transient descriptor inherited
@@ -90,7 +92,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 11 {
+        if version > 12 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -114,7 +116,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 11 {
+        if version > 0 && version < 12 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -155,7 +157,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 11 {
+        if version < 12 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -256,7 +258,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-011.sql"))
+            if version < 11 {
+                sqlx::raw_sql(include_str!("migration-011.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-012.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {
@@ -271,6 +284,7 @@ impl Hub {
             pool,
             data_dir,
             mutation: Mutex::new(()),
+            content_install_plans: Mutex::new(HashMap::new()),
             plans: Mutex::new(HashMap::new()),
             candidate_sessions: Mutex::new(HashMap::new()),
             backup_plans: Mutex::new(HashMap::new()),
@@ -395,6 +409,25 @@ impl Hub {
                 .bind(id())
                 .bind(task)
                 .bind("installation.copy")
+                .bind("recovery_required")
+                .bind("TASK_INTERRUPTED")
+                .bind(now())
+                .execute(&mut *tx)
+                .await
+                .map_err(HubError::db)?;
+        }
+        let copies: Vec<String> = sqlx::query_scalar(
+            "SELECT id FROM content_install_task WHERE state IN ('running','cancelling')",
+        )
+        .fetch_all(&mut *tx)
+        .await
+        .map_err(HubError::db)?;
+        for task in copies {
+            sqlx::query("UPDATE content_install_task SET state='recovery_required',phase='interrupted',error_code='TASK_INTERRUPTED',finished_at=?,revision=revision+1 WHERE id=?").bind(now()).bind(&task).execute(&mut *tx).await.map_err(HubError::db)?;
+            sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
+                .bind(id())
+                .bind(task)
+                .bind("content.install")
                 .bind("recovery_required")
                 .bind("TASK_INTERRUPTED")
                 .bind(now())

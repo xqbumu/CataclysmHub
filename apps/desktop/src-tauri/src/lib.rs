@@ -76,6 +76,44 @@ async fn pick_path(
     Ok(Some(text))
 }
 #[tauri::command]
+async fn prepare_content_install(
+    state: tauri::State<'_, AppState>,
+    entry_id: String,
+    parent_dir: String,
+) -> Result<hub_core::ContentInstallPlan, HubError> {
+    authorized(&state, &parent_dir)?;
+    state
+        .hub
+        .prepare_content_install(&entry_id, &parent_dir)
+        .await
+}
+#[tauri::command]
+async fn start_content_install(
+    state: tauri::State<'_, AppState>,
+    plan_id: String,
+    digest: String,
+    key: String,
+    confirmed: bool,
+) -> Result<String, HubError> {
+    state
+        .hub
+        .start_content_install(&plan_id, &digest, &key, confirmed)
+        .await
+}
+#[tauri::command]
+async fn content_install_tasks(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<hub_core::ContentInstallTask>, HubError> {
+    state.hub.content_install_tasks().await
+}
+#[tauri::command]
+async fn cancel_content_install(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<(), HubError> {
+    state.hub.cancel_content_install(&id).await
+}
+#[tauri::command]
 async fn content_entries(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<hub_core::ContentEntry>, HubError> {
@@ -383,6 +421,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            prepare_content_install,
+            start_content_install,
+            content_install_tasks,
+            cancel_content_install,
             content_entries,
             register_content,
             refresh_content,

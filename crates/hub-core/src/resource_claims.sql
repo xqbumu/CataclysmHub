@@ -6,6 +6,7 @@ WITH owners AS (
   UNION ALL SELECT 'restore',id,'backup.restore_new',state FROM restore_task WHERE state IN ('running','cancelling')
   UNION ALL SELECT 'inspection',id,'backup.inspect_restored',state FROM inspection_task WHERE state IN ('running','cancelling')
   UNION ALL SELECT 'installation_copy',id,'installation.copy',state FROM installation_copy_task WHERE state IN ('running','cancelling')
+  UNION ALL SELECT 'content_install',id,'content.install',state FROM content_install_task WHERE state IN ('running','cancelling')
 ), directories AS (
   SELECT 'session' AS owner_kind,s.id AS owner_id,i.working_dir AS path,'write' AS access,'installation' AS role
     FROM session s JOIN installation i ON i.id=s.installation_id
@@ -18,6 +19,8 @@ WITH owners AS (
   UNION ALL SELECT 'restore',id,destination,'write','other' FROM restore_task
   UNION ALL SELECT 'inspection',t.id,r.destination,'read','other' FROM inspection_task t JOIN restore_task r ON r.id=t.restore_task_id
   UNION ALL SELECT 'inspection',t.id,w.backup_dir,'read','other' FROM inspection_task t JOIN restore_task r ON r.id=t.restore_task_id JOIN workspace w ON w.id=r.workspace_id
+  UNION ALL SELECT 'content_install',id,source_root,'read','other' FROM content_install_task
+  UNION ALL SELECT 'content_install',id,destination,'write','other' FROM content_install_task
   UNION ALL SELECT 'installation_copy',id,source_root,'read','other' FROM installation_copy_task
   UNION ALL SELECT 'installation_copy',id,destination,'write','other' FROM installation_copy_task
 )

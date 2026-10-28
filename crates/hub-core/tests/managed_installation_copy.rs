@@ -458,7 +458,7 @@ async fn schema_nine_upgrade_keeps_snapshot_and_failed_schema_ten_rolls_back_cre
         let f = Fixture::new().await;
         let data = f.path("metadata");
         let pool = f.pool().await;
-        sqlx::raw_sql("DROP TABLE content_entry; DROP TABLE installation_copy_task;")
+        sqlx::raw_sql("DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task;")
             .execute(&pool)
             .await
             .unwrap();
@@ -491,7 +491,7 @@ async fn schema_nine_upgrade_keeps_snapshot_and_failed_schema_ten_rolls_back_cre
                 .fetch_one(&pool)
                 .await
                 .unwrap(),
-            if fail { 9 } else { 11 }
+            if fail { 9 } else { 12 }
         );
         if fail {
             assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='installation_copy_task'").fetch_one(&pool).await.unwrap(),0);

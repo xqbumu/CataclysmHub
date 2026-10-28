@@ -1,3 +1,5 @@
+import type { ContentInstallPlan } from './bindings/ContentInstallPlan';
+import type { ContentInstallTask } from './bindings/ContentInstallTask';
 import type { ContentEntry } from './bindings/ContentEntry';
 import type { ManagedInstallationCopyPlan } from './bindings/ManagedInstallationCopyPlan';
 import type { InstallationCopyTask } from './bindings/InstallationCopyTask';
@@ -59,6 +61,18 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  prepareContentInstall(
+    entryId: string,
+    parentDir: string,
+  ): Promise<ContentInstallPlan>;
+  startContentInstall(
+    planId: string,
+    digest: string,
+    key: string,
+    confirmed: boolean,
+  ): Promise<string>;
+  contentInstallTasks(): Promise<ContentInstallTask[]>;
+  cancelContentInstall(id: string): Promise<void>;
   contentEntries(): Promise<ContentEntry[]>;
   registerContent(root: string, kind: string): Promise<ContentEntry>;
   refreshContent(id: string): Promise<ContentEntry>;
@@ -137,6 +151,12 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  prepareContentInstall: (entryId, parentDir) =>
+    desktopOnly('prepare_content_install', { entryId, parentDir }),
+  startContentInstall: (planId, digest, key, confirmed) =>
+    desktopOnly('start_content_install', { planId, digest, key, confirmed }),
+  contentInstallTasks: () => desktopOnly('content_install_tasks'),
+  cancelContentInstall: (id) => desktopOnly('cancel_content_install', { id }),
   contentEntries: () => desktopOnly('content_entries'),
   registerContent: (root, kind) =>
     desktopOnly('register_content', { root, kind }),
