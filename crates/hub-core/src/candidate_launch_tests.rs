@@ -550,7 +550,7 @@ async fn instance_backup_rechecks_session_and_destination_at_confirmation() {
     let destination = f.temp.path().join("instance-0");
     assert_eq!(
         f.hub
-            .check_backup_resources(source.to_str().unwrap(), destination.to_str().unwrap())
+            .check_file_transfer_resources(source.to_str().unwrap(), destination.to_str().unwrap())
             .await
             .unwrap_err()
             .code,
@@ -589,7 +589,7 @@ async fn instance_backup_blocks_unknown_candidate_and_unavailable_protected_root
     );
     assert_eq!(
         f.hub
-            .check_backup_resources(
+            .check_file_transfer_resources(
                 f.temp.path().join("instance-1").to_str().unwrap(),
                 f.temp.path().join("backup").to_str().unwrap(),
             )
@@ -615,4 +615,193 @@ async fn instance_backup_blocks_unknown_candidate_and_unavailable_protected_root
     assert!(f.hub.dashboard().await.unwrap().backup_tasks.is_empty());
     f.release(0);
     f.wait(&a.id, "exited_unverified").await;
+}
+
+#[cfg(unix)]
+impl Fixture {
+    async fn archive(&self, index: usize) -> String {
+        std::fs::write(
+            self.temp.path().join(format!("instance-{index}/saved.txt")),
+            b"saved marker",
+        )
+        .unwrap();
+        let plan = self
+            .hub
+            .prepare_instance_backup(&self.instances[index])
+            .await
+            .unwrap();
+        let task = self
+            .hub
+            .create_backup(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true,
+            )
+            .await
+            .unwrap();
+        for _ in 0..200 {
+            if self.hub.backup_task(&task.id).await.unwrap().state != "running" {
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        assert_eq!(
+            self.hub.backup_task(&task.id).await.unwrap().state,
+            "succeeded"
+        );
+        task.backup_id
+    }
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_uses_actual_paths_not_archive_instance_association() {
+    let f = Fixture::new().await;
+    let archive = f.archive(0).await;
+    let parent = f.temp.path().join("restore-parent");
+    std::fs::create_dir(&parent).unwrap();
+    let launch = f.plan(0).await;
+    let session = f.hub.launch(&launch.id, true).await.unwrap();
+    // An archive of the running instance is immutable input, not a read of its live saves.
+    let plan = f
+        .hub
+        .prepare_restore(&archive, parent.to_str().unwrap())
+        .await
+        .unwrap();
+    let task = f
+        .hub
+        .start_restore(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    for _ in 0..200 {
+        if f.hub.restore_task(&task.id).await.unwrap().state != "running" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(
+        f.hub.restore_task(&task.id).await.unwrap().state,
+        "succeeded"
+    );
+    assert_eq!(
+        std::fs::read(Path::new(&plan.destination).join("data/saved.txt")).unwrap(),
+        b"saved marker"
+    );
+    let data = f.hub.dashboard().await.unwrap();
+    assert!(
+        data.sessions
+            .iter()
+            .any(|s| s.id == session.id && s.state == "running")
+    );
+    assert!(
+        data.resource_claims
+            .iter()
+            .all(|c| c.owner_id == session.id)
+    );
+    f.release(0);
+    f.wait(&session.id, "exited_unverified").await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_rechecks_running_target_and_unknown_session_at_confirmation() {
+    let f = Fixture::new().await;
+    let archive = f.archive(1).await;
+    let parent = f.temp.path().join("instance-0");
+    let plan = f
+        .hub
+        .prepare_restore(&archive, parent.to_str().unwrap())
+        .await
+        .unwrap();
+    let launch = f.plan(0).await;
+    let session = f.hub.launch(&launch.id, true).await.unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_restore(&archive, parent.to_str().unwrap())
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert_eq!(
+        f.hub
+            .start_restore(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert!(!Path::new(&plan.destination).exists());
+    let independent = f.temp.path().join("restore-parent");
+    std::fs::create_dir(&independent).unwrap();
+    let plan = f
+        .hub
+        .prepare_restore(&archive, independent.to_str().unwrap())
+        .await
+        .unwrap();
+    sqlx::query("UPDATE session SET state='interrupted_unknown' WHERE id=?")
+        .bind(&session.id)
+        .execute(&f.hub.pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.hub
+            .start_restore(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert!(!Path::new(&plan.destination).exists());
+    assert!(f.hub.dashboard().await.unwrap().restore_tasks.is_empty());
+    f.release(0);
+    f.wait(&session.id, "exited_unverified").await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn restore_rejects_replaced_archive_directory_before_task_admission() {
+    let f = Fixture::new().await;
+    let archive = f.archive(1).await;
+    let parent = f.temp.path().join("restore-parent");
+    std::fs::create_dir(&parent).unwrap();
+    let plan = f
+        .hub
+        .prepare_restore(&archive, parent.to_str().unwrap())
+        .await
+        .unwrap();
+    let archive_path = f.temp.path().join("backup").join(&archive);
+    std::fs::rename(&archive_path, f.temp.path().join("old-archive")).unwrap();
+    std::fs::create_dir(&archive_path).unwrap();
+    assert_eq!(
+        f.hub
+            .start_restore(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "PLAN_STALE"
+    );
+    assert!(!Path::new(&plan.destination).exists());
+    assert!(f.hub.dashboard().await.unwrap().restore_tasks.is_empty());
 }

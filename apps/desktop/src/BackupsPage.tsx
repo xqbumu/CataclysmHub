@@ -77,8 +77,7 @@ export default function BackupsPage({
       ['starting', 'running', 'interrupted_unknown'].includes(session.state),
     );
   // This only enables a backend preview, never grants admission from UI paths.
-  const scopedPreview =
-    !!sourceInstance &&
+  const scopedSessions =
     data.resource_claims.length > 0 &&
     data.resource_claims.every(
       (claim) =>
@@ -86,7 +85,9 @@ export default function BackupsPage({
         claim.state === 'running' &&
         claim.scope === 'directory',
     );
+  const scopedPreview = !!sourceInstance && scopedSessions;
   const previewBlocked = blocked && !scopedPreview;
+  const restoreBlocked = blocked && !scopedSessions;
   const latest = data.backup_tasks[0];
   if (!data.workspace)
     return (
@@ -157,15 +158,15 @@ export default function BackupsPage({
           SHA-256 一致，不代表游戏语义一致或跨版本兼容。覆盖恢复尚未开放。
         </span>
       </div>
-      {previewBlocked && !active && (
+      {previewBlocked && restoreBlocked && !active && (
         <div className="alert">
           <TriangleAlert size={17} />
           工作区正在扫描、恢复或检查目录，或游戏仍在运行/状态未知。请先处理相关任务。
         </div>
       )}
-      {scopedPreview && (
+      {scopedSessions && (
         <p className="inline-note">
-          可请求独立实例的备份预览；后端会重新检查来源与备份目录，运行中的实例及重叠目录仍会被阻止。
+          可请求独立实例备份或新目录恢复预览；后端会重新检查读写范围。恢复请选择独立父目录，重叠范围仍会被阻止。
         </p>
       )}
       <RetentionPanel api={api} busy={busy} run={run} />
@@ -348,7 +349,7 @@ export default function BackupsPage({
                   api={api}
                   backupId={backup.id}
                   busy={busy}
-                  blocked={blocked}
+                  blocked={restoreBlocked}
                   error={error}
                   run={run}
                 />

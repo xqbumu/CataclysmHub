@@ -493,7 +493,7 @@ impl Hub {
             .map_or(workspace.save_dir.clone(), |i| i.data_root.clone());
         let (source, backup) = safe_roots(&source_root, &workspace.backup_dir, &self.data_dir)?;
         if instance.is_some() {
-            self.check_backup_resources(&source_root, &workspace.backup_dir)
+            self.check_file_transfer_resources(&source_root, &workspace.backup_dir)
                 .await?;
         }
         let source_identity = Arc::new(same_file::Handle::from_path(&source).map_err(io_error)?);
@@ -599,8 +599,11 @@ impl Hub {
             return Err(changed());
         }
         if prepared.instance.is_some() {
-            self.check_backup_resources(&prepared.plan.source_root, &prepared.plan.backup_dir)
-                .await?;
+            self.check_file_transfer_resources(
+                &prepared.plan.source_root,
+                &prepared.plan.backup_dir,
+            )
+            .await?;
         } else {
             self.check_resource_claims().await?;
         }

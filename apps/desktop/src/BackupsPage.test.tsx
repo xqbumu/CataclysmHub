@@ -445,7 +445,7 @@ it('previews the selected instance data root without using workspace saves or cr
   ).toBeInTheDocument();
 });
 
-it('offers only instance backup preview while candidate directory claims are active', async () => {
+it('offers instance backup and restore previews while keeping verification blocked for candidates', async () => {
   const api = client();
   const user = userEvent.setup();
   vi.mocked(api.instanceBackupPlan).mockResolvedValue({
@@ -479,6 +479,7 @@ it('offers only instance backup preview while candidate directory claims are act
     })),
   });
   expect(screen.getByRole('button', { name: '预览备份范围' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: '恢复到新目录' })).toBeEnabled();
   await user.selectOptions(screen.getByLabelText('备份来源'), 'a');
   expect(screen.getByRole('button', { name: '预览备份范围' })).toBeEnabled();
   await user.click(screen.getByRole('button', { name: '预览备份范围' }));

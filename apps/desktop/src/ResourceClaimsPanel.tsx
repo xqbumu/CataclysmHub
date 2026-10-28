@@ -29,7 +29,7 @@ export default function ResourceClaimsPanel({
     <section className="panel resource-claims" aria-label="资源占用">
       <h2>资源占用</h2>
       <p className="inline-note">
-        普通方案与其他文件任务保持全局互斥；实例备份可检查独立目录，实验构建的固定
+        普通方案与其他文件任务保持全局互斥；实例备份及恢复到新目录可检查独立范围，实验构建的固定
         QA
         候选按完整安装与实例范围检查。目录列表仅表示已知保护范围，不能证明游戏没有写入其他位置，正式多版本并发支持尚未验收。
       </p>

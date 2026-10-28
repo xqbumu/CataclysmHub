@@ -50,7 +50,7 @@ export function RestoreButton({
         >
           <p className="muted">
             将在所选父目录下创建专用恢复目录。恢复文件位于其中的
-            data/，当前存档不会自动切换。
+            data/，当前存档不会自动切换。父目录整体参与冲突检查，请选择与运行游戏及备份目录独立的专用目录。
           </p>
           <dl className="launch-details">
             <dt>备份标识</dt>

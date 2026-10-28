@@ -187,16 +187,20 @@ impl Hub {
 
     // Caller holds mutation through durable task admission. Only supervised
     // candidates lose global claims; unknown games and every file task retain them.
-    pub(crate) async fn check_backup_resources(&self, source: &str, backup: &str) -> Result<()> {
+    pub(crate) async fn check_file_transfer_resources(
+        &self,
+        source: &str,
+        destination: &str,
+    ) -> Result<()> {
         let scopes = vec![
             ResourceScope {
-                role: "backup_source".into(),
+                role: "source".into(),
                 path: source.into(),
                 access: "read".into(),
             },
             ResourceScope {
-                role: "backup_destination".into(),
-                path: backup.into(),
+                role: "destination".into(),
+                path: destination.into(),
                 access: "write".into(),
             },
         ];
@@ -204,6 +208,23 @@ impl Hub {
         let mut claims = crate::resource_claims::read_claims(&mut connection).await?;
         drop(connection);
         self.overlay_claims(&mut claims).await;
+        // Preserve global-owner errors before examining conservative parent scopes.
+        if claims.iter().any(|claim| claim.scope == "global") {
+            let code = if claims.iter().any(|claim| claim.owner_kind == "session") {
+                "GAME_RUNNING_OR_UNKNOWN"
+            } else {
+                "TASK_CONFLICT"
+            };
+            return Err(HubError::new(
+                code,
+                "存在活动任务或未知游戏写入范围，操作已阻止。",
+            ));
+        }
+        // With no active owners, preserve the operation's existing path rules.
+        // Restore may create a fresh child under a common ancestor of its source.
+        if claims.is_empty() {
+            return Ok(());
+        }
         tokio::task::spawn_blocking(move || compare(String::new(), scopes, claims))
             .await
             .map_err(|_| HubError::new("RESOURCE_CHECK_FAILED", "资源冲突检查未完成。"))??

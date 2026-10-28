@@ -21,6 +21,7 @@ pub(crate) struct PreparedRestore {
     plan: RestorePlan,
     workspace_id: String,
     source: Dir,
+    backup_root: String,
     parent: Dir,
     name: String,
 }
@@ -51,7 +52,6 @@ fn same_parent(parent: &Dir, path: &Path) -> Result<()> {
 impl Hub {
     pub async fn prepare_restore(&self, backup_id: &str, parent_dir: &str) -> Result<RestorePlan> {
         let _gate = self.mutation.lock().await;
-        self.check_resource_claims().await?;
         let workspace = self.dashboard().await?.workspace.ok_or_else(stale)?;
         let record: BackupRecord =
             sqlx::query_as("SELECT * FROM backup_archive WHERE id=? AND workspace_id=?")
@@ -83,6 +83,10 @@ impl Hub {
                 ));
             }
         }
+        // Protect the whole existing parent conservatively: the final child does
+        // not exist yet. This also accounts for creating its directory entry.
+        self.check_file_transfer_resources(&workspace.backup_dir, &parent_text)
+            .await?;
         let backup_root = workspace.backup_dir.clone();
         let job_record = record.clone();
         let checked = tokio::task::spawn_blocking(move || {
@@ -139,6 +143,7 @@ impl Hub {
             expires_at: (chrono::Utc::now() + chrono::Duration::minutes(5)).to_rfc3339(),
             warnings: vec![
                 "仅恢复到新建目录的 data/，不会切换当前存档。".into(),
+                "按整个父目录检查写入冲突，请选择与运行游戏和备份目录独立的专用父目录。".into(),
                 "文件校验不代表游戏可加载或跨版本兼容；原备份一致性等级保持不变。".into(),
                 "失败或取消保留未完成目录，不自动清理或重新执行。".into(),
             ],
@@ -155,6 +160,7 @@ impl Hub {
                 plan: plan.clone(),
                 workspace_id: workspace.id,
                 source,
+                backup_root: workspace.backup_dir,
                 parent,
                 name,
             },
@@ -194,7 +200,6 @@ impl Hub {
             }
             return self.restore_task(&task).await;
         }
-        self.check_resource_claims().await?;
         let prepared = self
             .restore_plans
             .lock()
@@ -204,6 +209,16 @@ impl Hub {
         if prepared.plan.plan_digest != digest || prepared.plan.expires_at <= now() {
             return Err(stale());
         }
+        let workspace = self.dashboard().await?.workspace.ok_or_else(stale)?;
+        if workspace.id != prepared.workspace_id || workspace.backup_dir != prepared.backup_root {
+            return Err(stale());
+        }
+        self.check_file_transfer_resources(&prepared.backup_root, &prepared.plan.parent_dir)
+            .await?;
+        same_parent(
+            &prepared.source,
+            &Path::new(&prepared.backup_root).join(&prepared.plan.backup_id),
+        )?;
         same_parent(&prepared.parent, Path::new(&prepared.plan.parent_dir))?;
         let task_id = id();
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
