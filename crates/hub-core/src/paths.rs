@@ -6,6 +6,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Conservative package boundary; an .app suffix is not a trust or layout check.
+pub(crate) fn bundle_root(path: &Path) -> Option<PathBuf> {
+    path.ancestors()
+        .find(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("app")))
+        .map(Path::to_path_buf)
+}
+pub(crate) fn installation_scope(working_dir: &str) -> PathBuf {
+    let path = Path::new(working_dir);
+    bundle_root(path).unwrap_or_else(|| path.to_owned())
+}
+
 pub(crate) fn canonical(path: &str, directory: bool) -> Result<PathBuf> {
     let path = std::fs::canonicalize(path)
         .map_err(|_| HubError::new("PATH_INVALID", "路径不存在或无法访问，请重新选择。"))?;

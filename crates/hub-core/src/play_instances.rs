@@ -90,7 +90,7 @@ impl Hub {
         protected.extend(
             installations
                 .into_iter()
-                .map(|item| PathBuf::from(item.working_dir)),
+                .map(|item| paths::installation_scope(&item.working_dir)),
         );
         let root_input = input.data_root.clone();
         let prior = existing.clone();

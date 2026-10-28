@@ -19,10 +19,19 @@ pub struct ResourceClaim {
 pub(crate) async fn read_claims(
     connection: &mut sqlx::SqliteConnection,
 ) -> Result<Vec<ResourceClaim>> {
-    sqlx::query_as(include_str!("resource_claims.sql"))
+    let mut claims: Vec<ResourceClaim> = sqlx::query_as(include_str!("resource_claims.sql"))
         .fetch_all(connection)
         .await
-        .map_err(HubError::db)
+        .map_err(HubError::db)?;
+    for claim in &mut claims {
+        if claim.reason == "installation_working_directory" {
+            if let Some(path) = &claim.path {
+                claim.path = Some(crate::paths::text(&crate::paths::installation_scope(path))?);
+            }
+            claim.reason = "declared_directory".into();
+        }
+    }
+    Ok(claims)
 }
 
 impl Hub {

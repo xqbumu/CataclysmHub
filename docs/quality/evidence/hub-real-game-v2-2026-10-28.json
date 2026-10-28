@@ -1,0 +1,116 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "hub_commit": "3289cff",
+  "fixture": "manually seeded private schema-10 QA workspace, fresh independent copies of prior locally adjusted H/I QA bundles; not pristine release packages; full import/registration flow not retested",
+  "results": [
+    {
+      "tag": "0.H-RELEASE",
+      "session": {
+        "id": "692d92ed-786f-4272-a858-6a27ca2095e0",
+        "installation_id": "0c7344dd-7fa4-4096-84b6-cb25bf40959b",
+        "state": "exited_unverified",
+        "pid": 28124,
+        "started_at": "2026-10-28T05:23:25.553038+00:00",
+        "finished_at": "2026-10-28T05:26:04.332404+00:00",
+        "exit_code": 0,
+        "play_instance_id": "3645985b-a8a4-4d93-afc5-c54982bd1472",
+        "launch_profile_id": "cdda-0h-release-macos-trial-v2",
+        "instance_data_root": "/private/tmp/hub-real-v2-gx19ln2n/instance-h"
+      },
+      "changed_entries_by_scope": {
+        "install-h": 133,
+        "instance-h": 19
+      },
+      "observation_check": "within_declared_allowance",
+      "unexpected_scopes": [],
+      "debug_log_sha256": "83c4ce7119087464f76280e886043755223fe71b418d1e444804e7e106df292c",
+      "stale_cache_error_count": 0,
+      "real_play_accepted": false,
+      "save_reload_accepted": false,
+      "termination": "sent SIGTERM to own test child after UI targeting failed; exit code alone not accepted as successful play"
+    },
+    {
+      "tag": "0.I-1",
+      "session": {
+        "id": "d97043a3-c508-4499-a882-fc5dd6c099f4",
+        "installation_id": "24dd7667-4a7f-49da-839e-600cd5b512a6",
+        "state": "exited_unverified",
+        "pid": 28319,
+        "started_at": "2026-10-28T05:26:47.647012+00:00",
+        "finished_at": "2026-10-28T05:27:58.790027+00:00",
+        "exit_code": 0,
+        "play_instance_id": "6163a12a-9938-43c6-8bd0-cfc096886ee8",
+        "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+        "instance_data_root": "/private/tmp/hub-real-v2-gx19ln2n/instance-i"
+      },
+      "changed_entries_by_scope": {
+        "install-i": 117,
+        "instance-i": 22
+      },
+      "observation_check": "within_declared_allowance",
+      "unexpected_scopes": [],
+      "debug_log_sha256": "e2caa971461df315eba336bd9dcf7e44e3b5e821907f64b6bb9290742bb136a7",
+      "stale_cache_error_count": 58,
+      "real_play_accepted": false,
+      "save_reload_accepted": false,
+      "termination": "sent SIGTERM to own test child after UI targeting failed; exit code alone not accepted as successful play"
+    }
+  ],
+  "ui_blocker": [
+    "running Resources executable not exposed as a selectable app by native automation",
+    "getApp executable path and process name returned Invalid app",
+    "getApp full H bundle path returned timeoutReached; no second test process observed"
+  ],
+  "cache_observation": {
+    "identical_tips_json_bytes": true,
+    "source_mtime_ns": "1793154180655855816",
+    "copy_mtime_ns": "1793160966894907943",
+    "pinned_source": "local research-0.I-1/src_flexbuffer_cache.cpp lines 327-340 compares source mtime to cached mtime",
+    "interpretation": "copied warm caches plus changed JSON timestamps are consistent with stale-data errors; no cache removal or error suppression attempted"
+  },
+  "artifacts": [
+    {
+      "name": "fixture.json",
+      "sha256": "276ad1dd51d4651ccf563a08b1c3d81c90f618750bd92e56313d313b6b9db390",
+      "bytes": 530
+    },
+    {
+      "name": "before-h.json",
+      "sha256": "f2d4d3cbc135a0fb9b7bb4e7c813bdc2bf1dfe61a6ec4f8445c7b1c4f511e452",
+      "bytes": 7698431
+    },
+    {
+      "name": "after-h.json",
+      "sha256": "a039c4f4c9ef2e0fdadfc8ce96685fb959c5f8fd2a7b34ba89be86f653e88e27",
+      "bytes": 7702689
+    },
+    {
+      "name": "after-i.json",
+      "sha256": "8285d5a171544e72d23fb180557b8754145070fa40a4c91685a0511236b65a90",
+      "bytes": 7707728
+    },
+    {
+      "name": "diff-h.json",
+      "sha256": "e91f57d00cd2adf7599319d7a0cdc86775007ab49ece3bdb2bd12e70bb3c3b22",
+      "bytes": 64695
+    },
+    {
+      "name": "diff-i.json",
+      "sha256": "4db259db68c65498f94dbb1517f2dab6d3c756f35eaffdf930288a95d2f18d5c",
+      "bytes": 58667
+    },
+    {
+      "name": "h-process.json",
+      "sha256": "d8ac7218143b8b8e168ae24528fadc32b204883838e05cca57707ed795b77d50",
+      "bytes": 837
+    },
+    {
+      "name": "i-process.json",
+      "sha256": "0d90479e4953714f03968e3129a65c60962645fc228befa6516fef40e830729c",
+      "bytes": 844
+    }
+  ],
+  "binding_verified": false,
+  "hub_concurrency_accepted": false
+}

@@ -45,7 +45,7 @@ impl Hub {
                 .ok_or(HubError::new("PATH_INVALID", "程序缺少有效工作目录。"))?,
         )?;
         let roots = self.play_instances().await?;
-        let candidate_dir = std::path::PathBuf::from(&working_dir);
+        let candidate_dir = paths::installation_scope(&working_dir);
         tokio::task::spawn_blocking(move || {
             for instance in roots {
                 let root = paths::canonical(&instance.data_root, true)?;

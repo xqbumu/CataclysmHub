@@ -146,3 +146,7 @@ Dashboard 新增 copy_tasks（最近 20 条）。任务包含来源、目标、�
 ### 实例试运行环境 v2
 
 create_instance_launch_plan 的 profileId 新增 cdda-0h-release-macos-trial-v2、cdda-0i-1-macos-trial-v2（仅 macOS）。服务端固定生成 HOME、TMPDIR/TMP/TEMP、XDG_CONFIG_HOME/XDG_CACHE_HOME/XDG_DATA_HOME/XDG_STATE_HOME，位于实例 .hub-runtime；保留现有 DYLD 框架覆盖。LaunchPlan.environment 沿用既有映射 DTO，不新增调用方任意环境入口。确认时重新生成环境并比较缓存计划；目录准备仍在启动意图提交后。旧 v1 行为保持。
+
+### 整包安装范围修正
+
+ResourceClaim 与实例资源预览的安装 path 对已知 .app 祖先使用整包根，其他安装保持工作目录；executable 与实际 working_dir 不变。实例目录声明不套用包范围派生。旧实例记录如果与整包重叠，实例启动返回 INSTANCE_SCOPE_OVERLAP；缺失/不可访问仍返回 RESOURCE_SCOPE_UNAVAILABLE。该派生同时应用于重启未知会话，无 DTO 或 schema 变更，仍保持全局互斥。

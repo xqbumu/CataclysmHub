@@ -80,11 +80,6 @@ fn phase(value: u8) -> &'static str {
         _ => "preflight",
     }
 }
-fn bundle_root(path: &Path) -> Option<PathBuf> {
-    path.ancestors()
-        .find(|p| p.extension().is_some_and(|e| e.eq_ignore_ascii_case("app")))
-        .map(Path::to_path_buf)
-}
 fn inside(root: &Path, path: &Path) -> Result<bool> {
     let identity = same_file::Handle::from_path(root).map_err(|_| stale())?;
     for ancestor in path.ancestors() {
@@ -132,7 +127,7 @@ impl Hub {
         let own_working = own.working_dir.clone();
         for installation in data.installations {
             let working = Path::new(&installation.working_dir);
-            let protected = bundle_root(working).unwrap_or_else(|| working.to_owned());
+            let protected = paths::bundle_root(working).unwrap_or_else(|| working.to_owned());
             if inside(&protected, parent)? {
                 return Err(HubError::new(
                     "COPY_SCOPE_OVERLAP",
@@ -162,7 +157,8 @@ impl Hub {
         let installation = self.installation(source_id).await?;
         let selected = paths::canonical(selected_root, true)?;
         let parent = paths::canonical(parent_dir, true)?;
-        let source = if let Some(bundle) = bundle_root(Path::new(&installation.working_dir)) {
+        let source = if let Some(bundle) = paths::bundle_root(Path::new(&installation.working_dir))
+        {
             if !bundle.starts_with(&selected) {
                 return Err(HubError::new(
                     "COPY_SOURCE_ROOT_INCOMPLETE",

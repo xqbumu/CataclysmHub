@@ -265,3 +265,163 @@ async fn failed_schema_seven_upgrade_preserves_schema_six() {
 fn caller_cannot_supply_binding_verification() {
     assert!(serde_json::from_value::<PlayInstanceInput>(serde_json::json!({"installation_id":"game", "name":"test", "data_root":"root", "binding_status":"verified"})).is_err());
 }
+
+async fn bundle_installation(temp: &TempDir, hub: &Hub) -> hub_core::Installation {
+    let resources = temp.path().join("Game.APP/Contents/Resources");
+    std::fs::create_dir_all(&resources).unwrap();
+    let executable = resources.join("test.exe");
+    std::fs::write(&executable, b"synthetic bundle program, never run").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    hub.import_installation(executable.to_str().unwrap(), "bundle")
+        .await
+        .unwrap()
+}
+
+#[tokio::test]
+async fn bundle_sibling_directory_is_not_an_independent_instance() {
+    let (temp, hub, _) = setup().await;
+    let installation = bundle_installation(&temp, &hub).await;
+    let sibling = temp.path().join("Game.APP/Contents/MacOS");
+    std::fs::create_dir(&sibling).unwrap();
+    assert_eq!(
+        hub.register_play_instance(input(&temp, &installation.id, "Game.APP/Contents/MacOS"))
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_SCOPE_OVERLAP"
+    );
+    assert_eq!(std::fs::read_dir(sibling).unwrap().count(), 0);
+    assert!(hub.dashboard().await.unwrap().play_instances.is_empty());
+}
+
+#[tokio::test]
+async fn bundle_import_is_rejected_when_sibling_instance_was_registered_first() {
+    let (temp, hub, installation) = setup().await;
+    std::fs::create_dir_all(temp.path().join("Game.APP/Contents/MacOS")).unwrap();
+    hub.register_play_instance(input(&temp, &installation, "Game.APP/Contents/MacOS"))
+        .await
+        .unwrap();
+    let resources = temp.path().join("Game.APP/Contents/Resources");
+    std::fs::create_dir(&resources).unwrap();
+    let executable = resources.join("test.exe");
+    std::fs::write(&executable, b"synthetic bundle program, never run").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    assert_eq!(
+        hub.import_installation(executable.to_str().unwrap(), "bundle")
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_SCOPE_OVERLAP"
+    );
+}
+
+#[tokio::test]
+async fn bundle_preview_and_unknown_session_protect_whole_bundle_after_restart() {
+    let (temp, hub, _) = setup().await;
+    let installation = bundle_installation(&temp, &hub).await;
+    let instance = hub
+        .register_play_instance(input(&temp, &installation.id, "instance"))
+        .await
+        .unwrap();
+    let bundle = temp
+        .path()
+        .join("Game.APP")
+        .canonicalize()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    let preview = hub.preview_instance_resources(&instance.id).await.unwrap();
+    assert_eq!(
+        preview
+            .scopes
+            .iter()
+            .find(|s| s.role == "installation")
+            .unwrap()
+            .path,
+        bundle
+    );
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    // The instance path has an app-like ancestor too. Only the installation claim expands.
+    let instance_root = temp.path().join("Player.app/data");
+    std::fs::create_dir_all(&instance_root).unwrap();
+    let instance_root = instance_root
+        .canonicalize()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    sqlx::query("INSERT INTO session (id,installation_id,state,started_at,instance_data_root) VALUES ('bundle-test',?,'running','now',?)").bind(&installation.id).bind(&instance_root).execute(&pool).await.unwrap();
+    pool.close().await;
+    drop(hub);
+    let hub = Hub::open(&temp.path().join("metadata")).await.unwrap();
+    let claims = hub.dashboard().await.unwrap().resource_claims;
+    let paths: Vec<_> = claims.iter().filter_map(|c| c.path.as_deref()).collect();
+    assert!(paths.contains(&bundle.as_str()));
+    assert!(paths.contains(&instance_root.as_str()));
+    assert!(!paths.contains(&installation.working_dir.as_str()));
+    assert!(claims.iter().all(|c| c.state == "interrupted_unknown"));
+    assert_eq!(
+        hub.launch_plan(&installation.id, vec![])
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+}
+
+#[tokio::test]
+async fn legacy_instance_inside_bundle_is_blocked_before_launch_or_backup() {
+    let (temp, hub, _) = setup().await;
+    let installation = bundle_installation(&temp, &hub).await;
+    let sibling = temp.path().join("Game.APP/Contents/MacOS");
+    std::fs::create_dir(&sibling).unwrap();
+    let sibling = sibling.canonicalize().unwrap().to_str().unwrap().to_owned();
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO play_instance VALUES ('e9f3c390-5b08-4b2a-87a3-b8d4a38dc803',?,?,?,?,'unverified','now')")
+        .bind(&installation.id)
+        .bind(&installation.sha256)
+        .bind("old nested instance")
+        .bind(&sibling)
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    assert_eq!(
+        hub.instance_launch_plan(
+            "e9f3c390-5b08-4b2a-87a3-b8d4a38dc803",
+            "cdda-0h-source-trial-v1"
+        )
+        .await
+        .unwrap_err()
+        .code,
+        "INSTANCE_SCOPE_OVERLAP"
+    );
+    assert_eq!(
+        hub.prepare_instance_backup("e9f3c390-5b08-4b2a-87a3-b8d4a38dc803")
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_SCOPE_OVERLAP"
+    );
+    assert!(hub.dashboard().await.unwrap().sessions.is_empty());
+    assert_eq!(std::fs::read_dir(sibling).unwrap().count(), 0);
+}

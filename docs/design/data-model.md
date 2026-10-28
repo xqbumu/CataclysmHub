@@ -94,3 +94,7 @@ backup_task 与 backup_archive 各新增 nullable play_instance_id（引用 play
 ## Schema 10：持久安装复制
 
 新增 installation_copy_task，保留 request_key（唯一）、request_digest、source_installation_id 外键、来源/目标路径、程序与原始清单 SHA、copy_id/payload_root、条目/文件/链接计数、字节字符串、状态/阶段/进度/revision、错误与完成/核验时间，以及可选 registered_installation_id 外键。destination 唯一。安装登记、任务关联和两类审计同事务提交。升级前保存 schema 9 快照；迁移失败回滚。重启不重放复制，将活动任务标记 recovery_required。完整字段约束以 migration-010.sql 为准。
+
+### 安装目录范围派生补充
+
+installation.working_dir 继续保存实际启动 cwd。资源声明和范围校验通过共享函数派生保护根：若存在大小写不敏感的 .app 祖先，则保护最近的整个包；否则保护原 working_dir。该派生不修改安装/会话记录，schema 仍为 10。会话安装目录声明使用显式内部角色进行派生，实例目录声明保留原根，即使实例路径包含 .app 字样也不扩大；未知旧会话重启后同样按整包保护。后缀只是保守边界，不证明真实布局、签名或可信绑定。

@@ -151,7 +151,9 @@ impl Hub {
         let scopes = vec![
             ResourceScope {
                 role: "installation".into(),
-                path: installation.working_dir,
+                path: crate::paths::text(&crate::paths::installation_scope(
+                    &installation.working_dir,
+                ))?,
                 access: "write".into(),
             },
             ResourceScope {
@@ -172,6 +174,16 @@ impl Hub {
 
     pub(crate) async fn check_instance_resources(&self, instance_id: &str) -> Result<()> {
         let preview = self.instance_resources_inner(instance_id).await?;
+        if preview
+            .scope_issues
+            .iter()
+            .any(|issue| issue.code == "REQUEST_SCOPE_OVERLAP")
+        {
+            return Err(HubError::new(
+                "INSTANCE_SCOPE_OVERLAP",
+                "实例数据位于游戏安装范围内，启动已阻止。",
+            ));
+        }
         if !preview.scope_issues.is_empty() {
             return Err(HubError::new(
                 "RESOURCE_SCOPE_UNAVAILABLE",

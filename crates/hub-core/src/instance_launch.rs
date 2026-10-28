@@ -203,7 +203,7 @@ impl Hub {
         other.extend(
             installs
                 .into_iter()
-                .map(|item| PathBuf::from(item.working_dir)),
+                .map(|item| paths::installation_scope(&item.working_dir)),
         );
         other.extend(
             self.play_instances()
