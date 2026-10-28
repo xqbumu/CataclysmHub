@@ -101,3 +101,10 @@ update_backup_details 接受 `{ input: BackupDetailsInput }`，字段为 backup_
 名称规范化后最多 128 个 Unicode 标量、拒绝控制字符；备注最多 4000 个标量，仅允许 LF/TAB 控制字符；修订号须为 0～9007199254740991。错误为 BACKUP_DETAILS_INVALID、BACKUP_DETAILS_CONFLICT、BACKUP_DETAILS_REVISION_EXHAUSTED、BACKUP_NOT_FOUND 或既有 DATABASE_ERROR。相同规范化内容可重复提交而不再修改版本/审计；不同内容的旧修订不能覆盖较新值。
 
 命令仅更新本机元数据及事务内审计，不触碰归档、目录或校验事实，不代表已开放清理/删除。仍沿用已实现的 Result DTO 适配层，不表示全量生产 IPC envelope 已迁移。
+
+
+## 当前保留规则预览适配层（2026-10-28）
+
+preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`，返回 RetentionPreview（Rust 单一源 DTO）。上限 1000 / 366 / 104，0 关闭规则。报告最多 5000 条完整记录；RETENTION_LIMIT_EXCEEDED 不返回截断候选，日期/容量非法为 RETENTION_METADATA_INVALID，规则越界为 RETENTION_POLICY_INVALID。
+
+报告为只读元数据模拟，无审计写入或文件操作，version_context=unverified / deletion_available=false。日/周按 UTC 计算，窗口并非自动检查点设置。逐项原因及逻辑容量不能充当介质复检、兼容证明或删除授权。游戏版本与存档影响的实施门见 [范围说明](../design/version-save-impact-scope.md)。

@@ -244,6 +244,14 @@ async fn update_backup_details(
     state.hub.update_backup_details(input).await
 }
 
+#[tauri::command]
+async fn preview_retention(
+    state: tauri::State<'_, AppState>,
+    policy: hub_core::RetentionPolicy,
+) -> Result<hub_core::RetentionPreview, HubError> {
+    state.hub.preview_retention(policy).await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -291,7 +299,8 @@ pub fn run() {
             cancel_restore,
             start_inspection,
             cancel_inspection,
-            update_backup_details
+            update_backup_details,
+            preview_retention
         ])
         .run(tauri::generate_context!());
     if let Err(error) = result {

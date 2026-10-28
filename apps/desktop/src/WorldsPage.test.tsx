@@ -81,6 +81,7 @@ function client(): HubApi {
     acknowledge: vi.fn(),
     scanWorlds: vi.fn().mockResolvedValue(task),
     cancelScan: vi.fn().mockResolvedValue({ ...task, state: 'cancelling' }),
+    previewRetention: vi.fn(),
     updateBackupDetails: vi.fn(),
     backupPlan: vi.fn(),
     createBackup: vi.fn(),

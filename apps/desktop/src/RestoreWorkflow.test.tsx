@@ -45,6 +45,7 @@ function client() {
     scanWorlds: vi.fn(),
     cancelScan: vi.fn(),
     scanReport: vi.fn(),
+    previewRetention: vi.fn(),
     updateBackupDetails: vi.fn(),
     backupPlan: vi.fn(),
     createBackup: vi.fn(),

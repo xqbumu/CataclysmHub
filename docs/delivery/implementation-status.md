@@ -118,3 +118,12 @@ schema 1～4 升级前备份并校验元数据，新增表事务失败回滚；�
 本机完整 Rust 88 项、前端 41 项及 Clippy 通过，macOS debug 打包完成。原生取消/保存、多行备注、保留标记、重启保留与独立文件/元数据对比通过，schema 5 迁移副本 quick_check 通过。边界与证据见 [标注设计](../design/backup-details-implementation.md) 和 [验证记录](../quality/backup-details-verification.md)。
 
 此切片未开放清理/删除，保留锁不是 OS 文件锁，本机标注不随独立归档自动搬移。保留候选预览、命名/锁定/最后有效副本保护、介质复检与安全删除仍需后续实现；不宣称完成 BACKUP-009～011 或 WP-11。
+
+
+## 保留只读预览及版本/存档范围确认（2026-10-28）
+
+新增保留规则只读预览：最近份数、UTC 日/周窗口与命名、锁定、恢复引用、历史校验/静默锚点取并集；完整范围不依赖 dashboard 100 条展示限制，上限 5000 条，超限或元数据异常明确失败。结果按页展示，容量为逻辑字节而非可释放空间，固定版本上下文未验证及不可删除。无新迁移，schema 仍为 6，不访问备份介质，不写元数据或审计。
+
+本机 Rust 97 项、前端 43 项、Clippy 和 macOS 打包通过；原生默认/全零规则均保留必要标记，独立文件/记录/审计核对无变化。证据见 [保留预览验证](../quality/retention-preview-verification.md)，边界见 [实现](../design/retention-preview-implementation.md)。
+
+用户确认游戏版本管理和存档影响必须纳入特性，并明确补充 USR-001 多版本同时游玩。已有安装导入、摘要与启动基础不等于完整版本识别、可靠存档关联或并发支持；当前全局会话互斥没有放开。下一阶段优先安装身份、独立游玩实例与按写入范围锁，并作为危险清理/受控升级/覆盖恢复的前置基础。详细现状及范围见 [版本与存档影响](../design/version-save-impact-scope.md) 和 [并发要求](../requirements/multi-version-concurrent-play.md)。

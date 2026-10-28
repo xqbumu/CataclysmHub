@@ -10,6 +10,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import Modal from './Modal';
+import RetentionPanel from './RetentionPanel';
 import BackupDetailsEditor from './BackupDetailsEditor';
 import { RestoreButton, RestoreTasks } from './RestoreWorkflow';
 import type { BackupPlan, Dashboard, HubApi } from './api';
@@ -122,6 +123,7 @@ export default function BackupsPage({
           工作区正在扫描、恢复或检查目录，或游戏仍在运行/状态未知。请先处理相关任务。
         </div>
       )}
+      <RetentionPanel api={api} busy={busy} run={run} />
       {latest && (
         <section className="scan-task" aria-live="polite">
           <div>

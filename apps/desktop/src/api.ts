@@ -14,6 +14,8 @@ import type { BackupTask } from './bindings/BackupTask';
 import type { InspectionTask } from './bindings/InspectionTask';
 import type { RestorePlan } from './bindings/RestorePlan';
 import type { RestoreTask } from './bindings/RestoreTask';
+import type { RetentionPolicy } from './bindings/RetentionPolicy';
+import type { RetentionPreview } from './bindings/RetentionPreview';
 import type { BackupDetailsInput } from './bindings/BackupDetailsInput';
 import type { BackupRecord } from './bindings/BackupRecord';
 export type {
@@ -30,6 +32,8 @@ export type {
   BackupTask,
   BackupRecord,
   BackupDetailsInput,
+  RetentionPolicy,
+  RetentionPreview,
   RestorePlan,
   RestoreTask,
   InspectionTask,
@@ -57,6 +61,7 @@ export interface HubApi {
   scanWorlds(requestKey: string): Promise<ScanTask>;
   cancelScan(taskId: string): Promise<ScanTask>;
   scanReport(taskId: string): Promise<ScanReport>;
+  previewRetention(policy: RetentionPolicy): Promise<RetentionPreview>;
   updateBackupDetails(input: BackupDetailsInput): Promise<BackupRecord>;
   backupPlan(): Promise<BackupPlan>;
   createBackup(
@@ -108,6 +113,7 @@ export const api: HubApi = {
   scanWorlds: (requestKey) => desktopOnly('start_world_scan', { requestKey }),
   cancelScan: (taskId) => desktopOnly('cancel_world_scan', { taskId }),
   scanReport: (taskId) => desktopOnly('get_scan_report', { taskId }),
+  previewRetention: (policy) => desktopOnly('preview_retention', { policy }),
   updateBackupDetails: (input) =>
     desktopOnly('update_backup_details', { input }),
   backupPlan: () => desktopOnly('prepare_backup'),

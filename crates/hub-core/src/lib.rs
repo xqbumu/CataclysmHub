@@ -28,3 +28,6 @@ pub use restore_inspection::{RestoreInspection, verify_restored_directory};
 mod managed_inspection;
 
 mod backup_details;
+
+mod retention;
+pub use retention::{RetentionItem, RetentionPolicy, RetentionPreview};

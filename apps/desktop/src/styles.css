@@ -1579,3 +1579,36 @@ select:focus-visible {
   color: var(--muted);
   font-size: 11px;
 }
+.retention-preview {
+  padding: 22px;
+}
+.retention-preview > p,
+.retention-preview > ul {
+  margin-top: 12px;
+  line-height: 1.8;
+}
+.retention-rules {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+  margin: 18px 0;
+}
+.retention-rules label {
+  display: grid;
+  gap: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.retention-rules input {
+  width: 160px;
+}
+.retention-table {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+.retention-table small {
+  display: block;
+  margin-top: 6px;
+  overflow-wrap: anywhere;
+}

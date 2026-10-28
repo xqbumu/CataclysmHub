@@ -9,6 +9,7 @@ import {
   type BackupTask,
   type Dashboard,
   type HubApi,
+  type RetentionPreview,
 } from './api';
 const workspace = {
   id: 'workspace',
@@ -85,6 +86,7 @@ function client(): HubApi {
     scanWorlds: vi.fn(),
     cancelScan: vi.fn(),
     scanReport: vi.fn(),
+    previewRetention: vi.fn(),
     updateBackupDetails: vi.fn(),
     backupPlan: vi.fn().mockResolvedValue(plan),
     createBackup: vi.fn().mockResolvedValue(task),
@@ -333,5 +335,61 @@ describe('full backup confirmation and integrity display', () => {
       retention_locked: true,
       expected_revision: 1,
     });
+  });
+  it('previews retention rules with explicit unknown version context and no deletion action', async () => {
+    const api = client();
+    const user = userEvent.setup();
+    const report: RetentionPreview = {
+      generated_at: workspace.created_at,
+      timezone: 'UTC',
+      scope: 'registered_save_root',
+      policy: { keep_recent: 7, daily_days: 14, weekly_weeks: 8 },
+      items: [
+        {
+          backup_id: record.id,
+          display_name: '升级前',
+          created_at: record.created_at,
+          total_bytes: '4',
+          metadata_revision: 1,
+          cached_verification: 'verified',
+          consistency: 'best_effort',
+          protected: true,
+          reasons: ['named', 'latest_verified'],
+        },
+      ],
+      protected_count: 1,
+      candidate_count: 0,
+      candidate_logical_bytes: '0',
+      version_context: 'unverified',
+      deletion_available: false,
+      warnings: ['版本与存档环境关联尚未验证，不能授权删除。'],
+    };
+    vi.mocked(api.previewRetention).mockResolvedValue(report);
+    show(api, { ...emptyDashboard, workspace, backups: [record] });
+    await user.click(screen.getByRole('button', { name: '生成保留预览' }));
+    expect(api.previewRetention).toHaveBeenCalledExactlyOnceWith({
+      keep_recent: 7,
+      daily_days: 14,
+      weekly_weeks: 8,
+    });
+    expect(
+      await screen.findByText(/版本与存档环境关联尚未验证，不能授权删除/),
+    ).toBeVisible();
+    expect(screen.getByText('已命名、最近一次历史校验通过')).toBeVisible();
+    expect(
+      screen.queryByRole('button', { name: /删除/ }),
+    ).not.toBeInTheDocument();
+    expect(api.updateBackupDetails).not.toHaveBeenCalled();
+    expect(api.createBackup).not.toHaveBeenCalled();
+  });
+  it('does not submit out-of-range retention preview rules', async () => {
+    const api = client();
+    const user = userEvent.setup();
+    show(api);
+    const field = screen.getByLabelText('最近备份份数');
+    await user.clear(field);
+    await user.type(field, '1001');
+    expect(screen.getByRole('button', { name: '生成保留预览' })).toBeDisabled();
+    expect(api.previewRetention).not.toHaveBeenCalled();
   });
 });
