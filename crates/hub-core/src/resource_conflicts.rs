@@ -51,7 +51,7 @@ fn compare(
     claims: Vec<ResourceClaim>,
 ) -> Result<InstanceResourcePreview> {
     // Reject excess input rather than reporting a partial absence of conflicts.
-    if claims.len() > 10_000 {
+    if claims.len() > 10_000 || scopes.len() > 1_000 {
         return Err(HubError::new(
             "RESOURCE_SCOPE_LIMIT",
             "活动资源范围过多，无法完成检查。",
@@ -59,7 +59,20 @@ fn compare(
     }
     let mut issues = Vec::new();
     let mut requested = Vec::new();
+    if scopes.is_empty() {
+        return Err(HubError::new(
+            "RESOURCE_SCOPE_UNAVAILABLE",
+            "请求缺少资源范围。",
+        ));
+    }
     for scope in &scopes {
+        if !matches!(scope.access.as_str(), "read" | "write") {
+            issues.push(ResourceScopeIssue {
+                path: scope.path.clone(),
+                code: "RESOURCE_ACCESS_INVALID".into(),
+            });
+            continue;
+        }
         match inspect(&scope.path) {
             Ok(path) => requested.push((scope, path)),
             Err(error) => issues.push(ResourceScopeIssue {
@@ -174,7 +187,15 @@ impl Hub {
 
     pub(crate) async fn check_instance_resources(&self, instance_id: &str) -> Result<()> {
         let preview = self.instance_resources_inner(instance_id).await?;
-        if preview
+        preview.ensure_admissible()
+    }
+}
+
+impl InstanceResourcePreview {
+    // Convert the scope report into an execution decision. A clear report is not
+    // evidence that a game is eligible for scoped concurrency.
+    fn ensure_admissible(&self) -> Result<()> {
+        if self
             .scope_issues
             .iter()
             .any(|issue| issue.code == "REQUEST_SCOPE_OVERLAP")
@@ -184,19 +205,29 @@ impl Hub {
                 "实例数据位于游戏安装范围内，启动已阻止。",
             ));
         }
-        if !preview.scope_issues.is_empty() {
+        if self
+            .scope_issues
+            .iter()
+            .any(|issue| issue.code == "RESOURCE_ACCESS_INVALID")
+        {
+            return Err(HubError::new(
+                "RESOURCE_ACCESS_INVALID",
+                "资源访问模式无法识别，操作已阻止。",
+            ));
+        }
+        if !self.scope_issues.is_empty() {
             return Err(HubError::new(
                 "RESOURCE_SCOPE_UNAVAILABLE",
                 "实例或安装目录不可访问，启动已阻止。",
             ));
         }
-        if let Some(conflict) = preview.conflicts.first() {
-            let code = if preview.conflicts.iter().any(|c| c.owner_kind == "session") {
+        if let Some(conflict) = self.conflicts.first() {
+            let code = if self.conflicts.iter().any(|c| c.owner_kind == "session") {
                 "GAME_RUNNING_OR_UNKNOWN"
             } else {
                 "TASK_CONFLICT"
             };
-            let message = if preview
+            let message = if self
                 .conflicts
                 .iter()
                 .any(|c| c.reason == "directory_overlap")
@@ -328,6 +359,62 @@ mod tests {
             vec![],
         );
         assert_eq!(report.scope_issues[0].code, "REQUEST_SCOPE_OVERLAP");
+    }
+
+    #[test]
+    fn admission_rejects_unknown_access_even_without_active_owners() {
+        let temp = tempfile::tempdir().unwrap();
+        for access in ["", "readonly", "exclusive"] {
+            let report = check(vec![scope(temp.path(), access)], vec![]);
+            assert_eq!(
+                report.ensure_admissible().unwrap_err().code,
+                "RESOURCE_ACCESS_INVALID"
+            );
+        }
+        assert_eq!(
+            compare("i".into(), vec![], vec![]).unwrap_err().code,
+            "RESOURCE_SCOPE_UNAVAILABLE"
+        );
+    }
+
+    #[test]
+    fn admission_enforces_read_write_conflicts_and_unknown_ownership() {
+        let temp = tempfile::tempdir().unwrap();
+        let a = temp.path().join("a");
+        let b = temp.path().join("b");
+        std::fs::create_dir(&a).unwrap();
+        std::fs::create_dir(&b).unwrap();
+        for (request, held, allowed) in [
+            ("read", "read", true),
+            ("write", "read", false),
+            ("read", "write", false),
+            ("write", "write", false),
+        ] {
+            let report = check(vec![scope(&a, request)], vec![claim(Some(&a), held)]);
+            assert_eq!(report.ensure_admissible().is_ok(), allowed);
+        }
+        // Independent directories pass; an occupied directory remains protected.
+        check(vec![scope(&a, "write")], vec![claim(Some(&b), "write")])
+            .ensure_admissible()
+            .unwrap();
+        assert_eq!(
+            check(vec![scope(&b, "read")], vec![claim(Some(&b), "write")])
+                .ensure_admissible()
+                .unwrap_err()
+                .code,
+            "TASK_CONFLICT"
+        );
+        let mut unknown = claim(None, "exclusive");
+        unknown.scope = "global".into();
+        unknown.owner_kind = "session".into();
+        unknown.state = "interrupted_unknown".into();
+        assert_eq!(
+            check(vec![scope(&a, "write")], vec![unknown])
+                .ensure_admissible()
+                .unwrap_err()
+                .code,
+            "GAME_RUNNING_OR_UNKNOWN"
+        );
     }
 
     #[test]

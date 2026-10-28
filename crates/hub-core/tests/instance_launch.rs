@@ -10,6 +10,9 @@ struct Fixture {
 }
 impl Fixture {
     async fn new() -> Self {
+        Self::with_program(None).await
+    }
+    async fn with_program(program: Option<&[u8]>) -> Self {
         let temp = tempfile::Builder::new()
             .prefix("hub trial 空格 ")
             .tempdir()
@@ -27,7 +30,7 @@ impl Fixture {
         .await
         .unwrap();
         let executable = temp.path().join("game/test.exe");
-        std::fs::write(&executable, b"#!/bin/sh\nwhile [ $# -gt 0 ]; do\n case \"$1\" in\n --userdir) user=$2;;\n --savedir) save=$2;;\n --configdir) config=$2;;\n esac\n shift 2\ndone\ntest -d \"$save\" && test -d \"$config\" || exit 13\nprintf 'synthetic save' > \"$save/world.dat\"\nprintf 'synthetic config' > \"$config/options.json\"\nsleep 0.3\n").unwrap();
+        std::fs::write(&executable, program.unwrap_or(b"#!/bin/sh\nwhile [ $# -gt 0 ]; do\n case \"$1\" in\n --userdir) user=$2;;\n --savedir) save=$2;;\n --configdir) config=$2;;\n esac\n shift 2\ndone\ntest -d \"$save\" && test -d \"$config\" || exit 13\nprintf 'synthetic save' > \"$save/world.dat\"\nprintf 'synthetic config' > \"$config/options.json\"\nsleep 0.3\n")).unwrap();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -224,6 +227,56 @@ async fn trial_runs_real_child_records_instance_and_keeps_global_gate() {
         .unwrap();
     assert!(!next.save_binding_verified);
 }
+#[cfg(unix)]
+#[tokio::test]
+async fn simultaneous_confirmations_recheck_ownership_before_spawning() {
+    // Hold the winner until both confirmations finish. Import this executable
+    // unchanged so the production digest check remains part of the test.
+    let f = Fixture::with_program(Some(
+        b"#!/bin/sh\nprintf 'spawn\\n' >> launches\ni=0\nwhile [ ! -f release ] && [ $i -lt 500 ]; do sleep 0.02; i=$((i + 1)); done\n",
+    )).await;
+    let first = f
+        .hub
+        .instance_launch_plan(&f.instance, PROFILE)
+        .await
+        .unwrap();
+    let second = f
+        .hub
+        .instance_launch_plan(&f.instance, PROFILE)
+        .await
+        .unwrap();
+    let (a, b) = tokio::join!(
+        f.hub.launch(&first.id, true),
+        f.hub.launch(&second.id, true)
+    );
+    // Release even if an assertion below fails, so the child cannot linger.
+    std::fs::write(f.temp.path().join("game/release"), b"").unwrap();
+    let outcomes = [a, b];
+    assert_eq!(outcomes.iter().filter(|r| r.is_ok()).count(), 1);
+    assert_eq!(
+        outcomes.iter().find_map(|r| r.as_ref().err()).unwrap().code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    for _ in 0..100 {
+        if f.hub.dashboard().await.unwrap().sessions[0].state == "exited_unverified" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    let dashboard = f.hub.dashboard().await.unwrap();
+    assert_eq!(dashboard.sessions.len(), 1);
+    assert_eq!(dashboard.sessions[0].state, "exited_unverified");
+    assert_eq!(
+        std::fs::read_to_string(f.temp.path().join("game/launches")).unwrap(),
+        "spawn\n"
+    );
+    // Once the actual process has exited, admission is available again.
+    f.hub
+        .instance_launch_plan(&f.instance, PROFILE)
+        .await
+        .unwrap();
+}
+
 #[tokio::test]
 async fn restart_preserves_unknown_instance_context_without_replay() {
     let f = Fixture::new().await;
