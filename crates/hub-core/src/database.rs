@@ -67,7 +67,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 5 {
+        if version > 6 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -91,7 +91,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 5 {
+        if version > 0 && version < 6 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -132,7 +132,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 5 {
+        if version < 6 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -167,7 +167,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-005.sql"))
+            if version < 5 {
+                sqlx::raw_sql(include_str!("migration-005.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-006.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {

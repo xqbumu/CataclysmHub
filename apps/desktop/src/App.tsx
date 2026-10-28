@@ -79,6 +79,9 @@ const actionNames: Record<string, string> = {
   'backup.verify': '重新校验备份',
   'backup.restore_new': '恢复到新目录',
   'backup.inspect_restored': '检查已恢复目录',
+  'backup.details_update': '编辑备份信息',
+  'backup.retention_lock': '锁定备份保留标记',
+  'backup.retention_unlock': '解除备份保留标记',
 };
 function time(value: string) {
   return new Date(value).toLocaleString('zh-CN', {

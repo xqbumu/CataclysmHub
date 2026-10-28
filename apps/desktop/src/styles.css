@@ -1469,6 +1469,7 @@ select:focus-visible {
 }
 .backup-record h3 {
   font-size: 16px;
+  overflow-wrap: anywhere;
 }
 .backup-meta {
   display: flex;
@@ -1560,4 +1561,21 @@ select:focus-visible {
 .restore-inspection > div > strong {
   display: inline-block;
   margin-top: 10px;
+}
+
+.backup-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 220px;
+  overflow: auto;
+}
+.backup-detail-field {
+  display: grid;
+  gap: 8px;
+  margin: 18px 0;
+  font-size: 12px;
+}
+.backup-detail-field small {
+  color: var(--muted);
+  font-size: 11px;
 }

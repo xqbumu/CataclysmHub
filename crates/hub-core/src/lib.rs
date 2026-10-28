@@ -26,3 +26,5 @@ mod restore_inspection;
 pub use restore_inspection::{RestoreInspection, verify_restored_directory};
 
 mod managed_inspection;
+
+mod backup_details;

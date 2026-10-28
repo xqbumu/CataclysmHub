@@ -10,6 +10,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import Modal from './Modal';
+import BackupDetailsEditor from './BackupDetailsEditor';
 import { RestoreButton, RestoreTasks } from './RestoreWorkflow';
 import type { BackupPlan, Dashboard, HubApi } from './api';
 const phases: Record<string, string> = {
@@ -207,7 +208,16 @@ export default function BackupsPage({
               <div className="row-between">
                 <div>
                   <span className="eyebrow">SAVE ROOT · TAR / ZSTANDARD</span>
-                  <h3>{new Date(backup.created_at).toLocaleString('zh-CN')}</h3>
+                  <h3>
+                    {backup.display_name ||
+                      new Date(backup.created_at).toLocaleString('zh-CN')}
+                  </h3>
+                  {backup.display_name && (
+                    <small className="muted">
+                      创建于{' '}
+                      {new Date(backup.created_at).toLocaleString('zh-CN')}
+                    </small>
+                  )}
                 </div>
                 <span
                   className={`pill ${backup.verification === 'verified' ? 'neutral' : 'warning'}`}
@@ -230,10 +240,29 @@ export default function BackupsPage({
                 </span>
                 <span>{size(backup.total_bytes)}</span>
                 <span className="pill warning">尽力快照 · 一致性未保证</span>
+                {backup.display_name && (
+                  <span className="pill neutral">命名保留标记</span>
+                )}
+                {backup.retention_locked && (
+                  <span className="pill neutral">保留已锁定</span>
+                )}
               </div>
               <p className="file-path">
                 {data.workspace?.backup_dir}/{backup.relative_dir}
               </p>
+              {backup.notes && (
+                <details>
+                  <summary>备注</summary>
+                  <p className="backup-notes">{backup.notes}</p>
+                </details>
+              )}
+              <BackupDetailsEditor
+                api={api}
+                backup={backup}
+                busy={busy}
+                error={error}
+                run={run}
+              />
               <details>
                 <summary>校验信息与清单</summary>
                 <dl className="launch-details">

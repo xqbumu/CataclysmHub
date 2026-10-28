@@ -66,6 +66,11 @@ const record: BackupRecord = {
   verified_at: workspace.created_at,
   archive_sha256: 'a'.repeat(64),
   manifest_sha256: 'b'.repeat(64),
+  display_name: '',
+  notes: '',
+  retention_locked: false,
+  metadata_revision: 0,
+  metadata_updated_at: null,
 };
 function client(): HubApi {
   return {
@@ -80,6 +85,7 @@ function client(): HubApi {
     scanWorlds: vi.fn(),
     cancelScan: vi.fn(),
     scanReport: vi.fn(),
+    updateBackupDetails: vi.fn(),
     backupPlan: vi.fn().mockResolvedValue(plan),
     createBackup: vi.fn().mockResolvedValue(task),
     verifyBackup: vi.fn().mockResolvedValue(task),
@@ -205,5 +211,127 @@ describe('full backup confirmation and integrity display', () => {
       .click(screen.getByRole('button', { name: '重试记录任务状态' }));
     expect(api.retryTaskRecovery).toHaveBeenCalledExactlyOnceWith(task.id);
     expect(api.createBackup).not.toHaveBeenCalled();
+  });
+  it('edits backup annotations only after save and preserves the captured revision', async () => {
+    const api = client();
+    const user = userEvent.setup();
+    show(api, { ...emptyDashboard, workspace, backups: [record] });
+    await user.click(screen.getByRole('button', { name: '编辑名称与保留锁' }));
+    const modal = await screen.findByRole('dialog');
+    await user.type(within(modal).getByLabelText('备份名称'), '升级前');
+    await user.type(within(modal).getByLabelText('备注'), '保留此副本');
+    await user.click(within(modal).getByRole('checkbox', { name: '保留锁定' }));
+    expect(api.updateBackupDetails).not.toHaveBeenCalled();
+    await user.click(
+      within(modal).getByRole('button', { name: '保存备份信息' }),
+    );
+    expect(api.updateBackupDetails).toHaveBeenCalledExactlyOnceWith({
+      backup_id: record.id,
+      display_name: '升级前',
+      notes: '保留此副本',
+      retention_locked: true,
+      expected_revision: 0,
+    });
+    expect(api.createBackup).not.toHaveBeenCalled();
+    expect(api.verifyBackup).not.toHaveBeenCalled();
+  });
+  it('cancelling annotation edits never saves a name or lock', async () => {
+    const api = client();
+    const user = userEvent.setup();
+    show(api, { ...emptyDashboard, workspace, backups: [record] });
+    await user.click(screen.getByRole('button', { name: '编辑名称与保留锁' }));
+    const modal = await screen.findByRole('dialog');
+    await user.type(within(modal).getByLabelText('备份名称'), 'draft');
+    await user.click(within(modal).getByRole('button', { name: '取消' }));
+    expect(api.updateBackupDetails).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+  it('shows names and retention markers without hiding creation time or implying filesystem locks', async () => {
+    const api = client();
+    const user = userEvent.setup();
+    show(api, {
+      ...emptyDashboard,
+      workspace,
+      backups: [
+        {
+          ...record,
+          display_name: '长期存档',
+          notes: '保留备注',
+          retention_locked: true,
+        },
+      ],
+    });
+    expect(screen.getByRole('heading', { name: '长期存档' })).toBeVisible();
+    expect(screen.getByText(/创建于/)).toBeVisible();
+    expect(screen.getByText('命名保留标记')).toBeVisible();
+    expect(screen.getByText('保留已锁定')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: '编辑名称与保留锁' }));
+    expect(
+      within(await screen.findByRole('dialog')).getByText(
+        /当前尚未开放清理和删除/,
+      ),
+    ).toBeVisible();
+  });
+  it('rejects overlong pasted annotation text before submitting', async () => {
+    const api = client();
+    const user = userEvent.setup();
+    show(api, { ...emptyDashboard, workspace, backups: [record] });
+    await user.click(screen.getByRole('button', { name: '编辑名称与保留锁' }));
+    const modal = await screen.findByRole('dialog');
+    await user.click(within(modal).getByLabelText('备份名称'));
+    await user.paste('😀'.repeat(129));
+    expect(
+      within(modal).getByRole('button', { name: '保存备份信息' }),
+    ).toBeDisabled();
+    expect(within(modal).getByRole('alert')).toHaveTextContent('超过字符上限');
+    expect(api.updateBackupDetails).not.toHaveBeenCalled();
+  });
+  it('keeps unsaved drafts during refresh and reloads the latest revision only on request', async () => {
+    const api = client();
+    const user = userEvent.setup();
+    const rendered = show(api, {
+      ...emptyDashboard,
+      workspace,
+      backups: [record],
+    });
+    await user.click(screen.getByRole('button', { name: '编辑名称与保留锁' }));
+    await screen.findByRole('dialog');
+    await user.type(screen.getByLabelText('备份名称'), '旧草稿');
+    const updated = {
+      ...record,
+      display_name: '最新名称',
+      notes: '最新备注',
+      retention_locked: true,
+      metadata_revision: 1,
+    };
+    vi.mocked(api.dashboard).mockResolvedValue({
+      ...emptyDashboard,
+      workspace,
+      backups: [updated],
+    });
+    rendered.rerender(
+      <BackupsPage
+        api={api}
+        data={{ ...emptyDashboard, workspace, backups: [updated] }}
+        busy={false}
+        error=""
+        run={(action) => action()}
+        onConfigure={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText('备份名称')).toHaveValue('旧草稿');
+    await user.click(
+      screen.getByRole('button', { name: '载入最新信息并替换草稿' }),
+    );
+    expect(screen.getByLabelText('备份名称')).toHaveValue('最新名称');
+    expect(screen.getByLabelText('备注')).toHaveValue('最新备注');
+    await user.click(screen.getByRole('button', { name: '保存备份信息' }));
+    expect(api.updateBackupDetails).toHaveBeenCalledExactlyOnceWith({
+      backup_id: record.id,
+      display_name: '最新名称',
+      notes: '最新备注',
+      retention_locked: true,
+      expected_revision: 1,
+    });
   });
 });

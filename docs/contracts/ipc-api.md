@@ -92,3 +92,12 @@ details 只包含稳定机器字段和脱敏定位，不含原始存档、token 
 后台从原恢复记录解析目标与登记归档，前端不能传入任意检查路径。任务结果只有 succeeded 时展示新的文件校验结论；cancelled / failed / recovery_required 不回退显示旧成功结果。RestoreInspection 嵌套既有恢复摘要，并单独返回未完成/历史报告存在状态；不更新原恢复任务终态。
 
 新增 INSPECTION_WORKER_FAILED、INSPECTION_RESULT_INVALID、PATH_CHANGED 等明确失败；原 RESTORED_DATA_MISMATCH / RESTORE_MARKER_INVALID 和归档校验错误沿用。TASK_PROGRESS_PERSIST_FAILED / TASK_RESULT_PERSIST_FAILED 对应记录失败；重试记录不重放检查。DTO 由 Rust 生成到 apps/desktop/src/bindings。
+
+
+## 当前备份标注适配层（schema 6，2026-10-28）
+
+update_backup_details 接受 `{ input: BackupDetailsInput }`，字段为 backup_id、display_name、notes、retention_locked、expected_revision，返回最新 BackupRecord。新增记录字段 display_name / notes / retention_locked / metadata_revision / metadata_updated_at；DTO 均从 Rust 导出到 TypeScript。
+
+名称规范化后最多 128 个 Unicode 标量、拒绝控制字符；备注最多 4000 个标量，仅允许 LF/TAB 控制字符；修订号须为 0～9007199254740991。错误为 BACKUP_DETAILS_INVALID、BACKUP_DETAILS_CONFLICT、BACKUP_DETAILS_REVISION_EXHAUSTED、BACKUP_NOT_FOUND 或既有 DATABASE_ERROR。相同规范化内容可重复提交而不再修改版本/审计；不同内容的旧修订不能覆盖较新值。
+
+命令仅更新本机元数据及事务内审计，不触碰归档、目录或校验事实，不代表已开放清理/删除。仍沿用已实现的 Result DTO 适配层，不表示全量生产 IPC envelope 已迁移。

@@ -69,3 +69,8 @@ erDiagram
 检查任务和审计意图、终态和结果分别按事务提交；取消或失败不产生新的通过结果。重启将遗留活动检查标为 recovery_required/TASK_INTERRUPTED，并清空未完成结果。结果无法解码或成功记录缺少结果时返回 INSPECTION_RESULT_INVALID，不填充默认值。所有工作区写任务与长时间检查互斥，运行时结束事实用于处理终态持久化失败。
 
 schema 1～4 打开前创建 VACUUM 一致性副本、quick_check 与持久化文件，再事务升级到 5；升级失败保留旧版本。此为当前实现说明，不表示本文件设计中的 world identity、journal、环境档案或全量生产任务模型都已经实现。
+
+
+## 当前实现：schema 6 备份标注（2026-10-28）
+
+backup_archive 新增 display_name / notes（默认空）、retention_locked（默认 false）、metadata_revision（默认 0，限制为 JS 安全整数范围）与 metadata_updated_at（默认 null）。这些字段不纳入原始归档格式，不改变独立恢复的数据库无关性。更新使用预期修订比较与事务审计，内容相同的请求不重复推进版本，审计失败回滚全部变更。升级前创建 schema 1～5 的一致性副本；ALTER 失败整体回滚。详情见 [标注设计](backup-details-implementation.md)。

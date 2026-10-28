@@ -14,6 +14,7 @@ import type { BackupTask } from './bindings/BackupTask';
 import type { InspectionTask } from './bindings/InspectionTask';
 import type { RestorePlan } from './bindings/RestorePlan';
 import type { RestoreTask } from './bindings/RestoreTask';
+import type { BackupDetailsInput } from './bindings/BackupDetailsInput';
 import type { BackupRecord } from './bindings/BackupRecord';
 export type {
   Workspace,
@@ -28,6 +29,7 @@ export type {
   BackupPlan,
   BackupTask,
   BackupRecord,
+  BackupDetailsInput,
   RestorePlan,
   RestoreTask,
   InspectionTask,
@@ -55,6 +57,7 @@ export interface HubApi {
   scanWorlds(requestKey: string): Promise<ScanTask>;
   cancelScan(taskId: string): Promise<ScanTask>;
   scanReport(taskId: string): Promise<ScanReport>;
+  updateBackupDetails(input: BackupDetailsInput): Promise<BackupRecord>;
   backupPlan(): Promise<BackupPlan>;
   createBackup(
     planId: string,
@@ -105,6 +108,8 @@ export const api: HubApi = {
   scanWorlds: (requestKey) => desktopOnly('start_world_scan', { requestKey }),
   cancelScan: (taskId) => desktopOnly('cancel_world_scan', { taskId }),
   scanReport: (taskId) => desktopOnly('get_scan_report', { taskId }),
+  updateBackupDetails: (input) =>
+    desktopOnly('update_backup_details', { input }),
   backupPlan: () => desktopOnly('prepare_backup'),
   createBackup: (planId, planDigest, requestKey) =>
     desktopOnly('create_backup', {

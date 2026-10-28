@@ -211,6 +211,12 @@ pub struct BackupRecord {
     pub verified_at: String,
     pub archive_sha256: String,
     pub manifest_sha256: String,
+    pub display_name: String,
+    pub notes: String,
+    pub retention_locked: bool,
+    #[ts(type = "number")]
+    pub metadata_revision: i64,
+    pub metadata_updated_at: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, TS)]
@@ -259,4 +265,15 @@ pub struct InspectionTask {
     pub finished_at: Option<String>,
     #[sqlx(skip)]
     pub result: Option<crate::RestoreInspection>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[serde(deny_unknown_fields)]
+pub struct BackupDetailsInput {
+    pub backup_id: String,
+    pub display_name: String,
+    pub notes: String,
+    pub retention_locked: bool,
+    #[ts(type = "number")]
+    pub expected_revision: i64,
 }

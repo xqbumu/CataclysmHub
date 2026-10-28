@@ -53,6 +53,7 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     acknowledge: vi.fn(),
     scanWorlds: vi.fn(),
     cancelScan: vi.fn(),
+    updateBackupDetails: vi.fn(),
     backupPlan: vi.fn(),
     createBackup: vi.fn(),
     verifyBackup: vi.fn(),

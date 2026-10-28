@@ -798,7 +798,7 @@ impl Hub {
                 match work {
                     Work::Create(prepared) => {
                         sqlx::query(
-                            "INSERT INTO backup_archive VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            "INSERT INTO backup_archive (id,task_id,workspace_id,relative_dir,created_at,entry_count,file_count,total_bytes,consistency,verification,verified_at,archive_sha256,manifest_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         )
                         .bind(&v.backup_id)
                         .bind(task_id)
