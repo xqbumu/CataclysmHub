@@ -633,6 +633,21 @@ fn read_json<T: serde::de::DeserializeOwned>(root: &Dir, path: &str) -> Result<(
         bytes,
     ))
 }
+// The control directories have fixed cardinality. Do not enumerate an untrusted
+// directory to completion when the first extra entry already proves it invalid.
+fn bounded_names(
+    entries: impl Iterator<Item = Result<std::ffi::OsString>>,
+    limit: usize,
+) -> Result<Vec<std::ffi::OsString>> {
+    let mut names = Vec::with_capacity(limit);
+    for entry in entries {
+        if names.len() == limit {
+            return Err(invalid());
+        }
+        names.push(entry?);
+    }
+    Ok(names)
+}
 pub fn verify_installation_copy(container: &Path) -> Result<InstallationCopyVerification> {
     let root = Dir::open_ambient_dir(container, cap_std::ambient_authority()).map_err(io)?;
     match root.symlink_metadata(MARKER) {
@@ -655,11 +670,12 @@ pub fn verify_installation_copy(container: &Path) -> Result<InstallationCopyVeri
         return Err(invalid());
     }
     format::validate_path(&manifest.executable_relative)?;
-    let mut controls = root
-        .entries()
-        .map_err(io)?
-        .map(|e| e.map(|e| e.file_name()).map_err(io))
-        .collect::<Result<Vec<_>>>()?;
+    let mut controls = bounded_names(
+        root.entries()
+            .map_err(io)?
+            .map(|e| e.map(|e| e.file_name()).map_err(io)),
+        3,
+    )?;
     controls.sort();
     let mut expected_controls = [MANIFEST, RECEIPT, "payload"]
         .map(std::ffi::OsString::from)
@@ -669,12 +685,14 @@ pub fn verify_installation_copy(container: &Path) -> Result<InstallationCopyVeri
         return Err(invalid());
     }
     let (parent, name) = format::parent(&root, &manifest.payload_root)?;
-    let children = parent
-        .entries()
-        .map_err(io)?
-        .collect::<std::io::Result<Vec<_>>>()
-        .map_err(io)?;
-    if children.len() != 1 || children[0].file_name() != std::ffi::OsStr::new(&name) {
+    let children = bounded_names(
+        parent
+            .entries()
+            .map_err(io)?
+            .map(|e| e.map(|e| e.file_name()).map_err(io)),
+        1,
+    )?;
+    if children.len() != 1 || children[0] != std::ffi::OsStr::new(&name) {
         return Err(invalid());
     }
     let payload = parent.open_dir_nofollow(name).map_err(io)?;
@@ -810,5 +828,24 @@ mod interruption_tests {
         assert!(target.join(MARKER).exists());
         assert!(!target.join(RECEIPT).exists());
         assert!(verify_installation_copy(&target).is_err());
+    }
+}
+
+#[cfg(test)]
+mod control_directory_tests {
+    use super::*;
+    #[test]
+    fn reject_controls_after_first_excess_entry_without_reading_the_rest() {
+        for limit in [3, 1] {
+            let entries = (0..=limit)
+                .map(|n| Ok(std::ffi::OsString::from(n.to_string())))
+                .chain(std::iter::once_with(|| {
+                    panic!("must not enumerate the remaining directory")
+                }));
+            assert_eq!(
+                bounded_names(entries, limit).unwrap_err().code,
+                "INSTALLATION_COPY_INVALID"
+            );
+        }
     }
 }

@@ -55,6 +55,7 @@ impl Hub {
     }
     pub async fn register_play_instance(&self, input: PlayInstanceInput) -> Result<PlayInstance> {
         let _guard = self.mutation.lock().await;
+        self.check_resource_claims().await?;
         if input.name.chars().any(char::is_control)
             || input.name.trim().is_empty()
             || input.name.trim().chars().count() > 100

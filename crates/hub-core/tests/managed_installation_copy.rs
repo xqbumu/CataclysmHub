@@ -564,3 +564,41 @@ async fn ignored_registration_update_cannot_commit_an_orphan_installation() {
     assert_eq!(data.operations.len(), count);
     assert!(data.copy_tasks[0].registered_installation_id.is_none());
 }
+
+#[tokio::test]
+async fn active_copy_claims_prevent_importing_partial_installations_or_reserving_payload_directories()
+ {
+    let f = Fixture::new().await;
+    std::fs::create_dir(f.path("game/reserved")).unwrap();
+    let task = f.complete().await;
+    let pool = f.pool().await;
+    // Model the point where payload files exist but the worker has not committed its terminal state.
+    sqlx::query("UPDATE installation_copy_task SET state='running',phase='verifying_copy',finished_at=NULL WHERE id=?").bind(&task.id).execute(&pool).await.unwrap();
+    let payload = PathBuf::from(&task.destination).join(&task.payload_root);
+    assert_eq!(
+        f.hub
+            .register_play_instance(hub_core::PlayInstanceInput {
+                installation_id: f.source_id.clone(),
+                name: "must not reserve a live copy".into(),
+                data_root: payload.join("reserved").to_str().unwrap().into(),
+            })
+            .await
+            .unwrap_err()
+            .code,
+        "TASK_CONFLICT"
+    );
+    assert_eq!(
+        f.hub
+            .import_installation(
+                payload.join(&task.executable_relative).to_str().unwrap(),
+                "partial import"
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "TASK_CONFLICT"
+    );
+    let dashboard = f.hub.dashboard().await.unwrap();
+    assert!(dashboard.play_instances.is_empty());
+    assert_eq!(dashboard.installations.len(), 1);
+}

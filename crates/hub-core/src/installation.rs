@@ -7,6 +7,7 @@ use crate::{
 impl Hub {
     pub async fn import_installation(&self, executable: &str, name: &str) -> Result<Installation> {
         let _guard = self.mutation.lock().await;
+        self.check_resource_claims().await?;
         let installation = self.prepare_installation(executable, name).await?;
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
         Self::write_installation(&mut tx, &installation).await?;
