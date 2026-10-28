@@ -239,3 +239,83 @@ fn cli_requires_explicit_mode_and_does_not_execute_the_copied_program() {
         .unwrap();
     assert!(output.status.success());
 }
+
+fn set_modified(path: &std::path::Path, time: std::time::SystemTime) {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(path)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(time))
+        .unwrap();
+}
+#[test]
+fn ordinary_file_times_are_preserved_and_timestamp_only_tampering_is_rejected() {
+    let f = Fixture::new();
+    let executable = f.source.join(Fixture::executable());
+    let requested = std::time::UNIX_EPOCH + std::time::Duration::new(1_600_000_000, 123_456_700);
+    set_modified(&executable, requested);
+    let actual = std::fs::metadata(&executable).unwrap().modified().unwrap();
+    let copy = f.copy();
+    assert_eq!(copy.schema_version, 2);
+    let target = f.dest.join(&copy.payload_root).join(Fixture::executable());
+    assert_eq!(
+        std::fs::metadata(&target).unwrap().modified().unwrap(),
+        actual
+    );
+    verify_installation_copy(&f.dest).unwrap();
+    let bytes = std::fs::read(&target).unwrap();
+    set_modified(&target, actual + std::time::Duration::from_secs(3));
+    assert_eq!(std::fs::read(&target).unwrap(), bytes);
+    assert_eq!(
+        verify_installation_copy(&f.dest).unwrap_err().code,
+        "INSTALLATION_COPY_INVALID"
+    );
+}
+
+#[test]
+fn legacy_v1_copy_remains_readable_without_claiming_timestamp_preservation() {
+    use sha2::{Digest, Sha256};
+    let f = Fixture::new();
+    let copy = f.copy();
+    let manifest_path = f.dest.join("copy-manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["schema_version"] = 1.into();
+    for entry in manifest["entries"].as_array_mut().unwrap() {
+        entry.as_object_mut().unwrap().remove("modified_unix_nanos");
+    }
+    let bytes = serde_json::to_vec_pretty(&manifest).unwrap();
+    std::fs::write(&manifest_path, &bytes).unwrap();
+    let receipt_path = f.dest.join("copy-verification.json");
+    let mut receipt: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&receipt_path).unwrap()).unwrap();
+    receipt["schema_version"] = 1.into();
+    receipt["manifest_sha256"] = format!("{:x}", Sha256::digest(&bytes)).into();
+    std::fs::write(&receipt_path, serde_json::to_vec_pretty(&receipt).unwrap()).unwrap();
+    let target = f.dest.join(copy.payload_root).join(Fixture::executable());
+    set_modified(
+        &target,
+        std::time::UNIX_EPOCH + std::time::Duration::from_secs(1_600_000_004),
+    );
+    assert_eq!(verify_installation_copy(&f.dest).unwrap().schema_version, 1);
+    assert_eq!(std::fs::read(&manifest_path).unwrap(), bytes);
+}
+
+#[cfg(unix)]
+#[test]
+fn pre_epoch_file_time_survives_copy_when_supported_by_source_filesystem() {
+    let f = Fixture::new();
+    let source = f.source.join(Fixture::executable());
+    let requested = std::time::UNIX_EPOCH - std::time::Duration::from_secs(1);
+    set_modified(&source, requested);
+    let actual = std::fs::metadata(source).unwrap().modified().unwrap();
+    let copy = f.copy();
+    assert_eq!(
+        std::fs::metadata(f.dest.join(copy.payload_root).join(Fixture::executable()))
+            .unwrap()
+            .modified()
+            .unwrap(),
+        actual
+    );
+    verify_installation_copy(&f.dest).unwrap();
+}

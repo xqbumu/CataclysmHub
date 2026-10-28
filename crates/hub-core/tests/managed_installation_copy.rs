@@ -602,3 +602,86 @@ async fn active_copy_claims_prevent_importing_partial_installations_or_reserving
     assert!(dashboard.play_instances.is_empty());
     assert_eq!(dashboard.installations.len(), 1);
 }
+
+#[tokio::test]
+async fn timestamp_only_source_change_after_preview_cannot_be_silently_accepted() {
+    let f = Fixture::new().await;
+    let plan = f.plan().await;
+    let path = f.path("game/data/cache");
+    let time =
+        std::fs::metadata(&path).unwrap().modified().unwrap() + std::time::Duration::from_secs(3);
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(&path)
+        .unwrap()
+        .set_times(std::fs::FileTimes::new().set_modified(time))
+        .unwrap();
+    let task = f.start(&plan).await;
+    let task = wait(&f.hub, &task.id).await;
+    assert_eq!(task.state, "failed");
+    assert_eq!(
+        task.error_code.as_deref(),
+        Some("INSTALLATION_SOURCE_CHANGED")
+    );
+    assert!(
+        std::path::Path::new(&task.destination)
+            .join("INSTALLATION_COPY_INCOMPLETE.json")
+            .exists()
+    );
+    assert_eq!(f.hub.dashboard().await.unwrap().installations.len(), 1);
+}
+
+#[tokio::test]
+async fn existing_v1_task_can_be_independently_verified_and_registered_by_new_reader() {
+    use sha2::{Digest, Sha256};
+    let f = Fixture::new().await;
+    let task = f.complete().await;
+    let root = PathBuf::from(&task.destination);
+    // Build the exact legacy control format and the digest an old task would have pinned.
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("copy-manifest.json")).unwrap()).unwrap();
+    manifest["schema_version"] = 1.into();
+    for entry in manifest["entries"].as_array_mut().unwrap() {
+        entry.as_object_mut().unwrap().remove("modified_unix_nanos");
+    }
+    let bytes = serde_json::to_vec_pretty(&manifest).unwrap();
+    let digest = format!("{:x}", Sha256::digest(&bytes));
+    std::fs::write(root.join("copy-manifest.json"), bytes).unwrap();
+    let mut receipt: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("copy-verification.json")).unwrap())
+            .unwrap();
+    receipt["schema_version"] = 1.into();
+    receipt["manifest_sha256"] = digest.clone().into();
+    std::fs::write(
+        root.join("copy-verification.json"),
+        serde_json::to_vec_pretty(&receipt).unwrap(),
+    )
+    .unwrap();
+    let pool = f.pool().await;
+    sqlx::query("UPDATE installation_copy_task SET manifest_sha256=? WHERE id=?")
+        .bind(&digest)
+        .bind(&task.id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    let metadata = f.path("metadata");
+    drop(f.hub);
+    let hub = Hub::open(&metadata).await.unwrap();
+    let installation = hub
+        .register_copied_installation(&task.id, "Legacy copy")
+        .await
+        .unwrap();
+    assert_eq!(installation.sha256, task.executable_sha256);
+    assert_eq!(
+        hub.installation_copy_task(&task.id)
+            .await
+            .unwrap()
+            .registered_installation_id
+            .as_deref(),
+        Some(installation.id.as_str())
+    );
+    let unchanged: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(root.join("copy-manifest.json")).unwrap()).unwrap();
+    assert_eq!(unchanged["schema_version"], 1);
+}

@@ -218,3 +218,9 @@ H/I 官方本体已由 Hub 桌面顺序启动，配置/日志写入各自新实�
 整包保护修复最终验证：Rust workspace 167 项通过，Cargo fmt 与 Clippy（-D warnings）通过。新增 4 个回归覆盖登记顺序、重启会话和旧包内实例；本轮前端源码未改。真实游戏实验结果不能替代核心回归，也未作为绑定信任输入。
 
 本轮 macOS debug `.app` 重新打包通过，包含整包保护修复。
+
+## 2026-10-28：四提交审查及文件修改时间
+
+审查范围由用户确认为 5abba21 → fa87eab。Standards 和 Spec 各发现 1 项 P2，均已修复提交 2c3fda3：副本控制目录无界枚举、复制期间登记绕过活动资源声明。详见 [审查记录](../quality/review-2026-10-28.md)。
+
+继续实现独立副本格式 v2，精确保留/校验普通文件修改时间，旧 v1 控制文件与持久任务可继续读取登记、不就地改写，数据库保持 schema 10。完整 Rust 174 项、fmt/Clippy/macOS debug 打包通过。真实 I 新副本 11135 个文件 mtime 与来源/清单逐项相等，独立校验退出 0；随后独立 --check-mods dda 退出 0、无旧数据缓存错误。该检查不是 Hub 原生存档或并发验收，窗口定位与世界保存/重载仍待完成。详见 [时间戳验证](../quality/installation-copy-timestamp-verification.md)。

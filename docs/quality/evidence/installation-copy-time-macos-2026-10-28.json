@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "sample_kind": "locally adjusted QA I-1 bundle with official executable bytes and existing warm caches; not pristine release",
+  "copy_format_version": 2,
+  "copy_and_independent_verification_exit": 0,
+  "copy_id": "abbd842a-aa01-4d42-a4b5-826867b4aece",
+  "executable_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+  "manifest_sha256_before_execution": "797100bf3c7170ee4b44c63ae863c8e4c1f3234f40d17a8774d2238733bf16fc",
+  "file_count": 11135,
+  "link_count": 16,
+  "total_bytes": "539327971",
+  "exact_source_target_manifest_mtime_matches_before_execution": 11135,
+  "legacy_v1_verified": {
+    "schema_version": 1,
+    "file_count": 11135,
+    "link_count": 16,
+    "total_bytes": "539327971",
+    "manifest_sha256": "487b9c03a9c9d29683c634c73e1ed361dd71fce62831ffe024bacedbeee6b80d",
+    "rewritten": false
+  },
+  "noninteractive_check": {
+    "command_mode": "--check-mods dda",
+    "through_hub": false,
+    "pid": 49148,
+    "exit_code": 0,
+    "elapsed_seconds": 11.6,
+    "stale_game_data_error_count": 0,
+    "debug_log_sha256": "f0e88c98f49fcd474051179a4147fec83526239efd1549e2a8232b5af8cdcee1"
+  },
+  "artifacts": [
+    {
+      "name": "copy.json",
+      "bytes": 547,
+      "sha256": "ecd10a3675c40161af7c7c4eeafb9a516856ae1b16fac2fc4894a03217b097d8"
+    },
+    {
+      "name": "copy.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "verify.json",
+      "bytes": 547,
+      "sha256": "cde4ff42269ac8ab0f22788920840ceaaefc96626c4ac1985ba8e378b0cb4421"
+    },
+    {
+      "name": "verify.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "check-command.json",
+      "bytes": 1492,
+      "sha256": "1c14a609fc185b31cad9813be8ea5c5a31a9c53f20eb3b53912ce8c062910204"
+    },
+    {
+      "name": "check-result.json",
+      "bytes": 63,
+      "sha256": "0259953bcb76df941e4451a154aeb89312404ae095e5325fc0a2707bf3b64dd3"
+    },
+    {
+      "name": "check.stdout",
+      "bytes": 35,
+      "sha256": "b4938531bf55a85d52bd1a409e6f3cd2f7beff00c570b0d4467048720718d7f9"
+    },
+    {
+      "name": "check.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "limitations": [
+    "new-data check is not the same workload as earlier GUI attempt; this is not a controlled causal comparison",
+    "execution can modify package caches after verified snapshot; current payload is not claimed unchanged",
+    "no native gameplay, world save/reload or Hub concurrency acceptance"
+  ],
+  "binding_verified": false,
+  "isolation_verified": false,
+  "hub_concurrency_accepted": false
+}

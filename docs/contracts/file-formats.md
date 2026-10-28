@@ -65,3 +65,9 @@ Schema 以相对 $ref 引用 restore-verification.schema.json，应从同目录�
 清单 v1 记录复制 UUID、创建时间、payload 根、普通可执行文件相对路径与 SHA-256、根权限及完整条目。条目记录相对路径、directory/file/symlink 类型、十进制大小、可空摘要/相对链接文本、链接目标目录提示、可空 Unix 模式及 readonly。原生平台权限语义不保证跨平台等价，不写本机源绝对路径。
 
 回执 v1 绑定清单摘要、复制 ID、payload/程序路径与摘要、文件/链接数、字节量和观察时间；binding_verified/isolation_verified 必须为 false。serde 拒绝未知控制字段，读取受大小/条目/路径约束，并全量重读当前 payload；不能通过修改回执提升来源、绑定或隔离证据。未完成、内容/集合变化、额外控制或同级 payload 均拒绝。清单/回执未签名，不提供官方来源认证。详情见 [复制与验证协议](../design/installation-copy.md)。
+
+### 独立安装副本 v2 修改时间契约
+
+新建清单与回执 schema_version=2；普通文件条目必须包含 modified_unix_nanos（有符号 Unix 纳秒规范十进制字符串），目录和链接不得携带非空时间。大小/摘要/权限/链接字段沿用 v1。时间与内容同属原始清单摘要，回执版本必须匹配清单。写入通过文件句柄设置时间并回读精度；无法精确保留返回 COPY_TIMESTAMP_UNSUPPORTED，不能发布完成副本。
+
+v2 每个文件同时比较大小、SHA、权限、修改时间；仅时间被修改亦拒绝。v1 继续按旧语义读取、不新增时间保证、不就地升级；旧持久任务的原始摘要保持有效。数据库 schema 仍为 10。示例普通文件附加字段：`"modified_unix_nanos":"1600000000123456700"`。该字段不代表平台全部元数据或游戏缓存兼容。

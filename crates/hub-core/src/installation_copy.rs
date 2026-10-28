@@ -31,6 +31,8 @@ pub struct InstallationCopyEntry {
     pub link_is_directory: bool,
     pub unix_mode: Option<u32>,
     pub readonly: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub modified_unix_nanos: Option<String>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -131,6 +133,33 @@ fn set_modes(dir: &Dir, name: &str, mode: Option<u32>, _readonly: bool) -> Resul
         dir.set_permissions(name, permissions).map_err(io)
     }
 }
+fn timestamp(time: std::time::SystemTime) -> String {
+    match time.duration_since(std::time::UNIX_EPOCH) {
+        Ok(duration) => duration.as_nanos().to_string(),
+        Err(error) => format!("-{}", error.duration().as_nanos()),
+    }
+}
+fn parse_timestamp(text: &str) -> Result<std::time::SystemTime> {
+    let nanos: i128 = text.parse().map_err(|_| invalid())?;
+    if nanos.to_string() != text {
+        return Err(invalid());
+    }
+    let magnitude = nanos.unsigned_abs();
+    let seconds = u64::try_from(magnitude / 1_000_000_000).map_err(|_| invalid())?;
+    let duration = std::time::Duration::new(seconds, (magnitude % 1_000_000_000) as u32);
+    if nanos < 0 {
+        std::time::UNIX_EPOCH.checked_sub(duration)
+    } else {
+        std::time::UNIX_EPOCH.checked_add(duration)
+    }
+    .ok_or_else(invalid)
+}
+fn timestamp_error() -> HubError {
+    HubError::new(
+        "COPY_TIMESTAMP_UNSUPPORTED",
+        "无法精确保留普通文件修改时间，副本未完成；请保留未完成目录。",
+    )
+}
 fn hash(dir: &Dir, path: &str, limit: u64, cancel: &AtomicBool) -> Result<(u64, String)> {
     format::hash_reader(&mut format::open_file(dir, path)?, limit, cancel)
 }
@@ -161,6 +190,7 @@ fn inventory(
     root: &Dir,
     independent: bool,
     cancel: &AtomicBool,
+    preserve_timestamps: bool,
 ) -> Result<Vec<InstallationCopyEntry>> {
     fn walk(
         root: &Dir,
@@ -169,9 +199,9 @@ fn inventory(
         depth: usize,
         entries: &mut Vec<InstallationCopyEntry>,
         bytes: &mut u64,
-        controls: (bool, &AtomicBool),
+        controls: (bool, &AtomicBool, bool),
     ) -> Result<()> {
-        let (independent, cancel) = controls;
+        let (independent, cancel, preserve_timestamps) = controls;
         format::check_cancel(cancel)?;
         if depth > 32 {
             return Err(HubError::new(
@@ -205,6 +235,7 @@ fn inventory(
                 link_is_directory: false,
                 unix_mode: None,
                 readonly: false,
+                modified_unix_nanos: None,
             };
             if metadata.file_type().is_symlink() {
                 let (target, is_dir) = safe_link(root, &path)?;
@@ -250,6 +281,14 @@ fn inventory(
                 }
                 (entry.unix_mode, entry.readonly) = modes(&metadata)?;
                 entry.kind = "file".into();
+                if preserve_timestamps {
+                    entry.modified_unix_nanos = Some(timestamp(
+                        metadata
+                            .modified()
+                            .map_err(|_| timestamp_error())?
+                            .into_std(),
+                    ));
+                }
                 entry.size = size.to_string();
                 entry.sha256 = Some(digest);
                 entries.push(entry);
@@ -270,7 +309,7 @@ fn inventory(
         0,
         &mut entries,
         &mut 0,
-        (independent, cancel),
+        (independent, cancel, preserve_timestamps),
     )?;
     entries.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
     if serde_json::to_vec(&entries).map_err(|_| invalid())?.len() > MAX_METADATA / 2 {
@@ -321,7 +360,7 @@ pub(crate) fn prepare(source: &Path, executable: &str, destination: &Path) -> Re
     let name = paths::text(Path::new(source.file_name().ok_or_else(invalid)?))?;
     format::validate_path(&name)?;
     let (root_unix_mode, root_readonly) = modes(&root.dir_metadata().map_err(io)?)?;
-    let entries = inventory(&root, false, &AtomicBool::new(false))?;
+    let entries = inventory(&root, false, &AtomicBool::new(false), true)?;
     let executable_entry = entries
         .iter()
         .find(|e| e.relative_path == executable && e.kind == "file")
@@ -329,7 +368,7 @@ pub(crate) fn prepare(source: &Path, executable: &str, destination: &Path) -> Re
     paths::executable(&source.join(executable))?;
     let executable_sha256 = executable_entry.sha256.clone().ok_or_else(invalid)?;
     let manifest = Manifest {
-        schema_version: 1,
+        schema_version: 2,
         copy_id: id(),
         created_at: now(),
         payload_root: format!("payload/{name}"),
@@ -383,6 +422,7 @@ impl Prepared {
                 "仅生成只读范围预览；确认执行时会重新检查源内容。".into(),
                 "副本不证明完整写入隔离、签名有效、游戏兼容性或可安全并发。".into(),
                 "不复制 ACL、扩展属性或所有者；不会执行、重新签名或自动登记游戏。".into(),
+                "普通文件修改时间将精确保留并校验；这不证明已有缓存兼容，不保留目录时间、创建时间或扩展属性。".into(),
                 "不重写配置中的绝对路径；仍须建立独立玩家目录与启动环境。".into(),
             ],
         })
@@ -420,7 +460,7 @@ fn same_dir(dir: &Dir, path: &Path) -> Result<bool> {
 }
 fn result(manifest: &Manifest, digest: String) -> Result<InstallationCopyVerification> {
     Ok(InstallationCopyVerification {
-        schema_version: 1,
+        schema_version: manifest.schema_version,
         copy_id: manifest.copy_id.clone(),
         payload_root: manifest.payload_root.clone(),
         executable_relative: manifest.executable_relative.clone(),
@@ -498,7 +538,7 @@ pub(crate) fn execute_prepared<T>(
     write_json(
         &container,
         MARKER,
-        &serde_json::json!({"schema_version":1,"copy_id":p.manifest.copy_id,"state":"incomplete"}),
+        &serde_json::json!({"schema_version":p.manifest.schema_version,"copy_id":p.manifest.copy_id,"state":"incomplete"}),
     )?;
     sync_dir(&container)?;
     sync_dir(&p.parent)?;
@@ -530,6 +570,20 @@ pub(crate) fn execute_prepared<T>(
                     .map_err(io)?;
                 if a == b {
                     return Err(invalid());
+                }
+                let dest = dest.into_std();
+                let modified =
+                    parse_timestamp(entry.modified_unix_nanos.as_deref().ok_or_else(invalid)?)?;
+                dest.set_times(std::fs::FileTimes::new().set_modified(modified))
+                    .map_err(|_| timestamp_error())?;
+                if dest
+                    .metadata()
+                    .map_err(io)?
+                    .modified()
+                    .map_err(|_| timestamp_error())?
+                    != modified
+                {
+                    return Err(timestamp_error());
                 }
                 set_modes(&parent, &name, entry.unix_mode, entry.readonly)?;
                 dest.sync_all().map_err(io)?;
@@ -577,9 +631,9 @@ pub(crate) fn execute_prepared<T>(
         p.manifest.root_readonly,
     )?;
     control.phase.store(2, Ordering::Release);
-    let source_entries = inventory(&p.root, false, &control.cancel)?;
+    let source_entries = inventory(&p.root, false, &control.cancel, true)?;
     control.phase.store(3, Ordering::Release);
-    let target_entries = inventory(&target, true, &control.cancel)?;
+    let target_entries = inventory(&target, true, &control.cancel, true)?;
     if modes(&p.root.dir_metadata().map_err(io)?)?
         != (p.manifest.root_unix_mode, p.manifest.root_readonly)
         || modes(&target.dir_metadata().map_err(io)?)?
@@ -660,7 +714,7 @@ pub fn verify_installation_copy(container: &Path) -> Result<InstallationCopyVeri
         }
     }
     let (manifest, bytes): (Manifest, _) = read_json(&root, MANIFEST)?;
-    if manifest.schema_version != 1
+    if ![1, 2].contains(&manifest.schema_version)
         || uuid::Uuid::parse_str(&manifest.copy_id).is_err()
         || manifest.entries.len() > MAX_ENTRIES
         || !format::valid_sha(&manifest.executable_sha256)
@@ -698,7 +752,12 @@ pub fn verify_installation_copy(container: &Path) -> Result<InstallationCopyVeri
     let payload = parent.open_dir_nofollow(name).map_err(io)?;
     if modes(&payload.dir_metadata().map_err(io)?)?
         != (manifest.root_unix_mode, manifest.root_readonly)
-        || inventory(&payload, true, &AtomicBool::new(false))? != manifest.entries
+        || inventory(
+            &payload,
+            true,
+            &AtomicBool::new(false),
+            manifest.schema_version == 2,
+        )? != manifest.entries
     {
         return Err(invalid());
     }
@@ -712,7 +771,7 @@ pub fn verify_installation_copy(container: &Path) -> Result<InstallationCopyVeri
     }
     let (receipt, _): (InstallationCopyVerification, _) = read_json(&root, RECEIPT)?;
     let expected = result(&manifest, format::sha(&bytes))?;
-    if receipt.schema_version != 1
+    if receipt.schema_version != manifest.schema_version
         || receipt.copy_id != expected.copy_id
         || receipt.payload_root != expected.payload_root
         || receipt.executable_relative != expected.executable_relative
