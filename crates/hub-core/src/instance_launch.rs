@@ -8,12 +8,47 @@ const MAC_H: &str = "cdda-0h-release-macos-trial-v1";
 const MAC_I: &str = "cdda-0i-1-macos-trial-v1";
 const MAC_H_V2: &str = "cdda-0h-release-macos-trial-v2";
 const MAC_I_V2: &str = "cdda-0i-1-macos-trial-v2";
+const MAC_H_NATIVE: &str = "cdda-0h-release-macos-native-trial-v1";
+const MAC_I_NATIVE: &str = "cdda-0i-1-macos-native-trial-v1";
 const RUNTIME_DIR: &str = ".hub-runtime";
 const RUNTIME_ROLES: [&str; 6] = ["home", "tmp", "config", "cache", "data", "state"];
 
 fn has_runtime(profile: &str) -> bool {
-    matches!(profile, MAC_H_V2 | MAC_I_V2)
+    matches!(profile, MAC_H_V2 | MAC_I_V2 | MAC_H_NATIVE | MAC_I_NATIVE)
 }
+fn native_entry(profile: &str) -> bool {
+    matches!(profile, MAC_H_NATIVE | MAC_I_NATIVE)
+}
+fn layout_error() -> HubError {
+    HubError::new(
+        "BUNDLE_LAYOUT_UNSUPPORTED",
+        "请选择所选方案对应的包内游戏本体；原生入口须位于 .app/Contents/MacOS，不使用启动脚本。",
+    )
+}
+fn working_directory(profile: &str, executable: &str, original: &str) -> Result<String> {
+    if !native_entry(profile) {
+        return Ok(original.into());
+    }
+    let parent = Path::new(executable).parent().ok_or_else(layout_error)?;
+    let contents = parent.parent().ok_or_else(layout_error)?;
+    if parent.file_name().and_then(|n| n.to_str()) != Some("MacOS")
+        || parent != Path::new(original)
+        || contents.file_name().and_then(|n| n.to_str()) != Some("Contents")
+        || !contents
+            .parent()
+            .and_then(Path::extension)
+            .is_some_and(|e| e.eq_ignore_ascii_case("app"))
+    {
+        return Err(layout_error());
+    }
+    let resources = contents.join("Resources");
+    let canonical = paths::canonical(&paths::text(&resources)?, true)?;
+    if canonical != resources {
+        return Err(layout_error());
+    }
+    paths::text(&canonical)
+}
+
 fn check_role(path: &Path) -> Result<()> {
     match std::fs::symlink_metadata(path) {
         Ok(metadata) if !metadata.is_dir() || metadata.file_type().is_symlink() => {
@@ -32,7 +67,17 @@ fn check_role(path: &Path) -> Result<()> {
 }
 
 fn validate_profile(profile: &str) -> Result<()> {
-    if ![PROFILE, MAC_H, MAC_I, MAC_H_V2, MAC_I_V2].contains(&profile) {
+    if ![
+        PROFILE,
+        MAC_H,
+        MAC_I,
+        MAC_H_V2,
+        MAC_I_V2,
+        MAC_H_NATIVE,
+        MAC_I_NATIVE,
+    ]
+    .contains(&profile)
+    {
         return Err(HubError::new(
             "PROFILE_UNSUPPORTED",
             "不支持此实例参数方案。",
@@ -77,29 +122,81 @@ async fn profile_environment(
             environment.insert(key.into(), paths::text(&runtime.join(role))?);
         }
     }
+    let native = native_entry(profile);
     let executable = executable.to_owned();
     let working = working_dir.to_owned();
     tokio::task::spawn_blocking(move || {
         let root = paths::canonical(&working, true)?;
         let path = Path::new(&executable);
-        if path.file_name().and_then(|name| name.to_str()) != Some("cataclysm-tiles")
+        if root.file_name().and_then(|name| name.to_str()) != Some("Resources")
+            || root
+                .parent()
+                .and_then(Path::file_name)
+                .and_then(|name| name.to_str())
+                != Some("Contents")
+        {
+            return Err(layout_error());
+        }
+        if native {
+            use std::io::Read;
+            let parent = path.parent().ok_or_else(layout_error)?;
+            if parent.file_name().and_then(|name| name.to_str()) != Some("MacOS")
+                || parent.parent() != root.parent()
+                || !root
+                    .parent()
+                    .and_then(Path::parent)
+                    .and_then(Path::extension)
+                    .is_some_and(|e| e.eq_ignore_ascii_case("app"))
+            {
+                return Err(layout_error());
+            }
+            let mut magic = [0_u8; 4];
+            std::fs::File::open(path)
+                .and_then(|mut file| file.read_exact(&mut magic))
+                .map_err(|_| layout_error())?;
+            if !matches!(
+                u32::from_be_bytes(magic),
+                0xfeedface
+                    | 0xcefaedfe
+                    | 0xfeedfacf
+                    | 0xcffaedfe
+                    | 0xcafebabe
+                    | 0xbebafeca
+                    | 0xcafebabf
+                    | 0xbfbafeca
+            ) {
+                return Err(HubError::new(
+                    "BUNDLE_NATIVE_ENTRY_REQUIRED",
+                    "所选入口不是 Mach-O 本体；不能使用脚本或其他包装程序冒充原生入口。",
+                ));
+            }
+        } else if path.file_name().and_then(|name| name.to_str()) != Some("cataclysm-tiles")
             || path.parent() != Some(root.as_path())
-            || root.file_name().and_then(|name| name.to_str()) != Some("Resources")
-            || root.parent().and_then(Path::file_name).and_then(|name| name.to_str()) != Some("Contents") {
-            return Err(HubError::new("BUNDLE_LAYOUT_UNSUPPORTED", "请选择 macOS 包内 Contents/Resources/cataclysm-tiles 本体；不使用 bundle 启动脚本。"));
+        {
+            return Err(layout_error());
         }
         for name in ["SDL2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"] {
             let file = root.join(format!("{name}.framework/Versions/A/{name}"));
-            let canonical = std::fs::canonicalize(file).map_err(|_| HubError::new("BUNDLE_LAYOUT_UNSUPPORTED", "发布包内所需框架缺失或不可访问。"))?;
+            let canonical = std::fs::canonicalize(file).map_err(|_| {
+                HubError::new(
+                    "BUNDLE_LAYOUT_UNSUPPORTED",
+                    "发布包内所需框架缺失或不可访问。",
+                )
+            })?;
             if !canonical.starts_with(&root) || !canonical.is_file() {
-                return Err(HubError::new("BUNDLE_LAYOUT_UNSUPPORTED", "发布包框架不能引用安装范围以外的路径。"));
+                return Err(HubError::new(
+                    "BUNDLE_LAYOUT_UNSUPPORTED",
+                    "发布包框架不能引用安装范围以外的路径。",
+                ));
             }
         }
         let text = paths::text(&root)?;
         environment.insert("DYLD_FRAMEWORK_PATH".into(), text.clone());
         environment.insert("DYLD_LIBRARY_PATH".into(), text);
         Ok(environment)
-    }).await.map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "发布包布局检查未完成。"))?
+    })
+    .await
+    .map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "发布包布局检查未完成。"))?
 }
 
 fn profile_args(root: &str) -> Vec<String> {
@@ -267,19 +364,23 @@ impl Hub {
             ));
         }
         self.check_instance_resources(instance_id).await?;
-        let environment = profile_environment(
+        let working_dir = working_directory(
             profile_id,
             &installation.executable,
             &installation.working_dir,
+        )?;
+        let environment = profile_environment(
+            profile_id,
+            &installation.executable,
+            &working_dir,
             &instance.data_root,
         )
         .await?;
-        let identity = self
-            .instance_identity(&instance, &installation.working_dir)
-            .await?;
+        let identity = self.instance_identity(&instance, &working_dir).await?;
         let mut plan = self
             .launch_plan_inner(&instance.installation_id, profile_args(&instance.data_root))
             .await?;
+        plan.working_dir = working_dir;
         plan.play_instance_id = Some(instance.id);
         plan.launch_profile_id = Some(profile_id.into());
         plan.environment = environment;
@@ -296,6 +397,9 @@ impl Hub {
         ];
         if has_runtime(profile_id) {
             plan.warnings.push("新版方案还将在实例 .hub-runtime 内准备 HOME、临时及 XDG 配置/缓存/数据/状态目录；其他环境仍继承，系统 API 或绝对路径仍可能写到其他位置，这不是沙箱或完整隔离证明。".into());
+        }
+        if native_entry(profile_id) {
+            plan.warnings.push("原生本体入口方案仅用于已含 Contents/MacOS 下 Mach-O 本体的包；不会创建入口、更改 Info.plist 或签名，不使用启动脚本。原生窗口可识别不代表游戏版本、存档或隔离已验证。".into());
         }
         self.plans.lock().await.insert(
             plan.id.clone(),

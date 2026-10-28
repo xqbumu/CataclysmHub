@@ -152,3 +152,7 @@ create_instance_launch_plan 的 profileId 新增 cdda-0h-release-macos-trial-v2�
 ResourceClaim 与实例资源预览的安装 path 对已知 .app 祖先使用整包根，其他安装保持工作目录；executable 与实际 working_dir 不变。实例目录声明不套用包范围派生。旧实例记录如果与整包重叠，实例启动返回 INSTANCE_SCOPE_OVERLAP；缺失/不可访问仍返回 RESOURCE_SCOPE_UNAVAILABLE。该派生同时应用于重启未知会话，无 DTO 或 schema 变更，仍保持全局互斥。
 
 安装导入与实例登记现在同样检查现有全局资源声明：活动文件任务返回 TASK_CONFLICT，活动或未知游戏会话返回 GAME_RUNNING_OR_UNKNOWN。此检查在后端执行，防止登记正在复制的目标目录或程序；未产生登记与审计副作用。
+
+### macOS 原生本体入口方案
+
+create_instance_launch_plan 的 profileId 新增 cdda-0h-release-macos-native-trial-v1、cdda-0i-1-macos-native-trial-v1。仅 macOS；所选本体须已在 .app/Contents/MacOS 中并符合 Mach-O 文件头形状。working_dir 固定为同包 Resources，executable 保持实际所选路径；环境和目录参数沿用 v2。脚本返回 BUNDLE_NATIVE_ENTRY_REQUIRED，错误/重定向布局返回 BUNDLE_LAYOUT_UNSUPPORTED。未新增任意命令、环境或参数入口，DTO 和数据库 schema 不变。详见 [原生入口设计](../design/macos-native-entry.md)。

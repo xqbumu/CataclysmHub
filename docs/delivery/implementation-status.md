@@ -224,3 +224,9 @@ H/I 官方本体已由 Hub 桌面顺序启动，配置/日志写入各自新实�
 审查范围由用户确认为 5abba21 → fa87eab。Standards 和 Spec 各发现 1 项 P2，均已修复提交 2c3fda3：副本控制目录无界枚举、复制期间登记绕过活动资源声明。详见 [审查记录](../quality/review-2026-10-28.md)。
 
 继续实现独立副本格式 v2，精确保留/校验普通文件修改时间，旧 v1 控制文件与持久任务可继续读取登记、不就地改写，数据库保持 schema 10。完整 Rust 174 项、fmt/Clippy/macOS debug 打包通过。真实 I 新副本 11135 个文件 mtime 与来源/清单逐项相等，独立校验退出 0；随后独立 --check-mods dda 退出 0、无旧数据缓存错误。该检查不是 Hub 原生存档或并发验收，窗口定位与世界保存/重载仍待完成。详见 [时间戳验证](../quality/installation-copy-timestamp-verification.md)。
+
+## 2026-10-28：原生本体入口与 Hub I 保存重载
+
+新增显式 macOS H/I 原生本体入口方案，用已有 MacOS Mach-O 本体直接启动并监测、使用同包 Resources cwd；不自动改包或执行脚本。原有 Resources v1/v2 保留，schema 仍为 10。177 项 Rust、55 项前端测试及 fmt/类型/Clippy/production build/macOS debug 打包通过；首轮 rustdoc 产物定位失败在打包结束后串行复跑通过。
+
+固定 I QA 包已通过 Hub 原生启动、新世界 Kaibito/角色 Galen Nielsen 创建、保存、同进程卸载重载、再保存和正常退出，未观察到两个对照实例及保护哨兵变化。该包是已有原生入口的本地封装，不是默认官方脚本包；H、跨进程重载及完整隔离/并发仍未验收，绑定与全局互斥不提升。见 [验证记录](../quality/macos-native-entry-verification.md)。

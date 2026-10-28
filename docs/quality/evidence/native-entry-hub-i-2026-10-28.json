@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "sample_kind": "locally adjusted I-1 QA bundle containing byte-identical official executable in MacOS and Resources; not pristine release bundle",
+  "entry_diagnosis": {
+    "resources_pid": 52064,
+    "resources_native_target": "Invalid app",
+    "macos_pid": 52118,
+    "macos_native_target": "recognized Hub QA I window",
+    "same_executable_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+    "same_working_directory_and_environment": true,
+    "difference": "executable location; separate fresh instance roots",
+    "not_proven": "full macOS internal cause or all bundle/OS variants",
+    "resources_recheck_pid": 66706,
+    "same_bundle_target_resources_recheck": "timeoutReached",
+    "recheck_observed_second_game_process": false
+  },
+  "hub_session": {
+    "id": "53b3cc6f-a348-4126-92ab-5089149b415d",
+    "installation_id": "9290cf0d-8321-4836-ac4a-76352b83d5b5",
+    "state": "exited_unverified",
+    "pid": 59593,
+    "started_at": "2026-10-28T06:18:06.624127+00:00",
+    "finished_at": "2026-10-28T06:20:58.963358+00:00",
+    "exit_code": 0,
+    "play_instance_id": "48f7a83b-6d71-4fd8-9512-6fec6808b972",
+    "launch_profile_id": "cdda-0i-1-macos-native-trial-v1",
+    "instance_data_root": "/private/tmp/hub-window-qa-haihv653/hub-i"
+  },
+  "hub_native_ui_flow": {
+    "explicit_profile_and_confirmation": true,
+    "world": "Kaibito",
+    "character": "Galen Nielsen",
+    "new_world_entered": true,
+    "advanced_before_first_save_to": "Spring day 61 08:00:02",
+    "saved_returned_to_menu": true,
+    "reloaded_same_character_and_world": true,
+    "advanced_after_reload_to": "Spring day 61 08:00:03",
+    "saved_again_and_quit_normally": true,
+    "direct_pid_unchanged": true,
+    "resource_claims_released": true,
+    "stale_game_data_error_count": 0
+  },
+  "stages": [
+    {
+      "stage": "create-save",
+      "changed_entries_by_scope": {
+        "instance-i": 100
+      },
+      "unexpected_scopes": []
+    },
+    {
+      "stage": "reload-save-exit",
+      "changed_entries_by_scope": {
+        "instance-i": 26
+      },
+      "unexpected_scopes": []
+    }
+  ],
+  "debug_log_sha256": "fd8cfab9e56c2c197bd63fd29c06d0ff2fe13fe74e2ac33cb9dae68dad8888bb",
+  "artifacts": [
+    {
+      "name": "after-hub-i.json",
+      "bytes": 4153781,
+      "sha256": "00ba96a7ad0ace5691d4beb64904709670ed184d0a2f5df4faf1ca05950915cc"
+    },
+    {
+      "name": "before-hub-i.json",
+      "bytes": 4125739,
+      "sha256": "655e104ab997b09c88742b215438980fc87f75991da4141c624ecaf8782bf5ef"
+    },
+    {
+      "name": "diff-create-save.json",
+      "bytes": 37670,
+      "sha256": "dccfa76cfb8ad4b42f7a8bf2af5a4e9c04fb819ce396280f9c6b80a81ac84f9f"
+    },
+    {
+      "name": "diff-reload-save-exit.json",
+      "bytes": 16876,
+      "sha256": "56997b05b1389a8d34e28dd04cc742599151730ea510b4b72a5cf50aa5579bf1"
+    },
+    {
+      "name": "hub-fixture.json",
+      "bytes": 309,
+      "sha256": "f65319400a0082427ce365716cfe503c97e986d4b19b31fa222fdf474de89227"
+    },
+    {
+      "name": "hub-i-session-end.json",
+      "bytes": 471,
+      "sha256": "29cdd465405fffedaf7cac75e9ab38ade8dca804547fabeb3bf1e8b76b942572"
+    },
+    {
+      "name": "hub-i-session-start.json",
+      "bytes": 462,
+      "sha256": "780254036527a926e762f9f2f262899e240a41e4ff266cbb647f01e4192e549c"
+    },
+    {
+      "name": "macos-process.json",
+      "bytes": 1296,
+      "sha256": "733eb8ce1e3d9b18cbf8b482c64c53809a9bf92e2044ca5f259f3ca82a7ded49"
+    },
+    {
+      "name": "macos.stderr",
+      "bytes": 146,
+      "sha256": "15828151806e2b501272a6e0c358212d33664e2c87bc29368135296c36507be8"
+    },
+    {
+      "name": "macos.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "reloaded-i-files.json",
+      "bytes": 335,
+      "sha256": "1b2493f576b63c5d06d6c1163ac5933f00f23fdd3503639718d14092ebb62afa"
+    },
+    {
+      "name": "resources-process.json",
+      "bytes": 1343,
+      "sha256": "75e9e13b6351f26f22768ac2e487bd41a1c44f5a7a9d8ff42ca4d7ad1f1e27f6"
+    },
+    {
+      "name": "resources-recheck-process.json",
+      "bytes": 1431,
+      "sha256": "e09a6ba351dfa83e76a9e25fba8388f412f08d84a15c55ca69cc11b844ad54e4"
+    },
+    {
+      "name": "resources-recheck-result.json",
+      "bytes": 141,
+      "sha256": "9790e54304c31bae1e9021edd536ecfe55806868a2a874abdba93810b05ac96d"
+    },
+    {
+      "name": "resources-recheck.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "resources-recheck.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "resources.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "resources.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "name": "saved-hub-i.json",
+      "bytes": 4153467,
+      "sha256": "1ce48a9234c0df8be6bb030ea0d3dbaa744be908557098f43cb964a816440801"
+    },
+    {
+      "name": "saved-i-files.json",
+      "bytes": 1295,
+      "sha256": "28371e2f2f37795bc86bbc7a73b7efc08b43a808f6458ec8dd398369eb4cd5cb"
+    }
+  ],
+  "limitations": [
+    "QA metadata manually seeded; import/registration not retested",
+    "native MacOS entry was already prepared in prior QA bundle; application does not synthesize it",
+    "only fixed macOS I sample tested through Hub; H native gameplay not yet repeated",
+    "scope snapshots are not global OS write tracing",
+    "single direct process lifetime only; no concurrent Hub gameplay acceptance"
+  ],
+  "binding_verified": false,
+  "isolation_verified": false,
+  "hub_concurrency_accepted": false
+}

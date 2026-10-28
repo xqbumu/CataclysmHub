@@ -66,6 +66,12 @@ export default function PlayInstancesPanel({
           <option value="cdda-0h-source-trial-v1">
             CDDA 0.H 源码参数（通用）
           </option>
+          <option value="cdda-0h-release-macos-native-trial-v1">
+            CDDA 0.H-RELEASE · macOS 原生本体入口
+          </option>
+          <option value="cdda-0i-1-macos-native-trial-v1">
+            CDDA 0.I-1 · macOS 原生本体入口
+          </option>
           <option value="cdda-0h-release-macos-trial-v2">
             CDDA 0.H-RELEASE · macOS · 独立 HOME 与临时目录
           </option>

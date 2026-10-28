@@ -321,19 +321,24 @@ async fn failed_schema_eight_upgrade_does_not_partially_alter_sessions() {
 #[tokio::test]
 async fn macos_profiles_do_not_silently_apply_to_other_platforms_or_layouts() {
     let f = Fixture::new().await;
-    let error = f
-        .hub
-        .instance_launch_plan(&f.instance, "cdda-0i-1-macos-trial-v1")
-        .await
-        .unwrap_err();
-    assert_eq!(
-        error.code,
-        if cfg!(target_os = "macos") {
-            "BUNDLE_LAYOUT_UNSUPPORTED"
-        } else {
-            "PROFILE_PLATFORM_UNSUPPORTED"
-        }
-    );
+    for profile in [
+        "cdda-0i-1-macos-trial-v1",
+        "cdda-0i-1-macos-native-trial-v1",
+    ] {
+        let error = f
+            .hub
+            .instance_launch_plan(&f.instance, profile)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            error.code,
+            if cfg!(target_os = "macos") {
+                "BUNDLE_LAYOUT_UNSUPPORTED"
+            } else {
+                "PROFILE_PLATFORM_UNSUPPORTED"
+            }
+        );
+    }
     assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
 }
 #[cfg(target_os = "macos")]
@@ -692,6 +697,151 @@ async fn runtime_v2_failed_intent_audit_creates_no_runtime_directories() {
             .unwrap()
             .count(),
         0
+    );
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+}
+
+#[cfg(target_os = "macos")]
+async fn native_fixture(f: &Fixture) -> (String, std::path::PathBuf, std::path::PathBuf) {
+    let resources = f.temp.path().join("Native.app/Contents/Resources");
+    let macos = f.temp.path().join("Native.app/Contents/MacOS");
+    std::fs::create_dir_all(&resources).unwrap();
+    std::fs::create_dir(&macos).unwrap();
+    let executable = macos.join("native-game");
+    std::fs::copy("/usr/bin/true", &executable).unwrap();
+    for name in ["SDL2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"] {
+        let folder = resources.join(format!("{name}.framework/Versions/A"));
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join(name), b"synthetic framework, never loaded").unwrap();
+    }
+    let installation = f
+        .hub
+        .import_installation(executable.to_str().unwrap(), "native fixture")
+        .await
+        .unwrap();
+    let root = f.temp.path().join("native-instance");
+    std::fs::create_dir(&root).unwrap();
+    let instance = f
+        .hub
+        .register_play_instance(PlayInstanceInput {
+            installation_id: installation.id,
+            name: "native trial".into(),
+            data_root: root.to_str().unwrap().into(),
+        })
+        .await
+        .unwrap();
+    (instance.id, executable, resources)
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn native_entry_plan_uses_actual_body_with_resources_cwd_and_direct_session() {
+    let f = Fixture::new().await;
+    let (instance, executable, resources) = native_fixture(&f).await;
+    let info = resources.parent().unwrap().join("Info.plist");
+    std::fs::write(&info, b"fixture metadata, not interpreted or rewritten").unwrap();
+    let root = f.temp.path().join("native-instance");
+    let profile = "cdda-0i-1-macos-native-trial-v1";
+    let plan = f
+        .hub
+        .instance_launch_plan(&instance, profile)
+        .await
+        .unwrap();
+    assert_eq!(
+        plan.executable,
+        executable.canonicalize().unwrap().to_str().unwrap()
+    );
+    assert_eq!(
+        plan.working_dir,
+        resources.canonicalize().unwrap().to_str().unwrap()
+    );
+    assert_eq!(plan.environment.len(), 10);
+    assert!(!plan.save_binding_verified);
+    assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+    let session = f.hub.launch(&plan.id, true).await.unwrap();
+    assert_eq!(session.play_instance_id.as_deref(), Some(instance.as_str()));
+    assert_eq!(session.launch_profile_id.as_deref(), Some(profile));
+    let mut exited = false;
+    for _ in 0..100 {
+        let data = f.hub.dashboard().await.unwrap();
+        let current = data.sessions.iter().find(|s| s.id == session.id).unwrap();
+        if current.state == "exited_unverified" {
+            assert_eq!(current.exit_code, Some(0));
+            exited = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    assert!(exited);
+    assert!(root.join(".hub-runtime/home").is_dir());
+    assert_eq!(
+        std::fs::read(&info).unwrap(),
+        b"fixture metadata, not interpreted or rewritten"
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn native_entry_rejects_wrappers_and_body_changes_before_launch() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new().await;
+    let (instance, executable, _) = native_fixture(&f).await;
+    let plan = f
+        .hub
+        .instance_launch_plan(&instance, "cdda-0h-release-macos-native-trial-v1")
+        .await
+        .unwrap();
+    std::fs::write(&executable, b"#!/bin/sh\nexit 0\n").unwrap();
+    assert_eq!(
+        f.hub.launch(&plan.id, true).await.unwrap_err().code,
+        "EXECUTABLE_CHANGED"
+    );
+    let wrapper = executable.with_file_name("wrapper");
+    std::fs::write(&wrapper, b"#!/bin/sh\nexit 0\n").unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o700)).unwrap();
+    let installation = f
+        .hub
+        .import_installation(wrapper.to_str().unwrap(), "wrapper fixture")
+        .await
+        .unwrap();
+    let root = f.temp.path().join("wrapper-instance");
+    std::fs::create_dir(&root).unwrap();
+    let instance = f
+        .hub
+        .register_play_instance(PlayInstanceInput {
+            installation_id: installation.id,
+            name: "wrapper".into(),
+            data_root: root.to_str().unwrap().into(),
+        })
+        .await
+        .unwrap();
+    assert_eq!(
+        f.hub
+            .instance_launch_plan(&instance.id, "cdda-0h-release-macos-native-trial-v1")
+            .await
+            .unwrap_err()
+            .code,
+        "BUNDLE_NATIVE_ENTRY_REQUIRED"
+    );
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+    assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn native_entry_rejects_resources_redirect_outside_its_bundle() {
+    let f = Fixture::new().await;
+    let (instance, _, resources) = native_fixture(&f).await;
+    let external = f.temp.path().join("external-resources");
+    std::fs::rename(&resources, &external).unwrap();
+    std::os::unix::fs::symlink(external, &resources).unwrap();
+    assert_eq!(
+        f.hub
+            .instance_launch_plan(&instance, "cdda-0i-1-macos-native-trial-v1")
+            .await
+            .unwrap_err()
+            .code,
+        "BUNDLE_LAYOUT_UNSUPPORTED"
     );
     assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
 }

@@ -70,3 +70,9 @@ snapshot/diff 仅写新的证据文件，不修改所选范围、不覆盖已有
 ## Hub v2 顺序启动实验补充
 
 [本轮实际记录](hub-real-game-v2-2026-10-28.md)已确认 H/I 本体由 Hub IPC 顺序启动、实例配置/日志写入及退出监测。原生游戏窗口定位和 I 温缓存旧数据错误阻断了真实世界保存与重载，故本轮不计游玩或绑定通过。实际启动后观察到的安装写入再次说明 Resources cwd 不能当作完整隔离保证。已知 .app 的保护范围现扩大为整个包，旧会话重启后同样适用；普通目录安装保持工作目录范围。
+
+## 原生本体入口与 Hub I 新证据
+
+新增 cdda-0h-release-macos-native-trial-v1 / cdda-0i-1-macos-native-trial-v1，适用于已经有 Contents/MacOS 下原生 Mach-O 本体的包。导入实际本体，方案以同包 Resources 为 cwd，仍直接监测游戏 PID；不会自动生成入口、更改 Info.plist 或运行官方包装脚本。原始默认脚本包不能因此宣称已适配。
+
+[本轮 Hub I 验证](macos-native-entry-verification.md)完成固定本体的新世界/角色、保存、同进程卸载重载、继续操作、再保存和正常退出。数据均落于新实例的声明范围，两个对照实例和保护哨兵在采集点未变化。绑定标记不自动提升；H、跨进程重载、完整 OS 写入和 Hub 并发仍待验收。
