@@ -444,3 +444,46 @@ it('previews the selected instance data root without using workspace saves or cr
     within(await screen.findByRole('dialog')).getByText('/chosen/saves'),
   ).toBeInTheDocument();
 });
+
+it('offers only instance backup preview while candidate directory claims are active', async () => {
+  const api = client();
+  const user = userEvent.setup();
+  vi.mocked(api.instanceBackupPlan).mockResolvedValue({
+    ...plan,
+    play_instance_id: 'a',
+  });
+  show(api, {
+    ...emptyDashboard,
+    workspace,
+    backups: [record],
+    play_instances: [
+      {
+        id: 'a',
+        installation_id: 'game',
+        installation_sha256: 'a'.repeat(64),
+        name: 'A',
+        data_root: '/isolated/a',
+        binding_status: 'unverified',
+        created_at: workspace.created_at,
+      },
+    ],
+    resource_claims: ['/game-b', '/instance-b'].map((path) => ({
+      owner_kind: 'session',
+      owner_id: 'b',
+      operation: 'game.launch',
+      state: 'running',
+      scope: 'directory',
+      access: 'write',
+      path,
+      reason: 'declared_directory',
+    })),
+  });
+  expect(screen.getByRole('button', { name: '预览备份范围' })).toBeDisabled();
+  await user.selectOptions(screen.getByLabelText('备份来源'), 'a');
+  expect(screen.getByRole('button', { name: '预览备份范围' })).toBeEnabled();
+  await user.click(screen.getByRole('button', { name: '预览备份范围' }));
+  expect(api.instanceBackupPlan).toHaveBeenCalledWith('a');
+  expect(screen.getByRole('button', { name: '重新校验' })).toBeDisabled();
+  expect(api.backupPlan).not.toHaveBeenCalled();
+  expect(api.createBackup).not.toHaveBeenCalled();
+});

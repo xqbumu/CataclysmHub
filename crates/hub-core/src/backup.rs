@@ -480,7 +480,9 @@ impl Hub {
         &self,
         instance: Option<crate::PlayInstance>,
     ) -> Result<BackupPlan> {
-        self.check_resource_claims().await?;
+        if instance.is_none() {
+            self.check_resource_claims().await?;
+        }
         let workspace = self
             .dashboard()
             .await?
@@ -490,6 +492,10 @@ impl Hub {
             .as_ref()
             .map_or(workspace.save_dir.clone(), |i| i.data_root.clone());
         let (source, backup) = safe_roots(&source_root, &workspace.backup_dir, &self.data_dir)?;
+        if instance.is_some() {
+            self.check_backup_resources(&source_root, &workspace.backup_dir)
+                .await?;
+        }
         let source_identity = Arc::new(same_file::Handle::from_path(&source).map_err(io_error)?);
         let backup_identity = Arc::new(same_file::Handle::from_path(&backup).map_err(io_error)?);
         let entries =
@@ -582,16 +588,23 @@ impl Hub {
         {
             return Ok(task);
         }
-        self.check_resource_claims().await?;
         let prepared = self
             .backup_plans
             .lock()
             .await
-            .remove(plan_id)
+            .get(plan_id)
+            .cloned()
             .ok_or_else(changed)?;
         if prepared.plan.plan_digest != digest || prepared.plan.expires_at <= now() {
             return Err(changed());
         }
+        if prepared.instance.is_some() {
+            self.check_backup_resources(&prepared.plan.source_root, &prepared.plan.backup_dir)
+                .await?;
+        } else {
+            self.check_resource_claims().await?;
+        }
+        self.backup_plans.lock().await.remove(plan_id);
         let task_id = id();
         self.spawn_backup_task(
             &task_id,

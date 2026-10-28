@@ -185,6 +185,31 @@ impl Hub {
             .map_err(|_| HubError::new("RESOURCE_CHECK_FAILED", "资源冲突检查未完成。"))?
     }
 
+    // Caller holds mutation through durable task admission. Only supervised
+    // candidates lose global claims; unknown games and every file task retain them.
+    pub(crate) async fn check_backup_resources(&self, source: &str, backup: &str) -> Result<()> {
+        let scopes = vec![
+            ResourceScope {
+                role: "backup_source".into(),
+                path: source.into(),
+                access: "read".into(),
+            },
+            ResourceScope {
+                role: "backup_destination".into(),
+                path: backup.into(),
+                access: "write".into(),
+            },
+        ];
+        let mut connection = self.pool.acquire().await.map_err(HubError::db)?;
+        let mut claims = crate::resource_claims::read_claims(&mut connection).await?;
+        drop(connection);
+        self.overlay_claims(&mut claims).await;
+        tokio::task::spawn_blocking(move || compare(String::new(), scopes, claims))
+            .await
+            .map_err(|_| HubError::new("RESOURCE_CHECK_FAILED", "资源冲突检查未完成。"))??
+            .ensure_admissible()
+    }
+
     pub(crate) async fn check_instance_resources(&self, instance_id: &str) -> Result<()> {
         let preview = self.instance_resources_inner(instance_id).await?;
         preview.ensure_admissible()
@@ -202,7 +227,7 @@ impl InstanceResourcePreview {
         {
             return Err(HubError::new(
                 "INSTANCE_SCOPE_OVERLAP",
-                "实例数据位于游戏安装范围内，启动已阻止。",
+                "请求目录范围共享或嵌套，操作已阻止。",
             ));
         }
         if self
@@ -218,7 +243,7 @@ impl InstanceResourcePreview {
         if !self.scope_issues.is_empty() {
             return Err(HubError::new(
                 "RESOURCE_SCOPE_UNAVAILABLE",
-                "实例或安装目录不可访问，启动已阻止。",
+                "请求目录不可访问，操作已阻止。",
             ));
         }
         if let Some(conflict) = self.conflicts.first() {
@@ -232,11 +257,11 @@ impl InstanceResourcePreview {
                 .iter()
                 .any(|c| c.reason == "directory_overlap")
             {
-                "安装或实例目录与活动操作共享或嵌套，启动已阻止。"
+                "请求目录与活动操作共享或嵌套，操作已阻止。"
             } else if conflict.reason == "scope_unresolved" {
-                "活动资源范围无法核实，启动已阻止。"
+                "活动资源范围无法核实，操作已阻止。"
             } else {
-                "存在活动操作或未知游戏写入范围，启动已阻止。"
+                "存在活动操作或未知游戏写入范围，操作已阻止。"
             };
             return Err(HubError::new(code, message));
         }

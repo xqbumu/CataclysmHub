@@ -132,7 +132,7 @@
   "binding_verified": false,
   "concurrency_accepted": false,
   "remaining": [
-    "precise H saved-state comparison and unexpected turn advancement investigation",
+    "controlled H saved-state comparison (user confirmed concurrent manual gameplay; no input defect established)",
     "near-simultaneous saves",
     "inventory and map mutation recovery",
     "cold cache and autosave",

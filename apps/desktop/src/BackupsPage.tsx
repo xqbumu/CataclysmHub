@@ -76,6 +76,17 @@ export default function BackupsPage({
     data.sessions.some((session) =>
       ['starting', 'running', 'interrupted_unknown'].includes(session.state),
     );
+  // This only enables a backend preview, never grants admission from UI paths.
+  const scopedPreview =
+    !!sourceInstance &&
+    data.resource_claims.length > 0 &&
+    data.resource_claims.every(
+      (claim) =>
+        claim.owner_kind === 'session' &&
+        claim.state === 'running' &&
+        claim.scope === 'directory',
+    );
+  const previewBlocked = blocked && !scopedPreview;
   const latest = data.backup_tasks[0];
   if (!data.workspace)
     return (
@@ -123,7 +134,7 @@ export default function BackupsPage({
         </label>
         <button
           className="primary"
-          disabled={busy || blocked || !api.desktop}
+          disabled={busy || previewBlocked || !api.desktop}
           onClick={() =>
             void run(async () => {
               const next = await (sourceInstance
@@ -146,11 +157,16 @@ export default function BackupsPage({
           SHA-256 一致，不代表游戏语义一致或跨版本兼容。覆盖恢复尚未开放。
         </span>
       </div>
-      {blocked && !active && (
+      {previewBlocked && !active && (
         <div className="alert">
           <TriangleAlert size={17} />
           工作区正在扫描、恢复或检查目录，或游戏仍在运行/状态未知。请先处理相关任务。
         </div>
+      )}
+      {scopedPreview && (
+        <p className="inline-note">
+          可请求独立实例的备份预览；后端会重新检查来源与备份目录，运行中的实例及重叠目录仍会被阻止。
+        </p>
       )}
       <RetentionPanel api={api} busy={busy} run={run} />
       {latest && (
@@ -415,7 +431,10 @@ export default function BackupsPage({
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
             <span>
-              我已关闭游戏，理解这是尽力快照，且文件校验不等于游戏一致性保证。
+              {plan.play_instance_id
+                ? '我已关闭使用此实例的游戏'
+                : '我已关闭游戏'}
+              ，理解这是尽力快照，且文件校验不等于游戏一致性保证。
             </span>
           </label>
           {error && (

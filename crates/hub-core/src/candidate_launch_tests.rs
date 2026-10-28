@@ -107,7 +107,7 @@ async fn independent_candidates_run_together_and_exit_releases_only_its_owner() 
             .code,
         "GAME_RUNNING_OR_UNKNOWN"
     );
-    // Ordinary launches and all file tasks retain their conservative gate.
+    // Ordinary launches and operations using the global gate stay conservative.
     assert_eq!(
         f.hub
             .instance_launch_plan(&f.instances[2], "cdda-0h-source-trial-v1")
@@ -458,5 +458,161 @@ async fn observed_exit_revokes_eligibility_even_while_mutation_gate_is_busy() {
             .any(|c| c.owner_id == a.id && c.scope == "global")
     );
     drop(gate);
+    f.wait(&a.id, "exited_unverified").await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn unrelated_instance_backup_can_finish_while_candidate_runs() {
+    let f = Fixture::new().await;
+    std::fs::write(f.temp.path().join("instance-1/save.txt"), b"saved world").unwrap();
+    let a = f.plan(0).await;
+    let a = f.hub.launch(&a.id, true).await.unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_instance_backup(&f.instances[0])
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert_eq!(
+        f.hub.prepare_backup().await.unwrap_err().code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    let plan = f
+        .hub
+        .prepare_instance_backup(&f.instances[1])
+        .await
+        .unwrap();
+    let task = f
+        .hub
+        .create_backup(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    for _ in 0..200 {
+        let task = f.hub.backup_task(&task.id).await.unwrap();
+        if task.state != "running" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(
+        f.hub.backup_task(&task.id).await.unwrap().state,
+        "succeeded"
+    );
+    let data = f.hub.dashboard().await.unwrap();
+    assert!(
+        data.sessions
+            .iter()
+            .any(|s| s.id == a.id && s.state == "running")
+    );
+    assert!(data.resource_claims.iter().all(|c| c.owner_id == a.id));
+    assert_eq!(
+        std::fs::read(f.temp.path().join("instance-1/save.txt")).unwrap(),
+        b"saved world"
+    );
+    f.release(0);
+    f.wait(&a.id, "exited_unverified").await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn instance_backup_rechecks_session_and_destination_at_confirmation() {
+    let f = Fixture::new().await;
+    let plan = f
+        .hub
+        .prepare_instance_backup(&f.instances[0])
+        .await
+        .unwrap();
+    let a = f.plan(0).await;
+    let a = f.hub.launch(&a.id, true).await.unwrap();
+    assert_eq!(
+        f.hub
+            .create_backup(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    // Even a disjoint source cannot write an archive into the running game's root.
+    let source = f.temp.path().join("instance-1");
+    let destination = f.temp.path().join("instance-0");
+    assert_eq!(
+        f.hub
+            .check_backup_resources(source.to_str().unwrap(), destination.to_str().unwrap())
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert!(f.hub.dashboard().await.unwrap().backup_tasks.is_empty());
+    f.release(0);
+    f.wait(&a.id, "exited_unverified").await;
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn instance_backup_blocks_unknown_candidate_and_unavailable_protected_root() {
+    let f = Fixture::new().await;
+    let a = f.plan(0).await;
+    let a = f.hub.launch(&a.id, true).await.unwrap();
+    // Wait until the shell has opened its script before moving its directory.
+    let started = f.temp.path().join("instance-0/started");
+    for _ in 0..200 {
+        if started.exists() {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert!(started.exists());
+    let root = f.temp.path().join("game-0");
+    let moved = f.temp.path().join("moved-game");
+    std::fs::rename(&root, &moved).unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_instance_backup(&f.instances[1])
+            .await
+            .unwrap_err()
+            .code,
+        "PATH_INVALID"
+    );
+    assert_eq!(
+        f.hub
+            .check_backup_resources(
+                f.temp.path().join("instance-1").to_str().unwrap(),
+                f.temp.path().join("backup").to_str().unwrap(),
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    std::fs::rename(&moved, &root).unwrap();
+    sqlx::query("UPDATE session SET state='interrupted_unknown' WHERE id=?")
+        .bind(&a.id)
+        .execute(&f.hub.pool)
+        .await
+        .unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_instance_backup(&f.instances[1])
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert!(f.hub.dashboard().await.unwrap().backup_tasks.is_empty());
+    f.release(0);
     f.wait(&a.id, "exited_unverified").await;
 }
