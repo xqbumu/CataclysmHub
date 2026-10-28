@@ -170,3 +170,11 @@ schema 8 为会话增加实例、方案和数据根快照，游戏库新增显�
 游戏库“检查资源冲突”无需先选方案，在启动被阻止时仍可用；对话框显示时间、目录、占用者、具体冲突和范围问题，关闭不改变状态，再次点击重新读取。binding_verified、concurrency_available 恒 false，不预留资源、不创建计划、不执行程序。
 
 最终 Rust 130 项、前端 49 项及 Clippy/格式/类型/构建、macOS debug 打包通过。一次既有工作区锁重开用例中间失败，隔离及完整复测通过，原因未定位并保留记录。原生合成演练确认三项冲突和关闭后全局保护不变、无审计新增。详见 [设计](../design/instance-resource-conflicts.md) 与 [验证记录](../quality/instance-resource-conflicts-verification.md)。当前并非执行期范围租约，多版本并发、共享缓存处理与实例备份验收仍待完成。
+
+## 开源方案评估与工作区锁生命周期修复（2026-10-28）
+
+完成面向当前隔离、实例模型、进程生命周期和备份问题的 [开源方案评估](../research/open-source-isolation-options.md)，逐项列出官方来源、许可证声明、平台限制与直接采用/设计参考的区别。保留现有 cap-std/same-file；参考 Catapult/Prism 的布局/实例设计；Linux 可实验 bubblewrap，macOS 优先验证独立完整安装副本；restic 作为后续可选备份后端，不替代存档一致性。未安装或引入新增运行时依赖，未提升绑定/并发状态。
+
+针对上轮锁偶发失败，修复前 60 轮并行基础测试复现一次，定点采样再现时 Hub 强引用已为 1、原始错误为 WouldBlock。新增确定性重复描述符回归修复前失败，表明仅关闭单句柄的释放缺口；改为私有 WorkspaceLock guard 在最后 Hub 结束时显式解锁，仍拒绝活动所有者期间的竞争者，其他 Arc 所有者存续时不提前释放。没有加重试/延时、删除锁文件或更换锁库。原始竞争具体 fork/exec 时点未逐事件跟踪，定位范围据实保留。
+
+修复后相同压力循环 120 轮、1320 项用例执行零失败；完整 Rust 132 项、前端 49 项、Clippy/格式/类型/前端构建通过，macOS debug 打包通过。Windows/Linux 本轮未实机验证。详见 [诊断证据及边界](../quality/workspace-lock-lifecycle-diagnosis.md)。本轮解决元数据锁正常释放缺口，不代表共享安装缓存、游戏执行期隔离或 USR-001 并发验收已完成。

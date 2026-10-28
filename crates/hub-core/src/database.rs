@@ -24,8 +24,39 @@ pub struct Hub {
     pub(crate) backup_plans: Mutex<HashMap<String, crate::backup::PreparedPlan>>,
     pub(crate) runtime_recovery: Mutex<HashMap<String, crate::task_recovery::RuntimeFailure>>,
     pub(crate) scan_controls: Mutex<HashMap<String, Arc<AtomicBool>>>,
-    _lock: File,
+    _lock: WorkspaceLock,
 }
+// Only this guard owns the lock lifecycle. A transient descriptor inherited
+// during process creation must not extend it beyond the final Hub owner.
+struct WorkspaceLock(File);
+impl WorkspaceLock {
+    fn acquire(path: &Path) -> Result<Self> {
+        let file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)
+            .map_err(|_| HubError::new("PERMISSION_DENIED", "无法打开工作区锁。"))?;
+        fs2::FileExt::try_lock_exclusive(&file).map_err(|_| {
+            HubError::new(
+                "WORKSPACE_LOCKED",
+                "另一个 Cataclysm Hub 实例正在使用此工作区。",
+            )
+        })?;
+        Ok(Self(file))
+    }
+}
+impl Drop for WorkspaceLock {
+    fn drop(&mut self) {
+        // Closing one descriptor does not release a Unix flock while a dup/fork
+        // reference survives. Explicit unlock releases our shared lock first.
+        if fs2::FileExt::unlock(&self.0).is_err() {
+            eprintln!("WORKSPACE_UNLOCK_FAILED");
+        }
+    }
+}
+
 pub(crate) fn now() -> String {
     chrono::Utc::now().to_rfc3339()
 }
@@ -39,19 +70,7 @@ impl Hub {
             .map_err(|_| HubError::new("PERMISSION_DENIED", "无法创建应用元数据目录。"))?;
         let data_dir = std::fs::canonicalize(data_dir)
             .map_err(|_| HubError::new("PATH_INVALID", "无法访问应用元数据目录。"))?;
-        let lock = std::fs::OpenOptions::new()
-            .read(true)
-            .write(true)
-            .create(true)
-            .truncate(false)
-            .open(data_dir.join("workspace.lock"))
-            .map_err(|_| HubError::new("PERMISSION_DENIED", "无法打开工作区锁。"))?;
-        fs2::FileExt::try_lock_exclusive(&lock).map_err(|_| {
-            HubError::new(
-                "WORKSPACE_LOCKED",
-                "另一个 Cataclysm Hub 实例正在使用此工作区。",
-            )
-        })?;
+        let lock = WorkspaceLock::acquire(&data_dir.join("workspace.lock"))?;
         let pool = SqlitePoolOptions::new()
             .max_connections(1)
             .connect_with(
@@ -488,5 +507,49 @@ impl Hub {
             .map_err(HubError::db)?;
         tx.commit().await.map_err(HubError::db)?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod lock_regression {
+    use super::*;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn dropping_hub_unlocks_despite_a_transient_duplicate() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = temp.path().join("metadata");
+        let hub = Hub::open(&data).await.unwrap();
+        let duplicate = hub._lock.0.try_clone().unwrap();
+        assert_eq!(Arc::strong_count(&hub), 1);
+        assert_eq!(
+            Hub::open(&data).await.err().unwrap().code,
+            "WORKSPACE_LOCKED"
+        );
+        drop(hub);
+        let reopened = Hub::open(&data)
+            .await
+            .expect("final owner drop must explicitly release its shared kernel lock");
+        drop(duplicate);
+        assert_eq!(
+            Hub::open(&data).await.err().unwrap().code,
+            "WORKSPACE_LOCKED"
+        );
+        drop(reopened);
+        Hub::open(&data).await.unwrap();
+    }
+    #[tokio::test]
+    async fn shared_hub_owners_keep_the_lock_until_the_last_owner_drops() {
+        let temp = tempfile::tempdir().unwrap();
+        let data = temp.path().join("metadata");
+        let hub = Hub::open(&data).await.unwrap();
+        let worker_owner = Arc::clone(&hub);
+        drop(hub);
+        assert_eq!(
+            Hub::open(&data).await.err().unwrap().code,
+            "WORKSPACE_LOCKED"
+        );
+        drop(worker_owner);
+        Hub::open(&data).await.unwrap();
     }
 }
