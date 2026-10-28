@@ -27,7 +27,7 @@ impl Fixture {
         .await
         .unwrap();
         let executable = temp.path().join("game/test.exe");
-        std::fs::write(&executable, b"#!/bin/sh\nwhile [ $# -gt 0 ]; do\n case \"$1\" in\n --userdir) user=$2;;\n --savedir) save=$2;;\n --configdir) config=$2;;\n esac\n shift 2\ndone\nmkdir -p \"$save\" \"$config\"\nprintf 'synthetic save' > \"$save/world.dat\"\nprintf 'synthetic config' > \"$config/options.json\"\nsleep 0.3\n").unwrap();
+        std::fs::write(&executable, b"#!/bin/sh\nwhile [ $# -gt 0 ]; do\n case \"$1\" in\n --userdir) user=$2;;\n --savedir) save=$2;;\n --configdir) config=$2;;\n esac\n shift 2\ndone\ntest -d \"$save\" && test -d \"$config\" || exit 13\nprintf 'synthetic save' > \"$save/world.dat\"\nprintf 'synthetic config' > \"$config/options.json\"\nsleep 0.3\n").unwrap();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
@@ -146,7 +146,7 @@ async fn added_symlink_after_preview_is_rejected() {
     std::os::unix::fs::symlink(f.temp.path().join("save"), f.root().join("save")).unwrap();
     assert_eq!(
         f.hub.launch(&plan.id, true).await.unwrap_err().code,
-        "INSTANCE_SCOPE_UNSAFE"
+        "INSTANCE_ROLE_INVALID"
     );
     assert_eq!(
         std::fs::read_dir(f.temp.path().join("save"))
@@ -317,4 +317,129 @@ async fn failed_schema_eight_upgrade_does_not_partially_alter_sessions() {
             .unwrap(),
         1
     );
+}
+#[tokio::test]
+async fn macos_profiles_do_not_silently_apply_to_other_platforms_or_layouts() {
+    let f = Fixture::new().await;
+    let error = f
+        .hub
+        .instance_launch_plan(&f.instance, "cdda-0i-1-macos-trial-v1")
+        .await
+        .unwrap_err();
+    assert_eq!(
+        error.code,
+        if cfg!(target_os = "macos") {
+            "BUNDLE_LAYOUT_UNSUPPORTED"
+        } else {
+            "PROFILE_PLATFORM_UNSUPPORTED"
+        }
+    );
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+}
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn macos_bundle_trial_freezes_local_loader_paths_and_rechecks_frameworks() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new().await;
+    let resources = f.temp.path().join("Game.app/Contents/Resources");
+    std::fs::create_dir_all(&resources).unwrap();
+    let executable = resources.join("cataclysm-tiles");
+    std::fs::write(&executable, b"#!/bin/sh\nexit 0\n").unwrap();
+    std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    for name in ["SDL2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"] {
+        let folder = resources.join(format!("{name}.framework/Versions/A"));
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join(name), b"synthetic library, never loaded").unwrap();
+    }
+    let root = f.temp.path().join("mac-instance");
+    std::fs::create_dir(&root).unwrap();
+    let installation = f
+        .hub
+        .import_installation(executable.to_str().unwrap(), "bundle fixture")
+        .await
+        .unwrap();
+    let instance = f
+        .hub
+        .register_play_instance(PlayInstanceInput {
+            installation_id: installation.id,
+            name: "mac trial".into(),
+            data_root: root.to_str().unwrap().into(),
+        })
+        .await
+        .unwrap();
+    let plan = f
+        .hub
+        .instance_launch_plan(&instance.id, "cdda-0h-release-macos-trial-v1")
+        .await
+        .unwrap();
+    let canonical = resources
+        .canonicalize()
+        .unwrap()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    assert_eq!(
+        plan.environment,
+        std::collections::BTreeMap::from([
+            ("DYLD_FRAMEWORK_PATH".into(), canonical.clone()),
+            ("DYLD_LIBRARY_PATH".into(), canonical)
+        ])
+    );
+    assert!(!plan.save_binding_verified);
+    assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+    std::fs::remove_file(resources.join("SDL2.framework/Versions/A/SDL2")).unwrap();
+    assert_eq!(
+        f.hub.launch(&plan.id, true).await.unwrap_err().code,
+        "BUNDLE_LAYOUT_UNSUPPORTED"
+    );
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+    assert!(
+        f.hub
+            .launch_plan(&f.installation, vec![])
+            .await
+            .unwrap()
+            .environment
+            .is_empty()
+    );
+}
+#[tokio::test]
+async fn failed_launch_audit_does_not_prepare_directories_or_run_program() {
+    let f = Fixture::new().await;
+    let plan = f
+        .hub
+        .instance_launch_plan(&f.instance, PROFILE)
+        .await
+        .unwrap();
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f.temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::raw_sql("CREATE TRIGGER refuse_launch BEFORE INSERT ON operation_log WHEN NEW.action='game.launch' BEGIN SELECT RAISE(ABORT,'test'); END;").execute(&pool).await.unwrap();
+    assert_eq!(
+        f.hub.launch(&plan.id, true).await.unwrap_err().code,
+        "DATABASE_ERROR"
+    );
+    assert_eq!(std::fs::read_dir(f.root()).unwrap().count(), 0);
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+}
+#[tokio::test]
+async fn occupied_role_path_is_rejected_without_overwriting_original_file() {
+    let f = Fixture::new().await;
+    std::fs::write(f.root().join("config"), b"keep this file").unwrap();
+    assert_eq!(
+        f.hub
+            .instance_launch_plan(&f.instance, PROFILE)
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_ROLE_INVALID"
+    );
+    assert_eq!(
+        std::fs::read(f.root().join("config")).unwrap(),
+        b"keep this file"
+    );
+    assert!(!f.root().join("save").exists());
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
 }

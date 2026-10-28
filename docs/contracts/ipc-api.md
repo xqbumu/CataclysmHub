@@ -116,3 +116,8 @@ preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`
 ## 当前实现补充：实例参数试运行（schema 8）
 
 `create_instance_launch_plan({ instanceId, profileId }) -> LaunchPlan`，当前唯一参数方案 `cdda-0h-source-trial-v1`，由用户显式选择，不代表检测通过；随后使用既有 `launch_game` 确认执行。LaunchPlan/Session 新增可空 `play_instance_id`、`launch_profile_id`、`instance_data_root`，旧会话为空。实际绑定仍未验证，全局互斥保留，详细字段、重验和限制见 [试运行设计](../design/instance-launch-trial.md)。
+
+
+## 当前实现补充：macOS 发布包试运行环境
+
+`create_instance_launch_plan` 增加 H-RELEASE/I-1 的 macOS 试运行方案；原通用方案保留。LaunchPlan 新增 `environment` 字符串映射，由后端构建、前端只读显示，调用者不能自行提交。macOS 方案只为当前进程覆盖两项包内框架/库路径，执行前重验布局与映射；其他平台拒绝套用。确认后通过已核对身份的目录句柄准备 save/config；启动意图审计失败则不产生目录写入。详情见 [真实验收](../quality/real-game-binding-acceptance.md)。不新增数据库迁移，schema 8 不变。

@@ -53,6 +53,7 @@ it('requires a native selection and keeps binding uncertainty explicit', async (
 it('requires choosing a trial profile and a separate confirmation before launch', async () => {
   const user = userEvent.setup();
   const instanceLaunchPlan = vi.fn().mockResolvedValue({
+    environment: {},
     id: 'plan',
     play_instance_id: 'instance',
     launch_profile_id: 'cdda-0h-source-trial-v1',
@@ -105,4 +106,57 @@ it('requires choosing a trial profile and a separate confirmation before launch'
   await user.click(preview);
   await user.click(screen.getByRole('button', { name: '确认单实例试运行' }));
   expect(launch).toHaveBeenCalledWith('plan');
+});
+
+it('changing a version profile clears acknowledgement and forwards the selected profile', async () => {
+  const user = userEvent.setup();
+  const instanceLaunchPlan = vi.fn().mockResolvedValue({
+    environment: { DYLD_FRAMEWORK_PATH: '/Game.app/Contents/Resources' },
+    id: 'plan',
+    executable: '/Game.app/Contents/Resources/cataclysm-tiles',
+    working_dir: '/Game.app/Contents/Resources',
+    instance_data_root: '/isolated',
+    save_dir: '/isolated/save',
+    args: [],
+    executable_sha256: 'abc',
+    warnings: ['未验证'],
+  });
+  render(
+    <PlayInstancesPanel
+      api={{ ...api, desktop: true, instanceLaunchPlan }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'instance',
+            installation_id: 'game',
+            installation_sha256: 'abc',
+            name: '测试',
+            data_root: '/isolated',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+      }}
+      onRefresh={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('checkbox'));
+  await user.selectOptions(
+    screen.getByLabelText('试运行参数方案'),
+    'cdda-0i-1-macos-trial-v1',
+  );
+  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  expect(
+    screen.getByRole('button', { name: '预览 测试 试运行' }),
+  ).toBeDisabled();
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(screen.getByRole('button', { name: '预览 测试 试运行' }));
+  expect(instanceLaunchPlan).toHaveBeenCalledWith(
+    'instance',
+    'cdda-0i-1-macos-trial-v1',
+  );
+  expect(
+    screen.getByText('{"DYLD_FRAMEWORK_PATH":"/Game.app/Contents/Resources"}'),
+  ).toBeInTheDocument();
 });

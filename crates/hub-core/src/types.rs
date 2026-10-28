@@ -92,6 +92,7 @@ pub struct Dashboard {
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct LaunchPlan {
+    pub environment: std::collections::BTreeMap<String, String>,
     pub play_instance_id: Option<String>,
     pub launch_profile_id: Option<String>,
     pub instance_data_root: Option<String>,

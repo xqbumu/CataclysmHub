@@ -1,0 +1,58 @@
+# 真实游戏绑定与多版本并发验收
+
+日期：2026-10-28。目标：USR-001。应分别判断游戏行为实验与 Hub 产品能力，不能用进程存在、菜单截图或参数接收器替代真实存档验收。
+
+## 验收顺序
+
+1. **固定样本身份。** 使用明确来源的完整发行包，分别记录下载 URL/资产 ID、包摘要、游戏本体摘要、二进制架构、程序自报构建、上游源码提交及资源组合。发布标签、用户名称、VERSION.txt 与本体身份分别记录；不执行任意未知安装来猜版本。
+2. **建立测试环境。** 两个版本分别使用完整安装副本和全新的玩家数据目录；测试 HOME/配置/缓存/临时目录也独立。不得直接载入唯一原存档。对安装、实例和测试保护目录做基线采集；证据输出存到这些范围外。
+3. **逐实例真实游玩。** 在游戏界面创建新世界和角色，推进操作、保存、退出世界、重新加载，确认加载的是同一实例的数据。检查配置、日志、缓存、纪念记录及其他写入，不能只看 save。记录程序是否直接运行、启动器是否退出和是否有子进程接管。
+4. **双实例交叉验证。** A/B 同时进入各自世界；A 保存和重载时 B 保持运行，比较 B 的范围；再反向执行。退出 A 后 B 仍能操作和保存。两个菜单或两个 --check-mods 进程不算双实例游玩。
+5. **Hub 集成验收。** 由 Hub 启动并监测两个实例，按真实安装及玩家数据范围持有资源租约；退出 A 不释放 B 的保护。备份/恢复只与涉及范围冲突；未知启动器或未验证安装仍保守阻止。共享、嵌套、目录别名、参数覆盖都须有负例。
+6. **故障与发布验收。** 管理器重启/强杀、游戏异常退出、PID 复用、子进程接管、目录替换、断盘、审计失败均不能误放行。重启未知实例保留原范围保护；来源/摘要/适配器修订变化使旧证据失效。平台、具体构建、资源组合与样本范围逐项声明，不泛化为所有 CDDA。
+
+游戏可加载、文件完整性、完整目录绑定、并发调度和退出后存档稳定性是不同结论。
+
+## 当前 Hub 操作
+
+游戏库导入本体，在 macOS SDL2 发行包中选择 `Contents/Resources/cataclysm-tiles`，不要选不转发参数的 bundle shell 脚本。为安装登记现有独立空目录。在“试运行参数方案”选择相应方案，再显式勾选确认：
+
+- `cdda-0h-source-trial-v1`：原有通用源码参数，不覆盖进程环境。
+- `cdda-0h-release-macos-trial-v1`：H 发布包布局试运行。
+- `cdda-0i-1-macos-trial-v1`：I-1 发布包布局试运行。
+
+macOS 方案检查 Resources/Contents 布局及包内 SDL2 系列框架目标，再给**当前游戏进程**设置 DYLD_FRAMEWORK_PATH/DYLD_LIBRARY_PATH=该 Resources，不改变系统环境；实际值显示在预览。用户选择方案仍不证明本地程序属于该版本。
+
+预览只读，确认后先持久记录启动意图，再通过已核对身份的目录句柄准备 save/config 子目录，然后执行固定目录参数。已有普通目录可复用；文件/链接占位拒绝，绝不覆盖。准备或执行失败保留明确会话结果，可能留下新建空目录；不为清理而删除用户文件。实际绑定状态仍为未验证。
+
+**当前 Hub 仍全局互斥，不能通过这一界面完成第 5 步的双开验收。** 下节实验由独立测试启动器完成，不以临时关闭生产锁来冒充产品支持。
+
+## 本机已执行证据
+
+[正式实验记录](real-game-macos-2026-10-28.md)和[摘要/本地证据索引](evidence/real-game-macos-2026-10-28.json)记录官方 H、I-1 本体在独立安装/玩家目录中的真实创建、保存、退出、重载及两个版本同时进入世界。H 操作阶段没有观测到 I 的范围变化，反向同样如此；H 进程退出后 I 仍响应。
+
+这些已执行用例缩小了绑定不确定性，但并未穷尽所有 OS 写入、资源组合、故障及平台，也未由 Hub 并发启动/调度，因此不提升绑定标记，不宣称 USR-001 完成。
+
+## 可重复的文件观测
+
+项目提供不执行游戏的标准库工具：
+
+```sh
+python3 scripts/acceptance/observe_scopes.py snapshot \
+  --scope install-a=/test/install-a --scope install-b=/test/install-b \
+  --scope instance-a=/test/instance-a --scope instance-b=/test/instance-b \
+  --scope protected=/test/protected --output /test/evidence/before.json
+# 在真实游戏中完成单个阶段，等待保存结束
+python3 scripts/acceptance/observe_scopes.py snapshot \
+  --scope install-a=/test/install-a --scope install-b=/test/install-b \
+  --scope instance-a=/test/instance-a --scope instance-b=/test/instance-b \
+  --scope protected=/test/protected --output /test/evidence/after.json
+python3 scripts/acceptance/observe_scopes.py diff \
+  --before /test/evidence/before.json --after /test/evidence/after.json \
+  --allow-change install-a --allow-change instance-a \
+  --output /test/evidence/diff.json
+```
+
+snapshot/diff 仅写新的证据文件，不修改所选范围、不覆盖已有输出。返回 0 只代表采集完成或变化在声明允许范围；返回 2 表示观测有阻断项，返回 1 表示无法完成。名字和物理目录重复/嵌套、输出落入观察范围、根身份变化、范围集不一致、外部/悬空链接、特殊文件、无效/过大文档、预算超限均不能静默通过。内部框架链接只记录、不沿链接再次读取。限制 100000 条、64 层、8 GiB 文件逻辑读取、64 MiB 证据文档。
+
+这不是 OS 写入跟踪、进程监测或沙箱；运行中的目录采集也不具备全局原子性。两个采集点之间产生后又删除的临时文件可能遗漏，观察范围之外的写入未覆盖。产物始终 `binding_verified=false`、`concurrency_accepted=false`；需要结合受控环境、实际游玩、进程证据和完整验收矩阵。

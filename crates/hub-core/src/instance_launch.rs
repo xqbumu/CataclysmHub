@@ -1,7 +1,59 @@
 use crate::{Hub, HubError, LaunchPlan, PlayInstance, Result, paths, process::PreparedLaunch};
+use cap_fs_ext::DirExt;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 const PROFILE: &str = "cdda-0h-source-trial-v1";
+const MAC_H: &str = "cdda-0h-release-macos-trial-v1";
+const MAC_I: &str = "cdda-0i-1-macos-trial-v1";
+
+fn validate_profile(profile: &str) -> Result<()> {
+    if ![PROFILE, MAC_H, MAC_I].contains(&profile) {
+        return Err(HubError::new(
+            "PROFILE_UNSUPPORTED",
+            "不支持此实例参数方案。",
+        ));
+    }
+    if profile != PROFILE && !cfg!(target_os = "macos") {
+        return Err(HubError::new(
+            "PROFILE_PLATFORM_UNSUPPORTED",
+            "此发布包试运行方案仅适用于 macOS。",
+        ));
+    }
+    Ok(())
+}
+
+async fn profile_environment(
+    profile: &str,
+    executable: &str,
+    working_dir: &str,
+) -> Result<std::collections::BTreeMap<String, String>> {
+    validate_profile(profile)?;
+    if profile == PROFILE {
+        return Ok(Default::default());
+    }
+    let executable = executable.to_owned();
+    let working = working_dir.to_owned();
+    tokio::task::spawn_blocking(move || {
+        let root = paths::canonical(&working, true)?;
+        let path = Path::new(&executable);
+        if path.file_name().and_then(|name| name.to_str()) != Some("cataclysm-tiles")
+            || path.parent() != Some(root.as_path())
+            || root.file_name().and_then(|name| name.to_str()) != Some("Resources")
+            || root.parent().and_then(Path::file_name).and_then(|name| name.to_str()) != Some("Contents") {
+            return Err(HubError::new("BUNDLE_LAYOUT_UNSUPPORTED", "请选择 macOS 包内 Contents/Resources/cataclysm-tiles 本体；不使用 bundle 启动脚本。"));
+        }
+        for name in ["SDL2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"] {
+            let file = root.join(format!("{name}.framework/Versions/A/{name}"));
+            let canonical = std::fs::canonicalize(file).map_err(|_| HubError::new("BUNDLE_LAYOUT_UNSUPPORTED", "发布包内所需框架缺失或不可访问。"))?;
+            if !canonical.starts_with(&root) || !canonical.is_file() {
+                return Err(HubError::new("BUNDLE_LAYOUT_UNSUPPORTED", "发布包框架不能引用安装范围以外的路径。"));
+            }
+        }
+        let text = paths::text(&root)?;
+        Ok(std::collections::BTreeMap::from([("DYLD_FRAMEWORK_PATH".into(), text.clone()), ("DYLD_LIBRARY_PATH".into(), text)]))
+    }).await.map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "发布包布局检查未完成。"))?
+}
 
 fn profile_args(root: &str) -> Vec<String> {
     let child = |name: &str| format!("{}/{name}/", root.trim_end_matches(['/', '\\']));
@@ -17,6 +69,24 @@ fn profile_args(root: &str) -> Vec<String> {
 
 // A read-only preflight, not a sandbox or proof about what a program will write.
 fn check_tree(root: &Path) -> Result<()> {
+    for name in ["save", "config"] {
+        match std::fs::symlink_metadata(root.join(name)) {
+            Ok(metadata) if !metadata.is_dir() || metadata.file_type().is_symlink() => {
+                return Err(HubError::new(
+                    "INSTANCE_ROLE_INVALID",
+                    "实例 save/config 路径须为普通目录，不能是文件或链接。",
+                ));
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(_) => {
+                return Err(HubError::new(
+                    "INSTANCE_SCOPE_UNREADABLE",
+                    "无法检查实例 save/config 目录。",
+                ));
+            }
+        }
+    }
     let mut pending = vec![(root.to_path_buf(), 0)];
     let mut count = 0;
     while let Some((dir, depth)) = pending.pop() {
@@ -140,12 +210,7 @@ impl Hub {
         profile_id: &str,
     ) -> Result<LaunchPlan> {
         let _guard = self.mutation.lock().await;
-        if profile_id != PROFILE {
-            return Err(HubError::new(
-                "PROFILE_UNSUPPORTED",
-                "不支持此实例参数方案。",
-            ));
-        }
+        validate_profile(profile_id)?;
         let instance = self.instance(instance_id).await?;
         let installation = self.installation(&instance.installation_id).await?;
         if installation.sha256 != instance.installation_sha256 {
@@ -154,6 +219,13 @@ impl Hub {
                 "实例关联的程序身份已变化。",
             ));
         }
+        self.check_sessions(&instance.installation_id).await?;
+        let environment = profile_environment(
+            profile_id,
+            &installation.executable,
+            &installation.working_dir,
+        )
+        .await?;
         let identity = self
             .instance_identity(&instance, &installation.working_dir)
             .await?;
@@ -161,20 +233,24 @@ impl Hub {
             .launch_plan_inner(&instance.installation_id, profile_args(&instance.data_root))
             .await?;
         plan.play_instance_id = Some(instance.id);
-        plan.launch_profile_id = Some(PROFILE.into());
+        plan.launch_profile_id = Some(profile_id.into());
+        plan.environment = environment;
         plan.instance_data_root = Some(instance.data_root.clone());
         plan.save_dir = paths::text(&PathBuf::from(&instance.data_root).join("save"))?;
         plan.warnings = vec![
-            "这是显式选择的 CDDA 0.H 源码参数试运行；没有识别或验证本地程序版本，不适用于任意游戏。".into(),
-            "已指定用户、存档和配置目录参数，但实际绑定仍未验证；不会复制或迁移原存档。".into(),
-            "0.H 还可能写入安装基础目录和数据目录的缓存；本方案保持全局互斥，不允许并行游玩。".into(),
+            format!(
+                "这是显式选择的 {profile_id} 源码参数试运行；没有识别或验证本地程序版本，不适用于任意游戏。"
+            ),
+            "确认后将准备实例 save/config 子目录并传递目录参数；实际绑定仍未验证，不会复制或迁移原存档。".into(),
+            "游戏还可能写入安装基础目录和数据目录的缓存；本方案保持全局互斥，不允许并行游玩。"
+                .into(),
             "只监测直接进程；退出不代表子进程已关闭或存档稳定。实例数据尚未接入工作区备份。".into(),
         ];
         self.plans.lock().await.insert(
             plan.id.clone(),
             PreparedLaunch {
                 plan: plan.clone(),
-                instance_identity: Some(identity),
+                instance_identity: Some(Arc::new(identity)),
             },
         );
         Ok(plan)
@@ -191,7 +267,12 @@ impl Hub {
                     .ok_or(HubError::new("PLAN_STALE", "实例预览缺少关联。"))?,
             )
             .await?;
-        if plan.launch_profile_id.as_deref() != Some(PROFILE)
+        let profile = plan
+            .launch_profile_id
+            .as_deref()
+            .ok_or(HubError::new("PLAN_STALE", "预览缺少参数方案。"))?;
+        let environment = profile_environment(profile, &plan.executable, &plan.working_dir).await?;
+        if plan.environment != environment
             || plan.instance_data_root.as_deref() != Some(&instance.data_root)
             || plan.installation_id != instance.installation_id
             || plan.executable_sha256 != instance.installation_sha256
@@ -208,4 +289,49 @@ impl Hub {
         }
         Ok(())
     }
+}
+
+pub(crate) async fn prepare_instance_directories(
+    plan: &LaunchPlan,
+    identity: Arc<(same_file::Handle, same_file::Handle)>,
+) -> Result<()> {
+    let path = plan
+        .instance_data_root
+        .clone()
+        .ok_or(HubError::new("PLAN_STALE", "实例目录缺失。"))?;
+    tokio::task::spawn_blocking(move || {
+        let error = |_| {
+            HubError::new(
+                "INSTANCE_PREPARE_FAILED",
+                "无法准备实例 save/config 目录，程序未启动。已有文件未被覆盖。",
+            )
+        };
+        let root = cap_std::fs::Dir::open_ambient_dir(&path, cap_std::ambient_authority())
+            .map_err(error)?;
+        let current =
+            same_file::Handle::from_file(root.try_clone().map_err(error)?.into_std_file())
+                .map_err(error)?;
+        if current != identity.0 {
+            return Err(HubError::new(
+                "INSTANCE_PATH_CHANGED",
+                "实例目录已被替换，程序未启动。",
+            ));
+        }
+        for name in ["save", "config"] {
+            match root.create_dir(name) {
+                Ok(()) => {}
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(cause) => return Err(error(cause)),
+            }
+            root.open_dir_nofollow(name).map_err(error)?;
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|_| {
+        HubError::new(
+            "INSTANCE_PREPARE_FAILED",
+            "实例目录准备未完成，程序未启动。",
+        )
+    })?
 }

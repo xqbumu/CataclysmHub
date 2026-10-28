@@ -30,6 +30,7 @@ const game: Installation = {
   imported_at: workspace.created_at,
 };
 const plan: LaunchPlan = {
+  environment: {},
   play_instance_id: null,
   launch_profile_id: null,
   instance_data_root: null,

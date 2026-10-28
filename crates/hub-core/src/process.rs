@@ -7,7 +7,7 @@ use std::{process::Stdio, sync::Arc};
 
 pub(crate) struct PreparedLaunch {
     pub plan: LaunchPlan,
-    pub instance_identity: Option<(same_file::Handle, same_file::Handle)>,
+    pub instance_identity: Option<Arc<(same_file::Handle, same_file::Handle)>>,
 }
 
 impl Hub {
@@ -71,6 +71,7 @@ impl Hub {
             ));
         }
         let plan = LaunchPlan {
+            environment: Default::default(),
             play_instance_id: None,
             launch_profile_id: None,
             instance_data_root: None,
@@ -167,8 +168,18 @@ impl Hub {
             .await
             .map_err(HubError::db)?;
         tx.commit().await.map_err(HubError::db)?;
+        if let Some(ref identity) = prepared.instance_identity
+            && let Err(error) =
+                crate::instance_launch::prepare_instance_directories(&plan, Arc::clone(identity))
+                    .await
+        {
+            self.finish_session(&session_id, "failed", None, Some(error.code))
+                .await?;
+            return Err(error);
+        }
         let child = tokio::process::Command::new(&path)
             .args(&plan.args)
+            .envs(&plan.environment)
             .current_dir(&plan.working_dir)
             .stdin(Stdio::null())
             .stdout(Stdio::null())

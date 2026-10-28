@@ -1,0 +1,207 @@
+{
+  "date": "2026-10-28",
+  "platform": "macOS arm64",
+  "production_hub_concurrency_accepted": false,
+  "binding_verified": false,
+  "gameplay_harness": "local QA bundle identity and copied byte-identical executable, separate installation and data roots, explicit basepath; not Hub concurrent launch",
+  "samples": {
+    "0.H-RELEASE": {
+      "release_url": "https://github.com/CleverRaven/Cataclysm-DDA/releases/tag/0.H-RELEASE",
+      "asset_url": "https://github.com/CleverRaven/Cataclysm-DDA/releases/download/0.H-RELEASE/cdda-osx-with-graphics-universal-2024-11-23-1857.dmg",
+      "asset_id": 208602528,
+      "asset_size": "126332846",
+      "upstream_digest": null,
+      "download_sha256": "c8045731b8227d21e88c4aae9a1ec7da7ca532eca4212625ecc1dab291fe5728",
+      "executable_sha256": "ba92c296d23758eab4fe4a74ee5ee624f01edaac051c3777c3c138cac45de21d",
+      "qa_copy_sha256": "ba92c296d23758eab4fe4a74ee5ee624f01edaac051c3777c3c138cac45de21d",
+      "reported_version_first_line": "Cataclysm Dark Days Ahead: 78fd6e3",
+      "worlds": [
+        "Beulaville"
+      ]
+    },
+    "0.I-1": {
+      "release_url": "https://github.com/CleverRaven/Cataclysm-DDA/releases/tag/0.I-1",
+      "asset_url": "https://github.com/CleverRaven/Cataclysm-DDA/releases/download/0.I-1/cdda-osx-with-graphics-universal-2026-09-19-2324.dmg",
+      "asset_id": 576623957,
+      "asset_size": "157065301",
+      "upstream_digest": "sha256:8c169974d93762d1bedffee75c6847eb70a1d5b05e6448c1b829e314ba8bfaf6",
+      "download_sha256": "8c169974d93762d1bedffee75c6847eb70a1d5b05e6448c1b829e314ba8bfaf6",
+      "executable_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+      "qa_copy_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+      "reported_version_first_line": "Cataclysm Dark Days Ahead: cdda-0.I-2026-09-19-2324 7b2efa5",
+      "worlds": [
+        "Braham"
+      ]
+    }
+  },
+  "observations": {
+    "checks-diff": {
+      "check": "within_declared_allowance",
+      "changes_by_scope": {
+        "install-h": 3052,
+        "install-i": 3429,
+        "instance-h": 4,
+        "instance-i": 2
+      },
+      "unexpected_scopes": [],
+      "unsafe_entry_count": 0
+    },
+    "h-cycle-diff": {
+      "check": "within_declared_allowance",
+      "changes_by_scope": {
+        "instance-h": 62
+      },
+      "unexpected_scopes": [],
+      "unsafe_entry_count": 0
+    },
+    "i-cycle-diff": {
+      "check": "within_declared_allowance",
+      "changes_by_scope": {
+        "instance-i": 49
+      },
+      "unexpected_scopes": [],
+      "unsafe_entry_count": 0
+    },
+    "h-exit-diff": {
+      "check": "within_declared_allowance",
+      "changes_by_scope": {
+        "instance-h": 57
+      },
+      "unexpected_scopes": [],
+      "unsafe_entry_count": 0
+    }
+  },
+  "config_precondition": [
+    {
+      "config_precreated": false,
+      "exit_code": 1,
+      "seconds": 13.468740940093994
+    },
+    {
+      "config_precreated": true,
+      "exit_code": 0,
+      "seconds": 8.722868919372559
+    }
+  ],
+  "protected_sentinel_sha256": "777cc6e882c236c734960be3af8c5322bdaa52da73a5640af1569689133a56cc",
+  "first_check_overlap": {
+    "overlap_seconds": 6.889477014541626,
+    "interactive_play_accepted": false,
+    "hub_concurrency_accepted": false
+  },
+  "second_check_overlap": {
+    "overlap_seconds": 6.626820802688599,
+    "interactive_play_accepted": false,
+    "hub_concurrency_accepted": false
+  },
+  "test_harness_cases_observed": [
+    "H and I enter separate new worlds at the same time",
+    "H save-quit and reload while I remains active",
+    "I save-quit and reload while H remains active",
+    "H process exits while I remains responsive"
+  ],
+  "not_accepted": [
+    "Hub concurrent launch and scope leases",
+    "same installation concurrent instances",
+    "all OS writes and child-process handoff",
+    "per-instance backup and recovery",
+    "Windows/Linux runtime support"
+  ],
+  "local_artifacts": [
+    {
+      "name": "before-checks.json",
+      "sha256": "4daeb7fb50849a3be7007581014d61b0472f1dd006a2284919cca96cba101c60"
+    },
+    {
+      "name": "after-checks.json",
+      "sha256": "5576e12c2a32bd73d486821bf3bee668d5ea41f8ad5fe73daf6f82e47d513928"
+    },
+    {
+      "name": "checks-diff.json",
+      "sha256": "1c07ee1c18220db580a3f74c4ede78afe9dbd3ce2f3fc83b81e05c454debf372"
+    },
+    {
+      "name": "both-playing.json",
+      "sha256": "8373bd6ff8c10e6f79b2bb6c2354b6e3bbe8380ea6f6c58419bc0b807fcd0fe4"
+    },
+    {
+      "name": "both-playing-processes.json",
+      "sha256": "b07b6328b3469413b7799d333211f38473a09d733542e9981d16619ba6bb6ed3"
+    },
+    {
+      "name": "after-h-cycle.json",
+      "sha256": "972cf96f862d4f1a08195fa5a9b8363ee32fb88e0b865e163ec3a7a7491ca0a8"
+    },
+    {
+      "name": "h-cycle-diff.json",
+      "sha256": "1e03a87c6dece8fe69c785b26921316c9384d7fa8c2576144bcc5589b04fe3e8"
+    },
+    {
+      "name": "after-i-cycle.json",
+      "sha256": "5d36a0b9875ad132a2da04cdb1c3b7a2410d625a91672316e7befcdda65c6120"
+    },
+    {
+      "name": "i-cycle-diff.json",
+      "sha256": "8a9183bc0386d5be710ae09c4c57112e6dfd591f0c193d38b9a970506444b788"
+    },
+    {
+      "name": "after-h-exit.json",
+      "sha256": "4b64aa0b2fcad874d7e63dba969017c571cf92faa03e75c89ac7776d3d7e952c"
+    },
+    {
+      "name": "h-exit-diff.json",
+      "sha256": "84d5c1490154708d4b93d459ba78a628dcfa7fa223ff6e5d38c820a88140e0aa"
+    },
+    {
+      "name": "after-h-exit-processes.json",
+      "sha256": "6660e55bb75e4fd25292f02bffa9cf7265eeb5bada2309fa5b94dcf399d2eaed"
+    },
+    {
+      "name": "config-precondition-results.json",
+      "sha256": "3dfd5aa567cdab418d7a5602cdd4e09b565799d66fbd4116bdf7817ce09d8299"
+    },
+    {
+      "name": "h-check-process.json",
+      "sha256": "e3598cae012f42d1f606b382d1fdcdc83b66db3ebd8e9b0e53a3f50cce5f1e2d"
+    },
+    {
+      "name": "i-check-process.json",
+      "sha256": "0b10bd6f4cda7e9f5f101a06d83173f368e7d3dc6884f3bd6c1397a46a23db64"
+    },
+    {
+      "name": "round2-h-check-process.json",
+      "sha256": "d81ed074f99fbb0789c14e0190a09d4386ec78a9d2237352c46181b3253bae40"
+    },
+    {
+      "name": "round2-i-check-process.json",
+      "sha256": "4896da9ceedae04f0627577e6b96cdc9d4d4c99b0e29ce702217402104da6285"
+    },
+    {
+      "name": "final-closed.json",
+      "sha256": "e45a383be43cb3e7e665d292e0cc596e05e99a14155fe70a9f2e43bc036d79f1"
+    },
+    {
+      "name": "final-diff.json",
+      "sha256": "b78b0050e810b18059c62e084f5708d7a505f30f161cb9fa9791834ead62caf2"
+    },
+    {
+      "name": "complete-bundle-loader-results.json",
+      "sha256": "6402a0d821bb19e2e52edb3956c158eb7230b50e6254ab4527e9b232cee858bf"
+    }
+  ],
+  "note": "Only a sanitized evidence index is committed; local test worlds, game binaries, logs and snapshots remain outside the repository.",
+  "loader_environment_probe": [
+    {
+      "loader_environment_set": false,
+      "exit_code": -6,
+      "missing_framework_error": true,
+      "reported_version_first_line": null
+    },
+    {
+      "loader_environment_set": true,
+      "exit_code": 0,
+      "missing_framework_error": false,
+      "reported_version_first_line": "Cataclysm Dark Days Ahead: 78fd6e3"
+    }
+  ]
+}

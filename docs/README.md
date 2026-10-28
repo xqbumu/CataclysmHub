@@ -77,3 +77,8 @@
 - [实例参数试运行与会话关联](design/instance-launch-trial.md)
 - [实例试运行验证](quality/instance-launch-trial-verification.md)
 - [CDDA 0.H 目录与缓存源码证据](research/cdda-0h-directory-evidence.md)
+
+- [真实游戏绑定与多版本并发验收步骤](quality/real-game-binding-acceptance.md)
+- [官方 macOS H/I-1 真实实验记录](quality/real-game-macos-2026-10-28.md)
+- [真实样本的固定源码与构建证据](research/cdda-real-game-acceptance-contract.md)
+- [目录观测工具](../scripts/acceptance/README.md)

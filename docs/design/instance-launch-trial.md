@@ -1,6 +1,6 @@
 # 实例参数试运行：CDDA 0.H 源码方案
 
-日期：2026-10-28。状态：受全局互斥保护的参数试运行已实现；真实 CDDA 绑定、版本识别、完整隔离和并发未验收。
+日期：2026-10-28。状态：受全局互斥保护的参数试运行已实现，已有官方样本的部分真实游玩证据；完整绑定、版本识别和 Hub 并发仍未验收。
 
 ## 为何分为试运行
 
@@ -16,7 +16,7 @@
 --configdir <instance-root>/config/
 ```
 
-参数分别作为数组元素传递，保留空格及 Unicode，不经过 shell，不接受额外参数或路径覆盖。安装工作目录沿用导入记录，预览明确提示它可能写入缓存。此阶段不复制安装，不迁移原存档，不创建目录；实际写入由用户明确确认后的程序产生。普通安装启动行为保留。
+参数分别作为数组元素传递，保留空格及 Unicode，不经过 shell，不接受额外参数或路径覆盖。安装工作目录沿用导入记录，预览明确提示它可能写入缓存。不复制安装、不迁移原存档；预览不创建目录。确认后先提交启动意图审计，再通过实例目录句柄准备 save/config 子目录，程序产生游戏数据写入。已有文件/链接占位拒绝，不覆盖或删除；准备失败记录失败会话，可能留下新建空目录。普通安装启动行为保留。
 
 预览前验证实例关联安装摘要；生成和启动分别校验可执行文件摘要、目录规范路径和与其他已登记范围分离。预览持有实例目录与安装工作目录的物理身份句柄，启动前拒绝同路径换目录。实例目录完整枚举上限 20000 项、32 层，遇到链接、特殊文件、不可读取条目或超限则拒绝；不是仅检查 save/config 两个名称。
 
@@ -30,8 +30,17 @@ schema 8 为 session 增加可空 `play_instance_id` 外键、`launch_profile_id
 
 ## IPC 与边界
 
-`create_instance_launch_plan({ instanceId, profileId }) -> LaunchPlan`；只接受上述方案 ID，错误包括 `PROFILE_UNSUPPORTED`、`INSTANCE_NOT_FOUND`、`INSTANCE_PATH_CHANGED`、`INSTANCE_SCOPE_UNSAFE`、`INSTANCE_SCOPE_LIMIT`、`INSTANCE_SCOPE_OVERLAP` 及既有启动错误。随后通过既有 `launch_game({planId, confirmed:true})` 执行。三个实例上下文字段也加入 Rust 生成的 LaunchPlan/Session 类型。
+`create_instance_launch_plan({ instanceId, profileId }) -> LaunchPlan`；当前接受本节及下节列出的方案 ID，错误包括 `PROFILE_UNSUPPORTED`、`INSTANCE_NOT_FOUND`、`INSTANCE_PATH_CHANGED`、`INSTANCE_SCOPE_UNSAFE`、`INSTANCE_SCOPE_LIMIT`、`INSTANCE_SCOPE_OVERLAP` 及既有启动错误。随后通过既有 `launch_game({planId, confirmed:true})` 执行。三个实例上下文字段也加入 Rust 生成的 LaunchPlan/Session 类型。
 
 这不是验证命令：不执行程序探测版本，不把 `--version` 的提前退出当作目录生效证明，不修改安装版本或实例绑定状态。用户选择方案可以对导入程序进行试运行，但程序是否遵循参数仍未知。实例数据暂未纳入工作区扫描/备份，界面须明确提示；文件回读与游戏加载兼容性也独立。
 
 下一阶段优先取得可追溯真实构建样本，识别二进制/构建来源，实测完整写入与子进程行为，并处理安装 base/data 缓存共享；之后才开放经验证范围上的并行启动和实例备份。未知范围仍全局保护。
+
+
+## 2026-10-28：真实样本带来的补充
+
+新增 `cdda-0h-release-macos-trial-v1` 和 `cdda-0i-1-macos-trial-v1`，保留原通用方案。macOS 方案检查 Contents/Resources/cataclysm-tiles 和包内四个 SDL2 系列框架；拒绝跨安装的框架链接或错误布局。为该游戏进程固定覆盖 DYLD_FRAMEWORK_PATH/DYLD_LIBRARY_PATH=Resources，放入新增 LaunchPlan.environment 并显示预览，执行前重新计算核对。调用者不能提交环境映射；原通用启动映射为空，保留既有环境行为。
+
+I-1 检查模式的独立对照发现：config 目录不预建会退出 1，预建退出 0，因此确认启动后增加范围内目录准备；启动意图或审计失败时不创建目录、不执行程序。源码参数仍固定，不追加 basepath/datadir 覆盖，避免改变 gfx 派生位置。
+
+已有官方样本的双版本真实世界创建、独立保存/重载和退出隔离实验；图形测试封装和进程启动方式与 Hub 有差异，不能当作产品并发验收。来源、失败和观察限制见 [真实实验](../quality/real-game-macos-2026-10-28.md)，操作与剩余门禁见 [验收步骤](../quality/real-game-binding-acceptance.md)。本阶段仍固定未验证绑定和全局互斥，schema 仍为 8。

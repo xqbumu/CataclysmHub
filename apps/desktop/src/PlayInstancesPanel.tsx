@@ -19,6 +19,7 @@ export default function PlayInstancesPanel({
   const [error, setError] = useState('');
   const [plan, setPlan] = useState<LaunchPlan | null>(null);
   const [profileSelected, setProfileSelected] = useState(false);
+  const [profileId, setProfileId] = useState('cdda-0h-source-trial-v1');
   async function perform(action: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -46,7 +47,28 @@ export default function PlayInstancesPanel({
           disabled={busy}
           onChange={(event) => setProfileSelected(event.target.checked)}
         />
-        使用 CDDA 0.H 源码参数方案试运行（本地程序版本未验证）
+        使用所选源码参数方案试运行（本地程序版本未验证）
+      </label>
+      <label>
+        试运行参数方案
+        <select
+          value={profileId}
+          disabled={busy}
+          onChange={(event) => {
+            setProfileId(event.target.value);
+            setProfileSelected(false);
+          }}
+        >
+          <option value="cdda-0h-source-trial-v1">
+            CDDA 0.H 源码参数（通用）
+          </option>
+          <option value="cdda-0h-release-macos-trial-v1">
+            CDDA 0.H-RELEASE · macOS SDL2 发布包
+          </option>
+          <option value="cdda-0i-1-macos-trial-v1">
+            CDDA 0.I-1 · macOS SDL2 发布包
+          </option>
+        </select>
       </label>
       {data.play_instances.map((item) => (
         <article key={item.id}>
@@ -81,12 +103,7 @@ export default function PlayInstancesPanel({
             disabled={busy || !api.desktop || !profileSelected}
             onClick={() =>
               void perform(async () => {
-                setPlan(
-                  await api.instanceLaunchPlan(
-                    item.id,
-                    'cdda-0h-source-trial-v1',
-                  ),
-                );
+                setPlan(await api.instanceLaunchPlan(item.id, profileId));
               })
             }
           >
@@ -111,6 +128,8 @@ export default function PlayInstancesPanel({
             <dd>{plan.instance_data_root}</dd>
             <dt>目标存档目录（参数指定，绑定未验证）</dt>
             <dd>{plan.save_dir}</dd>
+            <dt>进程环境覆盖（仅当前游戏）</dt>
+            <dd>{JSON.stringify(plan.environment)}</dd>
             <dt>固定参数</dt>
             <dd>{JSON.stringify(plan.args)}</dd>
             <dt>程序 SHA-256</dt>

@@ -7,3 +7,6 @@ apps/desktop/src-tauri/gen/
 .env
 .env.*
 !.env.example
+
+__pycache__/
+*.pyc
