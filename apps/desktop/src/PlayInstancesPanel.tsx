@@ -174,6 +174,7 @@ export default function PlayInstancesPanel({
       {error && !plan && <p role="alert">{error}</p>}
       {contentReport && (
         <ContentConfigDialog
+          protectionApi={api}
           api={api}
           report={contentReport}
           onClose={() => setContentReport(null)}

@@ -1,3 +1,4 @@
+import type { ContentConfigProtectionPlan } from './bindings/ContentConfigProtectionPlan';
 import type { ContentConfigInput } from './bindings/ContentConfigInput';
 import type { ContentConfigPlan } from './bindings/ContentConfigPlan';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
@@ -64,6 +65,10 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  prepareContentConfigProtection(
+    instanceId: string,
+    input: ContentConfigInput,
+  ): Promise<ContentConfigProtectionPlan>;
   previewContentConfig(
     instanceId: string,
     input: ContentConfigInput,
@@ -159,6 +164,8 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  prepareContentConfigProtection: (instanceId, input) =>
+    desktopOnly('prepare_content_config_protection', { instanceId, input }),
   previewContentConfig: (instanceId, input) =>
     desktopOnly('preview_content_config', { instanceId, input }),
   inspectContentConfig: (instanceId) =>

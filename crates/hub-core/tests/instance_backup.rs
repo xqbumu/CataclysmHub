@@ -450,3 +450,154 @@ async fn invalid_persisted_instance_identity_is_rejected_before_any_staging_writ
     assert_eq!(std::fs::read_dir(f.path("backups")).unwrap().count(), 0);
     assert!(f.hub.dashboard().await.unwrap().backup_tasks.is_empty());
 }
+
+fn sound_draft() -> hub_core::ContentConfigInput {
+    hub_core::ContentConfigInput {
+        default_mods: None,
+        soundpack: None,
+        sound_enabled: Some(true),
+    }
+}
+#[tokio::test]
+async fn configuration_protection_binds_original_bytes_and_restores_them_without_applying_draft() {
+    let f = Fixture::new().await;
+    let original = b"[ {\"name\":\"SOUND_ENABLED\", \"value\":\"false\", \"custom\": 42} ]\n";
+    std::fs::write(f.path("a/config/options.json"), original).unwrap();
+    let protection = f
+        .hub
+        .prepare_content_config_protection(&f.a, sound_draft())
+        .await
+        .unwrap();
+    assert_eq!(std::fs::read_dir(f.path("backups")).unwrap().count(), 0);
+    assert!(f.hub.dashboard().await.unwrap().backup_tasks.is_empty());
+    assert_eq!(
+        protection.backup.play_instance_id.as_deref(),
+        Some(f.a.as_str())
+    );
+    let file = &protection.configuration.files[0];
+    assert_eq!(
+        protection
+            .backup
+            .entries
+            .iter()
+            .find(|e| e.relative_path == file.path)
+            .unwrap()
+            .sha256
+            .as_deref(),
+        Some(file.before_sha256.as_str())
+    );
+    assert!(!protection.configuration.write_supported);
+    let plan = protection.backup;
+    let key = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        f.hub
+            .create_backup(&plan.id, &plan.plan_digest, &key, false)
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIRMATION_REQUIRED"
+    );
+    let started = f
+        .hub
+        .create_backup(&plan.id, &plan.plan_digest, &key, true)
+        .await
+        .unwrap();
+    let finished = wait(&f.hub, &started.id).await;
+    assert_eq!(finished.state, "succeeded");
+    assert_eq!(
+        f.hub
+            .create_backup(&plan.id, &plan.plan_digest, &key, true)
+            .await
+            .unwrap()
+            .id,
+        finished.id
+    );
+    let archive = f.path("backups").join(&finished.backup_id);
+    verify_backup_directory(&archive).unwrap();
+    let restored = f.path("protected-restored");
+    restore_backup_to_new_directory(&archive, &restored).unwrap();
+    assert_eq!(
+        std::fs::read(restored.join("data/config/options.json")).unwrap(),
+        original
+    );
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+    assert_eq!(
+        std::fs::read(restored.join("data/save/world.dat")).unwrap(),
+        b"instance A world"
+    );
+}
+
+#[tokio::test]
+async fn configuration_protection_refuses_stale_bytes_at_creation() {
+    let f = Fixture::new().await;
+    std::fs::write(
+        f.path("a/config/options.json"),
+        br#"[{"name":"SOUND_ENABLED","value":"false"}]"#,
+    )
+    .unwrap();
+    let protection = f
+        .hub
+        .prepare_content_config_protection(&f.a, sound_draft())
+        .await
+        .unwrap();
+    let changed = br#"[{"name":"SOUND_ENABLED","value":"other"}]"#;
+    std::fs::write(f.path("a/config/options.json"), changed).unwrap();
+    let plan = protection.backup;
+    let started = f
+        .hub
+        .create_backup(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    let failed = wait(&f.hub, &started.id).await;
+    assert_eq!(failed.state, "failed");
+    assert_eq!(failed.error_code.as_deref(), Some("CONTENT_CONFIG_CHANGED"));
+    assert!(f.hub.dashboard().await.unwrap().backups.is_empty());
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        changed
+    );
+}
+
+#[tokio::test]
+async fn configuration_protection_rejects_no_changes_and_unknown_sessions() {
+    let f = Fixture::new().await;
+    std::fs::write(
+        f.path("a/config/options.json"),
+        br#"[{"name":"SOUND_ENABLED","value":"false"}]"#,
+    )
+    .unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_content_config_protection(
+                &f.a,
+                hub_core::ContentConfigInput {
+                    default_mods: None,
+                    soundpack: None,
+                    sound_enabled: Some(false)
+                }
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "CONTENT_CONFIG_NO_CHANGES"
+    );
+    let pool = f.pool().await;
+    sqlx::query("INSERT INTO session (id,installation_id,state,started_at) VALUES ('unknown',?,'interrupted_unknown','now')").bind(&f.installation).execute(&pool).await.unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_content_config_protection(&f.a, sound_draft())
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert_eq!(std::fs::read_dir(f.path("backups")).unwrap().count(), 0);
+}

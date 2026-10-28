@@ -1,3 +1,7 @@
+import ContentConfigProtectionPanel, {
+  type ProtectionApi,
+} from './ContentConfigProtectionPanel';
+import type { ContentConfigInput } from './bindings/ContentConfigInput';
 import { useRef, useState } from 'react';
 import { errorMessage, type HubApi } from './api';
 import type { ContentConfigPlan } from './bindings/ContentConfigPlan';
@@ -8,9 +12,11 @@ import { previewContentConfig } from './contentConfigPreview';
 export default function ContentConfigPreviewPanel({
   report,
   api,
+  protectionApi,
 }: {
   report: ContentConfigReport;
   api?: Pick<HubApi, 'previewContentConfig'>;
+  protectionApi?: ProtectionApi;
 }) {
   const [editMods, setEditMods] = useState(false);
   const [mods, setMods] = useState(
@@ -25,6 +31,7 @@ export default function ContentConfigPreviewPanel({
     typeof previewContentConfig
   > | null>(null);
   const revision = useRef(0);
+  const [freshInput, setFreshInput] = useState<ContentConfigInput | null>(null);
   const [fresh, setFresh] = useState<ContentConfigPlan | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -41,7 +48,7 @@ export default function ContentConfigPreviewPanel({
     setFresh(null);
     setError('');
     try {
-      const result = await api.previewContentConfig(report.instance_id, {
+      const input: ContentConfigInput = {
         default_mods: editMods
           ? mods
               .split(/\r?\n/u)
@@ -50,8 +57,12 @@ export default function ContentConfigPreviewPanel({
           : null,
         soundpack: editSound ? sound.trim() : null,
         sound_enabled: enabled === 'keep' ? null : enabled === 'true',
-      });
-      if (version === revision.current) setFresh(result);
+      };
+      const result = await api.previewContentConfig(report.instance_id, input);
+      if (version === revision.current) {
+        setFresh(result);
+        setFreshInput(input);
+      }
     } catch (error) {
       if (version === revision.current) setError(errorMessage(error));
     } finally {
@@ -161,7 +172,7 @@ export default function ContentConfigPreviewPanel({
         <div aria-label="后端配置预览">
           <p>
             重新读取时间：{fresh.report.checked_at}
-            。下方基于新读取结果；不是一致性快照或执行授权，尚未创建保护副本。
+            。下方基于新读取结果；不是一致性快照或执行授权。预览本身不创建保护副本，可在下方单独创建备份。
           </p>
           {!fresh.files.length && <p>本次读取未产生配置文件差异。</p>}
           {fresh.files.map((file) => (
@@ -180,6 +191,13 @@ export default function ContentConfigPreviewPanel({
             </article>
           ))}
           <ContentDiscoveryPanel discovery={fresh.proposed_discovery} />
+          {protectionApi && freshInput && fresh.files.length > 0 && (
+            <ContentConfigProtectionPanel
+              api={protectionApi}
+              instanceId={report.instance_id}
+              input={freshInput}
+            />
+          )}
           <p>只生成预览，不提供确认写入；已有世界配置保持在预览范围之外。</p>
         </div>
       )}

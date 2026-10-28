@@ -114,6 +114,17 @@ async fn cancel_content_install(
     state.hub.cancel_content_install(&id).await
 }
 #[tauri::command]
+async fn prepare_content_config_protection(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+    input: hub_core::ContentConfigInput,
+) -> Result<hub_core::ContentConfigProtectionPlan, HubError> {
+    state
+        .hub
+        .prepare_content_config_protection(&instance_id, input)
+        .await
+}
+#[tauri::command]
 async fn preview_content_config(
     state: tauri::State<'_, AppState>,
     instance_id: String,
@@ -438,6 +449,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             inspect_content_config,
             preview_content_config,
+            prepare_content_config_protection,
             prepare_content_install,
             start_content_install,
             content_install_tasks,

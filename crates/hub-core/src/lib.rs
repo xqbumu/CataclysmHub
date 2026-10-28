@@ -72,3 +72,6 @@ pub use content_discovery::{ContentDiscovery, ContentFinding, ContentScope, Disc
 
 mod content_config_plan;
 pub use content_config_plan::{ContentConfigFilePreview, ContentConfigInput, ContentConfigPlan};
+
+mod content_config_protection;
+pub use content_config_protection::ContentConfigProtectionPlan;

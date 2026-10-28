@@ -193,7 +193,18 @@ fn freeze(
                     "复制期间源文件发生变化，未发布备份。",
                 ));
             }
-            entry.sha256 = Some(format!("{:x}", hash.finalize()));
+            let actual = format!("{:x}", hash.finalize());
+            if entry
+                .sha256
+                .as_deref()
+                .is_some_and(|expected| expected != actual)
+            {
+                return Err(HubError::new(
+                    "CONTENT_CONFIG_CHANGED",
+                    "配置原字节在预览后发生变化，未发布保护备份。",
+                ));
+            }
+            entry.sha256 = Some(actual);
         }
         progress.store(index as u64 + 1, Ordering::Release);
     }
@@ -566,6 +577,43 @@ impl Hub {
             },
         );
         Ok(plan)
+    }
+    pub(crate) async fn bind_config_backup(
+        &self,
+        plan_id: &str,
+        files: &[crate::ContentConfigFilePreview],
+    ) -> Result<BackupPlan> {
+        let mut plans = self.backup_plans.lock().await;
+        let prepared = plans.get_mut(plan_id).ok_or_else(changed)?;
+        if files.iter().any(|file| {
+            !prepared
+                .plan
+                .entries
+                .iter()
+                .any(|entry| entry.relative_path == file.path && entry.file_type == "file")
+        }) {
+            plans.remove(plan_id);
+            return Err(changed());
+        }
+        for file in files {
+            let entry = prepared
+                .plan
+                .entries
+                .iter_mut()
+                .find(|entry| entry.relative_path == file.path)
+                .ok_or_else(changed)?;
+            entry.sha256 = Some(file.before_sha256.clone());
+        }
+        prepared.plan.plan_digest = sha(&serde_json::to_vec(&(
+            &prepared.plan.id,
+            &prepared.workspace_id,
+            &prepared.plan.source_root,
+            &prepared.plan.backup_dir,
+            &prepared.instance,
+            &prepared.plan.entries,
+        ))
+        .map_err(|_| changed())?);
+        Ok(prepared.plan.clone())
     }
     pub async fn create_backup(
         self: &Arc<Self>,

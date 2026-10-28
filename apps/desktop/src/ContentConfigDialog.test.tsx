@@ -1,3 +1,6 @@
+import ContentConfigProtectionPanel from './ContentConfigProtectionPanel';
+import type { ContentConfigProtectionPlan } from './bindings/ContentConfigProtectionPlan';
+import type { BackupTask } from './api';
 import type { ContentConfigPlan } from './bindings/ContentConfigPlan';
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -437,12 +440,10 @@ it('discards an in-flight backend preview after editing the draft', async () => 
 
 it('shows the backend refusal reason without keeping a successful preview', async () => {
   const user = userEvent.setup();
-  const previewContentConfig = vi
-    .fn()
-    .mockRejectedValue({
-      code: 'CONTENT_CONFIG_PREVIEW_UNAVAILABLE',
-      message: '目标声音字段尚未声明，不推断版本默认格式。',
-    });
+  const previewContentConfig = vi.fn().mockRejectedValue({
+    code: 'CONTENT_CONFIG_PREVIEW_UNAVAILABLE',
+    message: '目标声音字段尚未声明，不推断版本默认格式。',
+  });
   render(
     <ContentConfigDialog
       report={report}
@@ -457,4 +458,132 @@ it('shows the backend refusal reason without keeping a successful preview', asyn
     await screen.findByText('目标声音字段尚未声明，不推断版本默认格式。'),
   ).toBeInTheDocument();
   expect(screen.queryByLabelText('后端配置预览')).not.toBeInTheDocument();
+});
+
+const protection: ContentConfigProtectionPlan = {
+  configuration: {
+    report,
+    write_supported: false,
+    proposed_discovery: report.discovery,
+    files: [
+      {
+        path: 'config/options.json',
+        before_sha256: 'original',
+        proposed_sha256: 'after',
+        proposed_json: '[]',
+      },
+    ],
+  },
+  backup: {
+    id: 'backup-plan',
+    plan_digest: 'digest',
+    play_instance_id: 'p',
+    source_root: '/instance',
+    backup_dir: '/backups',
+    entry_count: 2,
+    file_count: 2,
+    total_bytes: '123',
+    required_free_bytes: '456',
+    consistency: 'best_effort',
+    expires_at: 'later',
+    entries: [],
+    warnings: ['尽力快照'],
+  },
+};
+const protectionTask: BackupTask = {
+  id: 'protection-task',
+  request_key: 'key',
+  workspace_id: 'w',
+  backup_id: 'backup',
+  operation: 'backup.create',
+  state: 'running',
+  phase: 'copying',
+  processed_entries: 0,
+  revision: 1,
+  error_code: null,
+  created_at: 'now',
+  finished_at: null,
+};
+it('requires scope acknowledgement before protection backup and displays refreshed terminal status', async () => {
+  const user = userEvent.setup();
+  const prepareContentConfigProtection = vi.fn().mockResolvedValue(protection);
+  const createBackup = vi.fn().mockResolvedValue(protectionTask);
+  const dashboard = vi.fn().mockResolvedValue({
+    ...emptyDashboard,
+    backup_tasks: [
+      { ...protectionTask, state: 'succeeded', phase: 'finished' },
+    ],
+  });
+  render(
+    <ContentConfigProtectionPanel
+      api={{
+        prepareContentConfigProtection,
+        createBackup,
+        dashboard,
+        cancelBackup: vi.fn(),
+      }}
+      instanceId="p"
+      input={{ default_mods: null, soundpack: null, sound_enabled: true }}
+    />,
+  );
+  expect(prepareContentConfigProtection).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: '预览配置保护备份' }));
+  expect(prepareContentConfigProtection).toHaveBeenCalledExactlyOnceWith('p', {
+    default_mods: null,
+    soundpack: null,
+    sound_enabled: true,
+  });
+  expect(createBackup).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('配置保护备份范围')).toHaveTextContent(
+    '/instance',
+  );
+  expect(
+    screen.getByRole('button', { name: '确认创建保护备份' }),
+  ).toBeDisabled();
+  await user.click(screen.getByLabelText(/我确认备份整个实例/));
+  await user.click(screen.getByRole('button', { name: '确认创建保护备份' }));
+  expect(createBackup).toHaveBeenCalledWith(
+    'backup-plan',
+    'digest',
+    expect.any(String),
+  );
+  expect(screen.getByText(/备份执行中/)).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '刷新保护备份状态' }));
+  expect(screen.getByText(/备份任务已完成/)).toBeInTheDocument();
+  expect(screen.getByText(/未执行配置写入/)).toBeInTheDocument();
+  expect(
+    screen.queryByRole('button', { name: '取消保护备份' }),
+  ).not.toBeInTheDocument();
+});
+
+it('reuses the same request key after an ambiguous backup response and permits cancellation', async () => {
+  const user = userEvent.setup();
+  const createBackup = vi
+    .fn()
+    .mockRejectedValueOnce(new Error('连接中断'))
+    .mockResolvedValue(protectionTask);
+  const cancelBackup = vi
+    .fn()
+    .mockResolvedValue({ ...protectionTask, state: 'cancelling' });
+  render(
+    <ContentConfigProtectionPanel
+      api={{
+        prepareContentConfigProtection: vi.fn().mockResolvedValue(protection),
+        createBackup,
+        dashboard: vi.fn(),
+        cancelBackup,
+      }}
+      instanceId="p"
+      input={{ default_mods: null, soundpack: null, sound_enabled: true }}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '预览配置保护备份' }));
+  await user.click(screen.getByLabelText(/我确认备份整个实例/));
+  await user.click(screen.getByRole('button', { name: '确认创建保护备份' }));
+  expect(await screen.findByText('连接中断')).toBeInTheDocument();
+  await user.click(screen.getByRole('button', { name: '确认创建保护备份' }));
+  expect(createBackup.mock.calls[1]).toEqual(createBackup.mock.calls[0]);
+  await user.click(screen.getByRole('button', { name: '取消保护备份' }));
+  expect(cancelBackup).toHaveBeenCalledWith('protection-task');
+  expect(screen.getByText(/正在取消/)).toBeInTheDocument();
 });

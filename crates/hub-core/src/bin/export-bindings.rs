@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     hub_core::ContentConfigReport::export_all(&cfg)?;
     hub_core::ContentConfigInput::export_all(&cfg)?;
     hub_core::ContentConfigPlan::export_all(&cfg)?;
+    hub_core::ContentConfigProtectionPlan::export_all(&cfg)?;
     hub_core::ContentEntry::export_all(&cfg)?;
     hub_core::ContentInstallPlan::export_all(&cfg)?;
     hub_core::ContentInstallTask::export_all(&cfg)?;

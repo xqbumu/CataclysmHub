@@ -37,6 +37,7 @@ function client() {
     desktop: true,
     inspectContentConfig: vi.fn(),
     previewContentConfig: vi.fn(),
+    prepareContentConfigProtection: vi.fn(),
     prepareContentInstall: vi.fn(),
     startContentInstall: vi.fn(),
     contentInstallTasks: vi.fn().mockResolvedValue([]),

@@ -1,3 +1,4 @@
+import type { ProtectionApi } from './ContentConfigProtectionPanel';
 import type { HubApi } from './api';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import type { ModReferenceFile } from './bindings/ModReferenceFile';
@@ -37,9 +38,11 @@ export default function ContentConfigDialog({
   report,
   onClose,
   api,
+  protectionApi,
 }: {
   report: ContentConfigReport;
   api?: Pick<HubApi, 'previewContentConfig'>;
+  protectionApi?: ProtectionApi;
   onClose: () => void;
 }) {
   return (
@@ -127,7 +130,11 @@ export default function ContentConfigDialog({
         </article>
       ))}
       <ContentDiscoveryPanel discovery={report.discovery} />
-      <ContentConfigPreviewPanel report={report} api={api} />
+      <ContentConfigPreviewPanel
+        report={report}
+        api={api}
+        protectionApi={protectionApi}
+      />
       <button onClick={onClose}>关闭</button>
     </Modal>
   );
