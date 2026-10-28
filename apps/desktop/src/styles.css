@@ -1634,3 +1634,15 @@ select:focus-visible {
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
 }
+
+.resource-claims {
+  margin-top: 24px;
+  padding: 24px;
+}
+.resource-claims article {
+  border-top: 1px solid var(--line);
+  padding: 16px 0;
+}
+.resource-claims code {
+  overflow-wrap: anywhere;
+}

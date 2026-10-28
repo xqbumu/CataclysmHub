@@ -79,6 +79,7 @@ pub struct OperationLog {
 }
 #[derive(Debug, Serialize, TS)]
 pub struct Dashboard {
+    pub resource_claims: Vec<crate::ResourceClaim>,
     pub workspace: Option<Workspace>,
     pub installations: Vec<Installation>,
     pub play_instances: Vec<crate::PlayInstance>,

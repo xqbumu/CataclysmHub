@@ -134,7 +134,7 @@ impl Hub {
             }
             return self.inspection_task(&task).await;
         }
-        self.check_sessions("").await?;
+        self.check_resource_claims().await?;
         let restore = self.restore_task(restore_task_id).await?;
         if ["running", "cancelling"].contains(&restore.state.as_str()) {
             return Err(HubError::new(

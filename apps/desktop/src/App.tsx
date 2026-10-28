@@ -1,3 +1,4 @@
+import ResourceClaimsPanel from './ResourceClaimsPanel';
 import PlayInstancesPanel from './PlayInstancesPanel';
 import Modal from './Modal';
 import BackupsPage from './BackupsPage';
@@ -287,6 +288,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
       {data.installations.map((game) => {
         const active = data.sessions.find((s) => s.installation_id === game.id);
         const blocked =
+          data.resource_claims.length > 0 ||
           data.sessions.some((s) =>
             ['running', 'starting', 'interrupted_unknown'].includes(s.state),
           ) ||
@@ -754,7 +756,18 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                   />
                 ))}
               {page === 'games' && workspace && (
-                <PlayInstancesPanel api={api} data={data} onRefresh={refresh} />
+                <>
+                  <PlayInstancesPanel
+                    api={api}
+                    data={data}
+                    onRefresh={refresh}
+                  />
+                  <ResourceClaimsPanel
+                    claims={data.resource_claims}
+                    onAcknowledge={setAcknowledging}
+                    busy={busy}
+                  />
+                </>
               )}
               {page === 'activity' && (
                 <section className="panel activity-panel">

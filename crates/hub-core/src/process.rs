@@ -11,26 +11,6 @@ pub(crate) struct PreparedLaunch {
 }
 
 impl Hub {
-    pub(crate) async fn check_sessions(&self, _installation_id: &str) -> Result<()> {
-        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM session WHERE state IN ('starting','running','interrupted_unknown')")
-            .fetch_one(&self.pool).await.map_err(HubError::db)?;
-        if count > 0 {
-            return Err(HubError::new(
-                "GAME_RUNNING_OR_UNKNOWN",
-                "已有游戏运行或会话状态未知，请先确认游戏已关闭后再启动。",
-            ));
-        }
-        let active: Vec<String> = sqlx::query_scalar("SELECT id FROM task WHERE state IN ('running','cancelling') UNION ALL SELECT id FROM backup_task WHERE state IN ('running','cancelling') UNION ALL SELECT id FROM restore_task WHERE state IN ('running','cancelling') UNION ALL SELECT id FROM inspection_task WHERE state IN ('running','cancelling')")
-            .fetch_all(&self.pool).await.map_err(HubError::db)?;
-        let recovery = self.runtime_recovery.lock().await;
-        if active.iter().any(|id| !recovery.contains_key(id)) {
-            return Err(HubError::new(
-                "TASK_CONFLICT",
-                "工作区有活动扫描、备份、恢复或检查任务，请等待完成或取消后再操作。",
-            ));
-        }
-        Ok(())
-    }
     pub async fn launch_plan(
         &self,
         installation_id: &str,
@@ -53,7 +33,7 @@ impl Hub {
                 "启动参数过多、过长或含无效字符。",
             ));
         }
-        self.check_sessions(installation_id).await?;
+        self.check_resource_claims().await?;
         let installation = self.installation(installation_id).await?;
         let workspace = self
             .dashboard()
@@ -123,7 +103,7 @@ impl Hub {
         if plan.expires_at <= now() {
             return Err(HubError::new("PLAN_STALE", "启动预览已过期，请重新生成。"));
         }
-        self.check_sessions(&plan.installation_id).await?;
+        self.check_resource_claims().await?;
         let path = paths::canonical(&plan.executable, false)?;
         if paths::text(&path)? != plan.executable
             || paths::digest(path.clone()).await? != plan.executable_sha256

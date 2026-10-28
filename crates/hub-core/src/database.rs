@@ -378,7 +378,9 @@ impl Hub {
             .into_iter()
             .map(|row| row.into_task())
             .collect::<Result<Vec<_>>>()?;
+        let mut resource_claims = crate::resource_claims::read_claims(&mut tx).await?;
         tx.commit().await.map_err(HubError::db)?;
+        self.overlay_claims(&mut resource_claims).await;
         for task in &mut scan_tasks {
             self.overlay_scan(task).await;
         }
@@ -392,6 +394,7 @@ impl Hub {
             self.overlay_inspection(task).await;
         }
         Ok(Dashboard {
+            resource_claims,
             workspace,
             installations,
             play_instances: self.play_instances().await?,

@@ -36,3 +36,6 @@ mod play_instances;
 pub use play_instances::{PlayInstance, PlayInstanceInput};
 
 mod instance_launch;
+
+mod resource_claims;
+pub use resource_claims::ResourceClaim;

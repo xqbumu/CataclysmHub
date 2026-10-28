@@ -100,7 +100,12 @@ export default function PlayInstancesPanel({
             ))}
           <button
             className="secondary"
-            disabled={busy || !api.desktop || !profileSelected}
+            disabled={
+              busy ||
+              !api.desktop ||
+              !profileSelected ||
+              data.resource_claims.length > 0
+            }
             onClick={() =>
               void perform(async () => {
                 setPlan(await api.instanceLaunchPlan(item.id, profileId));

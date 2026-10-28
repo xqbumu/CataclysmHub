@@ -41,6 +41,7 @@ export type {
   InspectionTask,
 };
 export const emptyDashboard: Dashboard = {
+  resource_claims: [],
   workspace: null,
   installations: [],
   play_instances: [],

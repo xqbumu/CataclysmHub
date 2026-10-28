@@ -82,3 +82,7 @@ backup_archive 新增 display_name / notes（默认空）、retention_locked（�
 ## 当前实现补充：schema 8 实例会话（2026-10-28）
 
 session 增加可空 play_instance_id（外键）、launch_profile_id、instance_data_root。旧会话为空；实例会话记录当次方案和数据根，重启未知保留这些字段，不用退出结果反填实例绑定已验证。实现见 [实例试运行](instance-launch-trial.md)。
+
+## 当前实现补充：活动资源占用投影（schema 8 不变）
+
+`ResourceClaim` 通过 SQL 从现有持久所有者状态派生，不新增租约表。字段为 owner_kind、owner_id、operation、state、scope、access、path?、reason。所有活动所有者当前均有全局独占声明，并附已知目录用途；终态事务自动移除投影中的占用，重启未知会话继续保留。该投影不是完整写入边界验证，也不授权按目录并发。见 [资源占用设计](resource-ownership.md)。

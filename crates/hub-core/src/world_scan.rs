@@ -253,7 +253,7 @@ impl Hub {
         {
             return Ok(existing);
         }
-        self.check_sessions("").await?;
+        self.check_resource_claims().await?;
         let workspace = self
             .dashboard()
             .await?

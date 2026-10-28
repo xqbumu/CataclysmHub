@@ -121,3 +121,7 @@ preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`
 ## 当前实现补充：macOS 发布包试运行环境
 
 `create_instance_launch_plan` 增加 H-RELEASE/I-1 的 macOS 试运行方案；原通用方案保留。LaunchPlan 新增 `environment` 字符串映射，由后端构建、前端只读显示，调用者不能自行提交。macOS 方案只为当前进程覆盖两项包内框架/库路径，执行前重验布局与映射；其他平台拒绝套用。确认后通过已核对身份的目录句柄准备 save/config；启动意图审计失败则不产生目录写入。详情见 [真实验收](../quality/real-game-binding-acceptance.md)。不新增数据库迁移，schema 8 不变。
+
+## 当前实现补充：活动资源占用
+
+`get_dashboard -> Dashboard` 新增 `resource_claims: ResourceClaim[]`，字段为 owner_kind、owner_id、operation、state、scope（global/directory）、access（exclusive/read/write）、可空 path、reason。只读服务端投影，没有新增创建/解除锁或提交已验证状态的 IPC。所有活动记录均参与保护，不受历史展示数量限制；结束 worker 的 recovery 覆盖按种类/ID过滤。既有人工关闭确认继续用于未知会话。schema 8 不变，见 [占用与调度](../design/resource-ownership.md)。

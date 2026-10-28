@@ -51,7 +51,7 @@ fn same_parent(parent: &Dir, path: &Path) -> Result<()> {
 impl Hub {
     pub async fn prepare_restore(&self, backup_id: &str, parent_dir: &str) -> Result<RestorePlan> {
         let _gate = self.mutation.lock().await;
-        self.check_sessions("").await?;
+        self.check_resource_claims().await?;
         let workspace = self.dashboard().await?.workspace.ok_or_else(stale)?;
         let record: BackupRecord =
             sqlx::query_as("SELECT * FROM backup_archive WHERE id=? AND workspace_id=?")
@@ -194,7 +194,7 @@ impl Hub {
             }
             return self.restore_task(&task).await;
         }
-        self.check_sessions("").await?;
+        self.check_resource_claims().await?;
         let prepared = self
             .restore_plans
             .lock()

@@ -360,6 +360,7 @@ async fn terminal_write_failure_does_not_leave_a_phantom_running_scan() {
         f.hub.dashboard().await.unwrap().scan_tasks[0].state,
         "recovery_required"
     );
+    assert!(f.hub.dashboard().await.unwrap().resource_claims.is_empty());
     f.hub
         .prepare_backup()
         .await

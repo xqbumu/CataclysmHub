@@ -219,7 +219,7 @@ impl Hub {
                 "实例关联的程序身份已变化。",
             ));
         }
-        self.check_sessions(&instance.installation_id).await?;
+        self.check_resource_claims().await?;
         let environment = profile_environment(
             profile_id,
             &installation.executable,

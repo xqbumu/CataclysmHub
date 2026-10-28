@@ -431,7 +431,7 @@ fn do_create(
 impl Hub {
     pub async fn prepare_backup(&self) -> Result<BackupPlan> {
         let _guard = self.mutation.lock().await;
-        self.check_sessions("").await?;
+        self.check_resource_claims().await?;
         let workspace = self
             .dashboard()
             .await?
@@ -519,7 +519,7 @@ impl Hub {
         {
             return Ok(task);
         }
-        self.check_sessions("").await?;
+        self.check_resource_claims().await?;
         let prepared = self
             .backup_plans
             .lock()
@@ -550,7 +550,7 @@ impl Hub {
         if let Some(task) = self.existing_backup_task(request_key, &digest).await? {
             return Ok(task);
         }
-        self.check_sessions("").await?;
+        self.check_resource_claims().await?;
         let record: BackupRecord = sqlx::query_as("SELECT * FROM backup_archive WHERE id=?")
             .bind(backup_id)
             .fetch_optional(&self.pool)
