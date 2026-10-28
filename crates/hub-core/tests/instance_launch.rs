@@ -930,3 +930,146 @@ async fn native_entry_rejects_identical_body_in_replaced_macos_directory() {
         0
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn instance_hardlinks_are_rejected_at_preview_and_confirmation() {
+    for after_preview in [false, true] {
+        let f = Fixture::new().await;
+        let plan = if after_preview {
+            Some(
+                f.hub
+                    .instance_launch_plan(&f.instance, PROFILE)
+                    .await
+                    .unwrap(),
+            )
+        } else {
+            None
+        };
+        let original = f.temp.path().join("save/player.sav");
+        std::fs::write(&original, b"protected player").unwrap();
+        std::fs::create_dir(f.root().join("save")).unwrap();
+        std::fs::hard_link(&original, f.root().join("save/player.sav")).unwrap();
+        let error = if let Some(plan) = plan {
+            f.hub.launch(&plan.id, true).await.unwrap_err()
+        } else {
+            f.hub
+                .instance_launch_plan(&f.instance, PROFILE)
+                .await
+                .unwrap_err()
+        };
+        assert_eq!(error.code, "INSTANCE_SCOPE_UNSAFE");
+        assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+        assert_eq!(std::fs::read(&original).unwrap(), b"protected player");
+        assert!(!f.root().join("config").exists());
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn native_bundle_rejects_shared_or_redirected_files_before_spawning() {
+    use std::os::unix::{fs::symlink, net::UnixListener};
+    let profile = "cdda-0i-1-macos-native-trial-v1";
+    for kind in [
+        "external", "absolute", "dangling", "cycle", "hardlink", "socket",
+    ] {
+        for after_preview in [false, true] {
+            let f = Fixture::new().await;
+            let (instance, _, resources) = native_fixture(&f).await;
+            let plan = if after_preview {
+                Some(
+                    f.hub
+                        .instance_launch_plan(&instance, profile)
+                        .await
+                        .unwrap(),
+                )
+            } else {
+                None
+            };
+            // A nested cache outside the four framework entry checks.
+            let cache = resources.join("data/cache");
+            std::fs::create_dir_all(&cache).unwrap();
+            let entry = cache.join("shared");
+            let original = f.temp.path().join("protected");
+            std::fs::write(&original, b"protected content").unwrap();
+            let _socket = match kind {
+                "external" => {
+                    symlink("../../../../../protected", &entry).unwrap();
+                    None
+                }
+                "absolute" => {
+                    symlink(&original, &entry).unwrap();
+                    None
+                }
+                "dangling" => {
+                    symlink("missing", &entry).unwrap();
+                    None
+                }
+                "cycle" => {
+                    symlink("shared", &entry).unwrap();
+                    None
+                }
+                "hardlink" => {
+                    std::fs::hard_link(&original, &entry).unwrap();
+                    None
+                }
+                "socket" => {
+                    let short = f.temp.path().join("socket");
+                    let listener = UnixListener::bind(&short).unwrap();
+                    std::fs::rename(short, &entry).unwrap();
+                    Some(listener)
+                }
+                _ => unreachable!(),
+            };
+            let error = if let Some(plan) = plan {
+                f.hub.launch(&plan.id, true).await.unwrap_err()
+            } else {
+                f.hub
+                    .instance_launch_plan(&instance, profile)
+                    .await
+                    .unwrap_err()
+            };
+            assert_eq!(
+                error.code, "BUNDLE_SCOPE_UNSAFE",
+                "{kind}, after_preview={after_preview}"
+            );
+            assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+            assert_eq!(std::fs::read(&original).unwrap(), b"protected content");
+            assert!(!f.temp.path().join("native-instance/.hub-runtime").exists());
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn native_bundle_allows_internal_framework_links_and_mutable_cache() {
+    let f = Fixture::new().await;
+    let (instance, _, resources) = native_fixture(&f).await;
+    let framework = resources.join("SDL2.framework");
+    std::os::unix::fs::symlink("A", framework.join("Versions/Current")).unwrap();
+    std::os::unix::fs::symlink("Versions/Current/SDL2", framework.join("SDL2")).unwrap();
+    let cache = resources.join("generated-cache");
+    std::fs::write(&cache, b"before").unwrap();
+    let plan = f
+        .hub
+        .instance_launch_plan(&instance, "cdda-0h-release-macos-native-trial-v1")
+        .await
+        .unwrap();
+    std::fs::write(&cache, b"legitimate mutable cache").unwrap();
+    let session = f.hub.launch(&plan.id, true).await.unwrap();
+    for _ in 0..100 {
+        let dashboard = f.hub.dashboard().await.unwrap();
+        let current = dashboard
+            .sessions
+            .iter()
+            .find(|s| s.id == session.id)
+            .unwrap();
+        if current.state == "exited_unverified" {
+            assert_eq!(current.exit_code, Some(0));
+            assert_eq!(std::fs::read(&cache).unwrap(), b"legitimate mutable cache");
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    panic!("native child did not exit");
+}

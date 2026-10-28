@@ -190,6 +190,9 @@ async fn profile_environment(
                 ));
             }
         }
+        if native {
+            check_bundle_tree(&paths::installation_scope(&working))?;
+        }
         let text = paths::text(&root)?;
         environment.insert("DYLD_FRAMEWORK_PATH".into(), text.clone());
         environment.insert("DYLD_LIBRARY_PATH".into(), text);
@@ -209,6 +212,80 @@ fn profile_args(root: &str) -> Vec<String> {
         "--configdir".into(),
         child("config"),
     ]
+}
+
+// Bundle frameworks need internal relative symlinks. Resolve them through the
+// package capability, never through the ambient filesystem or by following a
+// directory link during traversal. Mutable caches are checked, not hashed.
+fn check_bundle_tree(path: &Path) -> Result<()> {
+    let unreadable = |_| HubError::new("BUNDLE_SCOPE_UNREADABLE", "无法完整检查安装包范围。");
+    let unsafe_scope = || {
+        HubError::new(
+            "BUNDLE_SCOPE_UNSAFE",
+            "安装包含外部、失效或循环链接、硬链接或特殊文件，不能使用原生试运行方案。",
+        )
+    };
+    let root = cap_std::fs::Dir::open_ambient_dir(path, cap_std::ambient_authority())
+        .map_err(unreadable)?;
+    let mut pending = vec![(PathBuf::new(), 0)];
+    let mut count = 0;
+    while let Some((prefix, depth)) = pending.pop() {
+        let dir = if prefix.as_os_str().is_empty() {
+            root.try_clone().map_err(unreadable)?
+        } else {
+            // Open each component without following a replaced directory link.
+            let mut dir = root.try_clone().map_err(unreadable)?;
+            for component in prefix.components() {
+                dir = dir
+                    .open_dir_nofollow(component.as_os_str())
+                    .map_err(unreadable)?;
+            }
+            dir
+        };
+        for entry in dir.entries().map_err(unreadable)? {
+            count += 1;
+            if count > 20_000 {
+                return Err(HubError::new(
+                    "BUNDLE_SCOPE_LIMIT",
+                    "安装包范围超过 20000 项。",
+                ));
+            }
+            let entry = entry.map_err(unreadable)?;
+            let name = entry.file_name();
+            let relative = prefix.join(&name);
+            let metadata = dir.symlink_metadata(&name).map_err(unreadable)?;
+            if metadata.file_type().is_symlink() {
+                let target = dir.read_link_contents(&name).map_err(unreadable)?;
+                if target.is_absolute() || target.as_os_str().is_empty() {
+                    return Err(unsafe_scope());
+                }
+                let resolved = root.canonicalize(&relative).map_err(|_| unsafe_scope())?;
+                let target = root.metadata(resolved).map_err(unreadable)?;
+                if !target.is_file() && !target.is_dir() {
+                    return Err(unsafe_scope());
+                }
+            } else if metadata.is_dir() {
+                if depth >= 32 {
+                    return Err(HubError::new(
+                        "BUNDLE_SCOPE_LIMIT",
+                        "安装包层级超过 32 层。",
+                    ));
+                }
+                pending.push((relative, depth + 1));
+            } else if metadata.is_file() {
+                #[cfg(unix)]
+                {
+                    use cap_std::fs::MetadataExt;
+                    if metadata.nlink() != 1 {
+                        return Err(unsafe_scope());
+                    }
+                }
+            } else {
+                return Err(unsafe_scope());
+            }
+        }
+    }
+    Ok(())
 }
 
 // A read-only preflight, not a sandbox or proof about what a program will write.
@@ -255,6 +332,19 @@ fn check_tree(root: &Path) -> Result<()> {
                     "INSTANCE_SCOPE_UNSAFE",
                     "实例目录含链接或特殊文件，不能使用此试运行方案。",
                 ));
+            }
+            #[cfg(unix)]
+            if kind.is_file() {
+                use std::os::unix::fs::MetadataExt;
+                let metadata = std::fs::symlink_metadata(entry.path()).map_err(|_| {
+                    HubError::new("INSTANCE_SCOPE_UNREADABLE", "无法核实实例文件的链接数。")
+                })?;
+                if !metadata.is_file() || metadata.nlink() != 1 {
+                    return Err(HubError::new(
+                        "INSTANCE_SCOPE_UNSAFE",
+                        "实例含共享硬链接或检查期间变化的文件，不能使用此试运行方案。",
+                    ));
+                }
             }
             if kind.is_dir() {
                 if depth >= 32 {
