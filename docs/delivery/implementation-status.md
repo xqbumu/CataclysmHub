@@ -200,3 +200,11 @@ schema 9 为备份任务和归档增加实例/源根关联，旧记录为 null�
 独立复制已接入游戏库：原生授权来源/目标、摘要预览、明确确认、持久任务与进度、取消、重启中断恢复、独立核验后显式登记。schema 10；不自动绑定或启动。核心全套 160 项、前端 53 项通过，Clippy/格式/类型/production build/macOS debug 打包通过。
 
 原生 UI 本轮仅确认来源选择与 schema 升级；目标目录选择遇到辅助接口 noWindowsAvailable，完整复制与登记界面流程尚未验收。详情见 [验证记录](../quality/managed-installation-copy-verification.md)。真实绑定、存档影响和多版本并发仍未验收，全局互斥未解除。
+
+## 2026-10-28：桌面复制复验与实例运行环境 v2
+
+桌面复制的原生全流程已用合成安装复验通过：空父目录选择、预览取消无写入、确认复制、独立核验及显式登记；无自动启动或实例重绑。上轮辅助接口故障未再次出现，未据此更改选择器。证据见 managed-installation-copy-verification.md。
+
+新增 macOS H/I v2 试运行参数方案，在实例 .hub-runtime 内定向 HOME、临时及 XDG 配置/缓存/数据/状态目录；旧 v1 和普通启动保持原行为。仅当前子进程获得环境覆盖，预览只读，准备目录仍在启动意图审计之后。运行环境目录的占位文件/链接拒绝，Unix 新目录 0700。该能力不是沙箱或已验证真实绑定，全局互斥继续保持。
+
+本轮最终验证：Rust 全套 163 项、前端 54 项通过；格式/类型/Clippy/production build/macOS debug 打包通过。原生桌面还验证了 v2 合成接收器的实际环境写入和正常退出，见 [运行环境验证](../quality/instance-runtime-verification.md)。真实游戏 v2 绑定及 Hub 并发尚未验收。

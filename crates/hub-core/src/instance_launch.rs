@@ -6,9 +6,33 @@ use std::sync::Arc;
 const PROFILE: &str = "cdda-0h-source-trial-v1";
 const MAC_H: &str = "cdda-0h-release-macos-trial-v1";
 const MAC_I: &str = "cdda-0i-1-macos-trial-v1";
+const MAC_H_V2: &str = "cdda-0h-release-macos-trial-v2";
+const MAC_I_V2: &str = "cdda-0i-1-macos-trial-v2";
+const RUNTIME_DIR: &str = ".hub-runtime";
+const RUNTIME_ROLES: [&str; 6] = ["home", "tmp", "config", "cache", "data", "state"];
+
+fn has_runtime(profile: &str) -> bool {
+    matches!(profile, MAC_H_V2 | MAC_I_V2)
+}
+fn check_role(path: &Path) -> Result<()> {
+    match std::fs::symlink_metadata(path) {
+        Ok(metadata) if !metadata.is_dir() || metadata.file_type().is_symlink() => {
+            Err(HubError::new(
+                "INSTANCE_ROLE_INVALID",
+                "实例运行环境路径须为普通目录，不能是文件或链接。",
+            ))
+        }
+        Ok(_) => Ok(()),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(_) => Err(HubError::new(
+            "INSTANCE_SCOPE_UNREADABLE",
+            "无法检查实例运行环境目录。",
+        )),
+    }
+}
 
 fn validate_profile(profile: &str) -> Result<()> {
-    if ![PROFILE, MAC_H, MAC_I].contains(&profile) {
+    if ![PROFILE, MAC_H, MAC_I, MAC_H_V2, MAC_I_V2].contains(&profile) {
         return Err(HubError::new(
             "PROFILE_UNSUPPORTED",
             "不支持此实例参数方案。",
@@ -27,10 +51,31 @@ async fn profile_environment(
     profile: &str,
     executable: &str,
     working_dir: &str,
+    data_root: &str,
 ) -> Result<std::collections::BTreeMap<String, String>> {
     validate_profile(profile)?;
     if profile == PROFILE {
         return Ok(Default::default());
+    }
+    let mut environment = std::collections::BTreeMap::new();
+    if has_runtime(profile) {
+        let runtime = Path::new(data_root).join(RUNTIME_DIR);
+        check_role(&runtime)?;
+        for role in RUNTIME_ROLES {
+            check_role(&runtime.join(role))?;
+        }
+        for (key, role) in [
+            ("HOME", "home"),
+            ("TMPDIR", "tmp"),
+            ("TMP", "tmp"),
+            ("TEMP", "tmp"),
+            ("XDG_CONFIG_HOME", "config"),
+            ("XDG_CACHE_HOME", "cache"),
+            ("XDG_DATA_HOME", "data"),
+            ("XDG_STATE_HOME", "state"),
+        ] {
+            environment.insert(key.into(), paths::text(&runtime.join(role))?);
+        }
     }
     let executable = executable.to_owned();
     let working = working_dir.to_owned();
@@ -51,7 +96,9 @@ async fn profile_environment(
             }
         }
         let text = paths::text(&root)?;
-        Ok(std::collections::BTreeMap::from([("DYLD_FRAMEWORK_PATH".into(), text.clone()), ("DYLD_LIBRARY_PATH".into(), text)]))
+        environment.insert("DYLD_FRAMEWORK_PATH".into(), text.clone());
+        environment.insert("DYLD_LIBRARY_PATH".into(), text);
+        Ok(environment)
     }).await.map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "发布包布局检查未完成。"))?
 }
 
@@ -224,6 +271,7 @@ impl Hub {
             profile_id,
             &installation.executable,
             &installation.working_dir,
+            &instance.data_root,
         )
         .await?;
         let identity = self
@@ -244,8 +292,11 @@ impl Hub {
             "确认后将准备实例 save/config 子目录并传递目录参数；实际绑定仍未验证，不会复制或迁移原存档。".into(),
             "游戏还可能写入安装基础目录和数据目录的缓存；本方案保持全局互斥，不允许并行游玩。"
                 .into(),
-            "只监测直接进程；退出不代表子进程已关闭或存档稳定。实例数据尚未接入工作区备份。".into(),
+            "只监测直接进程；退出不代表子进程已关闭或存档稳定。实例数据可单独备份，安装缓存不在其中。".into(),
         ];
+        if has_runtime(profile_id) {
+            plan.warnings.push("新版方案还将在实例 .hub-runtime 内准备 HOME、临时及 XDG 配置/缓存/数据/状态目录；其他环境仍继承，系统 API 或绝对路径仍可能写到其他位置，这不是沙箱或完整隔离证明。".into());
+        }
         self.plans.lock().await.insert(
             plan.id.clone(),
             PreparedLaunch {
@@ -271,7 +322,13 @@ impl Hub {
             .launch_profile_id
             .as_deref()
             .ok_or(HubError::new("PLAN_STALE", "预览缺少参数方案。"))?;
-        let environment = profile_environment(profile, &plan.executable, &plan.working_dir).await?;
+        let environment = profile_environment(
+            profile,
+            &plan.executable,
+            &plan.working_dir,
+            &instance.data_root,
+        )
+        .await?;
         if plan.environment != environment
             || plan.instance_data_root.as_deref() != Some(&instance.data_root)
             || plan.installation_id != instance.installation_id
@@ -299,11 +356,12 @@ pub(crate) async fn prepare_instance_directories(
         .instance_data_root
         .clone()
         .ok_or(HubError::new("PLAN_STALE", "实例目录缺失。"))?;
+    let runtime = has_runtime(plan.launch_profile_id.as_deref().unwrap_or(""));
     tokio::task::spawn_blocking(move || {
         let error = |_| {
             HubError::new(
                 "INSTANCE_PREPARE_FAILED",
-                "无法准备实例 save/config 目录，程序未启动。已有文件未被覆盖。",
+                "无法准备实例数据或运行环境目录，程序未启动。已有文件未被覆盖。",
             )
         };
         let root = cap_std::fs::Dir::open_ambient_dir(&path, cap_std::ambient_authority())
@@ -324,6 +382,29 @@ pub(crate) async fn prepare_instance_directories(
                 Err(cause) => return Err(error(cause)),
             }
             root.open_dir_nofollow(name).map_err(error)?;
+        }
+        if runtime {
+            let prepare_dir = |parent: &cap_std::fs::Dir, name: &str| {
+                #[cfg(unix)]
+                let mut builder = cap_std::fs::DirBuilder::new();
+                #[cfg(not(unix))]
+                let builder = cap_std::fs::DirBuilder::new();
+                #[cfg(unix)]
+                {
+                    use cap_std::fs::DirBuilderExt;
+                    builder.mode(0o700);
+                }
+                match parent.create_dir_with(name, &builder) {
+                    Ok(()) => {}
+                    Err(cause) if cause.kind() == std::io::ErrorKind::AlreadyExists => {}
+                    Err(cause) => return Err(error(cause)),
+                }
+                parent.open_dir_nofollow(name).map_err(error)
+            };
+            let runtime_root = prepare_dir(&root, RUNTIME_DIR)?;
+            for role in RUNTIME_ROLES {
+                prepare_dir(&runtime_root, role)?;
+            }
         }
         Ok(())
     })

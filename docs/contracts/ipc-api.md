@@ -142,3 +142,7 @@ preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`
 - `register_copied_installation({taskId, name})`：独立回读并核对原确认清单，显式登记；返回 Installation。失败回滚安装、关联及审计。
 
 Dashboard 新增 copy_tasks（最近 20 条）。任务包含来源、目标、清单/程序摘要、计数、状态、阶段、条目进度、revision、错误、时间及可选 registered_installation_id。字节数使用十进制字符串。TASK_RESULT_PERSIST_FAILED 继续使用已有 retry_task_recovery。DTO 由 Rust 导出，调用方不能传入已验证绑定或隔离标记。详见 [设计](../design/managed-installation-copy.md)。
+
+### 实例试运行环境 v2
+
+create_instance_launch_plan 的 profileId 新增 cdda-0h-release-macos-trial-v2、cdda-0i-1-macos-trial-v2（仅 macOS）。服务端固定生成 HOME、TMPDIR/TMP/TEMP、XDG_CONFIG_HOME/XDG_CACHE_HOME/XDG_DATA_HOME/XDG_STATE_HOME，位于实例 .hub-runtime；保留现有 DYLD 框架覆盖。LaunchPlan.environment 沿用既有映射 DTO，不新增调用方任意环境入口。确认时重新生成环境并比较缓存计划；目录准备仍在启动意图提交后。旧 v1 行为保持。

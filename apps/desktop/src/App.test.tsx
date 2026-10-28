@@ -186,4 +186,61 @@ describe('workspace and launch safety', () => {
     expect(within(table).getByText('失败')).toBeVisible();
     expect(within(table).getByText('检查已恢复目录')).toBeVisible();
   });
+  it('requires a fresh acknowledgement after choosing a runtime profile and previews its environment', async () => {
+    const api = client({
+      ...emptyDashboard,
+      workspace,
+      installations: [game],
+      play_instances: [
+        {
+          id: 'instance',
+          installation_id: game.id,
+          installation_sha256: game.sha256,
+          name: '测试实例',
+          data_root: '/instance',
+          binding_status: 'unverified',
+          created_at: workspace.created_at,
+        },
+      ],
+    });
+    vi.mocked(api.instanceLaunchPlan).mockResolvedValue({
+      ...plan,
+      play_instance_id: 'instance',
+      launch_profile_id: 'cdda-0i-1-macos-trial-v2',
+      instance_data_root: '/instance',
+      environment: {
+        HOME: '/instance/.hub-runtime/home',
+        TMPDIR: '/instance/.hub-runtime/tmp',
+      },
+    });
+    const user = userEvent.setup();
+    render(<App api={api} />);
+    await user.click(await screen.findByRole('button', { name: /^游戏库/ }));
+    const ack = screen.getByRole('checkbox', { name: /使用所选源码参数方案/ });
+    await user.click(ack);
+    await user.selectOptions(
+      screen.getByLabelText('试运行参数方案'),
+      'cdda-0i-1-macos-trial-v2',
+    );
+    expect(ack).not.toBeChecked();
+    const preview = screen.getByRole('button', {
+      name: '预览 测试实例 试运行',
+    });
+    expect(preview).toBeDisabled();
+    await user.click(ack);
+    await user.click(preview);
+    await waitFor(() =>
+      expect(api.instanceLaunchPlan).toHaveBeenCalledWith(
+        'instance',
+        'cdda-0i-1-macos-trial-v2',
+      ),
+    );
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      within(dialog).getByText(/"HOME":"\/instance\/.hub-runtime\/home"/),
+    ).toBeVisible();
+    expect(api.launch).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole('button', { name: '取消' }));
+    expect(api.launch).not.toHaveBeenCalled();
+  });
 });

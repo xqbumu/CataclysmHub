@@ -513,3 +513,185 @@ async fn resource_preview_reports_missing_instance_instead_of_implying_clearance
     );
     assert!(!f.root().exists());
 }
+
+#[cfg(target_os = "macos")]
+async fn runtime_fixture(f: &Fixture) -> String {
+    use std::os::unix::fs::PermissionsExt;
+    let resources = f.temp.path().join("Runtime.app/Contents/Resources");
+    std::fs::create_dir_all(&resources).unwrap();
+    let executable = resources.join("cataclysm-tiles");
+    std::fs::write(&executable, b"#!/bin/sh\nfor dir in \"$HOME\" \"$TMPDIR\" \"$TMP\" \"$TEMP\" \"$XDG_CONFIG_HOME\" \"$XDG_CACHE_HOME\" \"$XDG_DATA_HOME\" \"$XDG_STATE_HOME\"; do\n test -d \"$dir\" || exit 17\n printf 'isolated child marker' > \"$dir/child-marker\" || exit 18\ndone\n").unwrap();
+    std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
+    for name in ["SDL2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"] {
+        let folder = resources.join(format!("{name}.framework/Versions/A"));
+        std::fs::create_dir_all(&folder).unwrap();
+        std::fs::write(folder.join(name), b"synthetic library, never loaded").unwrap();
+    }
+    let installation = f
+        .hub
+        .import_installation(executable.to_str().unwrap(), "runtime fixture")
+        .await
+        .unwrap();
+    let root = f.temp.path().join("runtime-instance");
+    std::fs::create_dir(&root).unwrap();
+    f.hub
+        .register_play_instance(PlayInstanceInput {
+            installation_id: installation.id,
+            name: "runtime trial".into(),
+            data_root: root.to_str().unwrap().into(),
+        })
+        .await
+        .unwrap()
+        .id
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn runtime_v2_preview_is_readonly_and_child_writes_to_declared_instance_roles() {
+    use std::os::unix::fs::PermissionsExt;
+    let f = Fixture::new().await;
+    let instance = runtime_fixture(&f).await;
+    let root = f
+        .temp
+        .path()
+        .join("runtime-instance")
+        .canonicalize()
+        .unwrap();
+    let runtime = root.join(".hub-runtime");
+    let before_home = std::env::var_os("HOME");
+    let before_tmp = std::env::var_os("TMPDIR");
+    for profile in ["cdda-0h-release-macos-trial-v2", "cdda-0i-1-macos-trial-v2"] {
+        let plan = f
+            .hub
+            .instance_launch_plan(&instance, profile)
+            .await
+            .unwrap();
+        assert_eq!(plan.environment.len(), 10);
+        for (key, role) in [
+            ("HOME", "home"),
+            ("TMPDIR", "tmp"),
+            ("TMP", "tmp"),
+            ("TEMP", "tmp"),
+            ("XDG_CONFIG_HOME", "config"),
+            ("XDG_CACHE_HOME", "cache"),
+            ("XDG_DATA_HOME", "data"),
+            ("XDG_STATE_HOME", "state"),
+        ] {
+            assert_eq!(plan.environment[key], runtime.join(role).to_str().unwrap());
+        }
+        assert!(!plan.save_binding_verified);
+        if !runtime.exists() {
+            assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
+        }
+        let session = f.hub.launch(&plan.id, true).await.unwrap();
+        let mut ended = false;
+        for _ in 0..100 {
+            let data = f.hub.dashboard().await.unwrap();
+            let record = data.sessions.iter().find(|s| s.id == session.id).unwrap();
+            if record.state == "exited_unverified" {
+                assert_eq!(record.exit_code, Some(0));
+                ended = true;
+                break;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+        assert!(ended);
+        for role in ["home", "tmp", "config", "cache", "data", "state"] {
+            assert_eq!(
+                std::fs::read(runtime.join(role).join("child-marker")).unwrap(),
+                b"isolated child marker"
+            );
+            assert_eq!(
+                std::fs::metadata(runtime.join(role))
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o700
+            );
+        }
+        assert_eq!(std::env::var_os("HOME"), before_home);
+        assert_eq!(std::env::var_os("TMPDIR"), before_tmp);
+    }
+    assert_eq!(
+        std::fs::read_dir(f.temp.path().join("save"))
+            .unwrap()
+            .count(),
+        0
+    );
+    let old = f
+        .hub
+        .instance_launch_plan(&instance, "cdda-0h-release-macos-trial-v1")
+        .await
+        .unwrap();
+    assert_eq!(old.environment.len(), 2);
+    assert!(!old.environment.contains_key("HOME"));
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn runtime_v2_rejects_occupied_or_redirected_roles_before_launch() {
+    let f = Fixture::new().await;
+    let instance = runtime_fixture(&f).await;
+    let root = f.temp.path().join("runtime-instance");
+    let runtime = root.join(".hub-runtime");
+    std::fs::write(&runtime, b"keep occupied role").unwrap();
+    assert_eq!(
+        f.hub
+            .instance_launch_plan(&instance, "cdda-0i-1-macos-trial-v2")
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_ROLE_INVALID"
+    );
+    assert_eq!(std::fs::read(&runtime).unwrap(), b"keep occupied role");
+    std::fs::remove_file(&runtime).unwrap();
+    let plan = f
+        .hub
+        .instance_launch_plan(&instance, "cdda-0i-1-macos-trial-v2")
+        .await
+        .unwrap();
+    std::fs::create_dir(&runtime).unwrap();
+    std::os::unix::fs::symlink(f.temp.path().join("save"), runtime.join("home")).unwrap();
+    assert_eq!(
+        f.hub.launch(&plan.id, true).await.unwrap_err().code,
+        "INSTANCE_ROLE_INVALID"
+    );
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+    assert_eq!(
+        std::fs::read_dir(f.temp.path().join("save"))
+            .unwrap()
+            .count(),
+        0
+    );
+}
+
+#[cfg(target_os = "macos")]
+#[tokio::test]
+async fn runtime_v2_failed_intent_audit_creates_no_runtime_directories() {
+    let f = Fixture::new().await;
+    let instance = runtime_fixture(&f).await;
+    let plan = f
+        .hub
+        .instance_launch_plan(&instance, "cdda-0h-release-macos-trial-v2")
+        .await
+        .unwrap();
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f.temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::raw_sql("CREATE TRIGGER refuse_runtime_launch BEFORE INSERT ON operation_log WHEN NEW.action='game.launch' BEGIN SELECT RAISE(ABORT,'test'); END;").execute(&pool).await.unwrap();
+    assert_eq!(
+        f.hub.launch(&plan.id, true).await.unwrap_err().code,
+        "DATABASE_ERROR"
+    );
+    assert_eq!(
+        std::fs::read_dir(f.temp.path().join("runtime-instance"))
+            .unwrap()
+            .count(),
+        0
+    );
+    assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
+}

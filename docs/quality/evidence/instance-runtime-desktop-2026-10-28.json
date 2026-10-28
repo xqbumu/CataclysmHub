@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "sample_kind": "synthetic shell receiver in synthetic macOS bundle layout; not a real game",
+  "profile_id": "cdda-0i-1-macos-trial-v2",
+  "native_preview_left_instance_empty": true,
+  "explicit_native_confirmation": true,
+  "session_id": "32144f13-97f9-4c11-990b-a33ca515f11c",
+  "pid": 25495,
+  "state": "exited_unverified",
+  "exit_code": 0,
+  "roles": {
+    "home": {
+      "marker_sha256": "e3d8164402b70b0550df610f81b98a79f5f8de21b6920cb06311d5c9889a9ddc",
+      "directory_mode": "0700"
+    },
+    "tmp": {
+      "marker_sha256": "e3d8164402b70b0550df610f81b98a79f5f8de21b6920cb06311d5c9889a9ddc",
+      "directory_mode": "0700"
+    },
+    "config": {
+      "marker_sha256": "e3d8164402b70b0550df610f81b98a79f5f8de21b6920cb06311d5c9889a9ddc",
+      "directory_mode": "0700"
+    },
+    "cache": {
+      "marker_sha256": "e3d8164402b70b0550df610f81b98a79f5f8de21b6920cb06311d5c9889a9ddc",
+      "directory_mode": "0700"
+    },
+    "data": {
+      "marker_sha256": "e3d8164402b70b0550df610f81b98a79f5f8de21b6920cb06311d5c9889a9ddc",
+      "directory_mode": "0700"
+    },
+    "state": {
+      "marker_sha256": "e3d8164402b70b0550df610f81b98a79f5f8de21b6920cb06311d5c9889a9ddc",
+      "directory_mode": "0700"
+    }
+  },
+  "binding_verified": false,
+  "hub_concurrency_accepted": false
+}

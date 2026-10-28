@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-28",
+  "tested_commit": "75e40b8",
+  "sample_kind": "private synthetic fixture, no game executed",
+  "checks": {
+    "native_source_and_empty_parent_selection": true,
+    "cancel_preview_zero_tasks_and_zero_entries": true,
+    "explicit_copy_succeeded": true,
+    "completed_before_registration_installation_count": 1,
+    "completed_progress": "3/3",
+    "explicit_verify_register": true,
+    "final_installation_count": 2,
+    "original_instance_binding_unchanged": true,
+    "session_count_unchanged": true,
+    "file_bytes_equal_and_distinct_identity": true,
+    "original_manifest_sha_matches": true,
+    "global_claim_released_after_completion": true
+  },
+  "task_id": "4acc207f-dfcf-4e1f-afd6-14ff0e457408",
+  "copy_id": "d3e60576-3803-44c0-8bb6-7df66e079f3f",
+  "manifest_sha256": "0ce419fe70ce0e566f727e8733da44b716e18467d2301f5047c3921cb269c072",
+  "executable_sha256": "fb845081e779f3c5fbe4739701eaf54b55799cd163bc54e4ba79662add247970",
+  "file_count": 2,
+  "entry_count": 3,
+  "total_bytes": "315",
+  "audit_actions": [
+    "installation.copy:running",
+    "installation.copy:succeeded",
+    "installation.copy_register:registered"
+  ],
+  "prior_failure": "noWindowsAvailable did not recur after fresh QA application launch; no application fix justified",
+  "binding_verified": false,
+  "hub_concurrency_accepted": false
+}
