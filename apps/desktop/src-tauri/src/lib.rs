@@ -114,6 +114,13 @@ async fn cancel_content_install(
     state.hub.cancel_content_install(&id).await
 }
 #[tauri::command]
+async fn inspect_content_config(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+) -> Result<hub_core::ContentConfigReport, HubError> {
+    state.hub.inspect_content_config(&instance_id).await
+}
+#[tauri::command]
 async fn content_entries(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<hub_core::ContentEntry>, HubError> {
@@ -421,6 +428,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            inspect_content_config,
             prepare_content_install,
             start_content_install,
             content_install_tasks,

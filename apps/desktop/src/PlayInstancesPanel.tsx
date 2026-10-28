@@ -1,3 +1,5 @@
+import ContentConfigDialog from './ContentConfigDialog';
+import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import InstanceResourcesDialog from './InstanceResourcesDialog';
 import type { InstanceResourcePreview } from './bindings/InstanceResourcePreview';
 import Modal from './Modal';
@@ -19,6 +21,8 @@ export default function PlayInstancesPanel({
   const [root, setRoot] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [contentReport, setContentReport] =
+    useState<ContentConfigReport | null>(null);
   const [resourcePreview, setResourcePreview] =
     useState<InstanceResourcePreview | null>(null);
   const [plan, setPlan] = useState<LaunchPlan | null>(null);
@@ -154,9 +158,26 @@ export default function PlayInstancesPanel({
           >
             检查 {item.name} 资源冲突
           </button>
+          <button
+            disabled={busy || !api.desktop}
+            onClick={() =>
+              void perform(async () => {
+                setContentReport(null);
+                setContentReport(await api.inspectContentConfig(item.id));
+              })
+            }
+          >
+            读取 {item.name} 模组与声音引用
+          </button>
         </article>
       ))}
       {error && !plan && <p role="alert">{error}</p>}
+      {contentReport && (
+        <ContentConfigDialog
+          report={contentReport}
+          onClose={() => setContentReport(null)}
+        />
+      )}
       {resourcePreview && (
         <InstanceResourcesDialog
           preview={resourcePreview}

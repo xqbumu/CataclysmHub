@@ -1,3 +1,4 @@
+import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import type { ContentInstallPlan } from './bindings/ContentInstallPlan';
 import type { ContentInstallTask } from './bindings/ContentInstallTask';
 import type { ContentEntry } from './bindings/ContentEntry';
@@ -61,6 +62,7 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  inspectContentConfig(instanceId: string): Promise<ContentConfigReport>;
   prepareContentInstall(
     entryId: string,
     parentDir: string,
@@ -151,6 +153,8 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  inspectContentConfig: (instanceId) =>
+    desktopOnly('inspect_content_config', { instanceId }),
   prepareContentInstall: (entryId, parentDir) =>
     desktopOnly('prepare_content_install', { entryId, parentDir }),
   startContentInstall: (planId, digest, key, confirmed) =>
