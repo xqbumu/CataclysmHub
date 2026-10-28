@@ -1,6 +1,7 @@
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import type { ModReferenceFile } from './bindings/ModReferenceFile';
 import Modal from './Modal';
+import ContentConfigPreviewPanel from './ContentConfigPreviewPanel';
 import ContentDiscoveryPanel from './ContentDiscoveryPanel';
 const statuses: Record<string, string> = {
   read: '已读取声明',
@@ -123,6 +124,7 @@ export default function ContentConfigDialog({
         </article>
       ))}
       <ContentDiscoveryPanel discovery={report.discovery} />
+      <ContentConfigPreviewPanel report={report} />
       <button onClick={onClose}>关闭</button>
     </Modal>
   );
