@@ -443,3 +443,73 @@ async fn occupied_role_path_is_rejected_without_overwriting_original_file() {
     assert!(!f.root().join("save").exists());
     assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
 }
+
+#[tokio::test]
+async fn resource_preview_is_readonly_and_rechecks_owners_without_granting_concurrency() {
+    let f = Fixture::new().await;
+    let before = f.hub.dashboard().await.unwrap().operations.len();
+    let preview = f.hub.preview_instance_resources(&f.instance).await.unwrap();
+    assert!(preview.conflicts.is_empty());
+    assert!(preview.scope_issues.is_empty());
+    assert!(!preview.binding_verified && !preview.concurrency_available);
+    assert_eq!(preview.scopes.len(), 2);
+    assert_eq!(std::fs::read_dir(f.root()).unwrap().count(), 0);
+    assert_eq!(f.hub.dashboard().await.unwrap().operations.len(), before);
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f.temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO session (id,installation_id,state,started_at) VALUES ('unknown-resource',?,'interrupted_unknown','now')")
+        .bind(&f.installation).execute(&pool).await.unwrap();
+    let preview = f.hub.preview_instance_resources(&f.instance).await.unwrap();
+    assert!(
+        preview
+            .conflicts
+            .iter()
+            .any(|c| c.reason == "unknown_game_writes")
+    );
+    assert!(
+        preview
+            .conflicts
+            .iter()
+            .any(|c| c.reason == "directory_overlap"
+                && c.protected_path.as_deref() == Some(preview.scopes[0].path.as_str()))
+    );
+    assert_eq!(
+        f.hub
+            .instance_launch_plan(&f.instance, PROFILE)
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    f.hub
+        .acknowledge_interrupted("unknown-resource")
+        .await
+        .unwrap();
+    let preview = f.hub.preview_instance_resources(&f.instance).await.unwrap();
+    assert!(preview.conflicts.is_empty());
+    assert!(!preview.binding_verified && !preview.concurrency_available);
+    pool.close().await;
+}
+
+#[tokio::test]
+async fn resource_preview_reports_missing_instance_instead_of_implying_clearance() {
+    let f = Fixture::new().await;
+    std::fs::remove_dir(f.root()).unwrap();
+    let preview = f.hub.preview_instance_resources(&f.instance).await.unwrap();
+    assert_eq!(preview.scope_issues.len(), 1);
+    assert_eq!(preview.scope_issues[0].code, "RESOURCE_SCOPE_UNAVAILABLE");
+    assert!(!preview.concurrency_available);
+    assert_eq!(
+        f.hub
+            .preview_instance_resources("missing-id")
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_NOT_FOUND"
+    );
+    assert!(!f.root().exists());
+}

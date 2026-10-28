@@ -54,6 +54,7 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     importInstallation: vi.fn(),
     registerPlayInstance: vi.fn(),
     instanceLaunchPlan: vi.fn(),
+    previewInstanceResources: vi.fn(),
     launchPlan: vi.fn().mockResolvedValue(plan),
     launch: vi.fn(),
     acknowledge: vi.fn(),

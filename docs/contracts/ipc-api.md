@@ -125,3 +125,7 @@ preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`
 ## 当前实现补充：活动资源占用
 
 `get_dashboard -> Dashboard` 新增 `resource_claims: ResourceClaim[]`，字段为 owner_kind、owner_id、operation、state、scope（global/directory）、access（exclusive/read/write）、可空 path、reason。只读服务端投影，没有新增创建/解除锁或提交已验证状态的 IPC。所有活动记录均参与保护，不受历史展示数量限制；结束 worker 的 recovery 覆盖按种类/ID过滤。既有人工关闭确认继续用于未知会话。schema 8 不变，见 [占用与调度](../design/resource-ownership.md)。
+
+## 当前实现补充：实例资源冲突预检
+
+`preview_instance_resources({ instanceId }) -> InstanceResourcePreview` 为只读接口，仅接受已登记实例 ID，由服务端构造安装与玩家数据范围。返回时间、目录用途、范围问题及全局/物理目录冲突；binding_verified、concurrency_available 恒为 false。无选择器副作用、无执行/解锁授权；声明超限返回 RESOURCE_SCOPE_LIMIT，未知实例返回 INSTANCE_NOT_FOUND。具体比较、界面和执行边界见 [物理目录冲突预检](../design/instance-resource-conflicts.md)。schema 8 不变。

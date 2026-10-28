@@ -107,6 +107,13 @@ async fn register_play_instance(
     state.hub.register_play_instance(input).await
 }
 #[tauri::command]
+async fn preview_instance_resources(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+) -> Result<hub_core::InstanceResourcePreview, HubError> {
+    state.hub.preview_instance_resources(&instance_id).await
+}
+#[tauri::command]
 async fn create_instance_launch_plan(
     state: tauri::State<'_, AppState>,
     instance_id: String,
@@ -305,6 +312,7 @@ pub fn run() {
             register_play_instance,
             create_launch_plan,
             create_instance_launch_plan,
+            preview_instance_resources,
             launch_game,
             acknowledge_interrupted,
             start_world_scan,

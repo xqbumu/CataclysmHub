@@ -122,6 +122,9 @@ impl Hub {
                 "实例预览缺少目录身份，请重新生成。",
             ));
         }
+        if let Some(instance_id) = &plan.play_instance_id {
+            self.check_instance_resources(instance_id).await?;
+        }
         let session_id = id();
         let started = now();
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;

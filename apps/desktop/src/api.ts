@@ -1,3 +1,4 @@
+import type { InstanceResourcePreview } from './bindings/InstanceResourcePreview';
 import type { PlayInstance } from './bindings/PlayInstance';
 import type { PlayInstanceInput } from './bindings/PlayInstanceInput';
 import { invoke, isTauri } from '@tauri-apps/api/core';
@@ -54,6 +55,9 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  previewInstanceResources(
+    instanceId: string,
+  ): Promise<InstanceResourcePreview>;
   registerPlayInstance(input: PlayInstanceInput): Promise<PlayInstance>;
   desktop: boolean;
   dashboard(): Promise<Dashboard>;
@@ -107,6 +111,8 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  previewInstanceResources: (instanceId) =>
+    desktopOnly('preview_instance_resources', { instanceId }),
   registerPlayInstance: (input) =>
     desktopOnly('register_play_instance', { input }),
   desktop: isTauri(),

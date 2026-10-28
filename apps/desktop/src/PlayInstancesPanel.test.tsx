@@ -160,3 +160,92 @@ it('changing a version profile clears acknowledgement and forwards the selected 
     screen.getByText('{"DYLD_FRAMEWORK_PATH":"/Game.app/Contents/Resources"}'),
   ).toBeInTheDocument();
 });
+
+it('can inspect conflicts while launch is blocked without choosing a profile or launching', async () => {
+  const user = userEvent.setup();
+  const previewInstanceResources = vi.fn().mockResolvedValue({
+    instance_id: 'instance',
+    checked_at: '2026-10-28T00:00:00Z',
+    scopes: [{ role: 'installation', path: '/shared/game', access: 'write' }],
+    scope_issues: [],
+    conflicts: [
+      {
+        owner_kind: 'session',
+        owner_id: 'other-instance-session',
+        operation: 'game.launch',
+        state: 'running',
+        reason: 'directory_overlap',
+        requested_path: '/shared/game',
+        protected_path: '/shared/game',
+      },
+    ],
+    binding_verified: false,
+    concurrency_available: false,
+  });
+  const launch = vi.fn();
+  render(
+    <PlayInstancesPanel
+      api={{ ...api, desktop: true, previewInstanceResources, launch }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'instance',
+            installation_id: 'game',
+            installation_sha256: 'abc',
+            name: '独立实例',
+            data_root: '/isolated',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+        resource_claims: [
+          {
+            owner_kind: 'session',
+            owner_id: 'other-instance-session',
+            operation: 'game.launch',
+            state: 'running',
+            scope: 'global',
+            access: 'exclusive',
+            path: null,
+            reason: 'unknown_game_writes',
+          },
+        ],
+      }}
+      onRefresh={vi.fn()}
+    />,
+  );
+  expect(
+    screen.getByRole('button', { name: '预览 独立实例 试运行' }),
+  ).toBeDisabled();
+  await user.click(
+    screen.getByRole('button', { name: '检查 独立实例 资源冲突' }),
+  );
+  expect(previewInstanceResources).toHaveBeenCalledWith('instance');
+  expect(
+    await screen.findByText('物理目录相同或互相嵌套，存在读写冲突'),
+  ).toBeInTheDocument();
+  expect(screen.getByText('other-instance-session')).toBeInTheDocument();
+  expect(screen.getByText(/不预留资源/)).toBeInTheDocument();
+  expect(launch).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: '关闭检查结果' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  // A new observation replaces the old conflict; it still does not authorize launch.
+  previewInstanceResources.mockResolvedValueOnce({
+    instance_id: 'instance',
+    checked_at: '2026-10-28T00:01:00Z',
+    scopes: [],
+    scope_issues: [{ path: '/missing', code: 'RESOURCE_SCOPE_UNAVAILABLE' }],
+    conflicts: [],
+    binding_verified: false,
+    concurrency_available: false,
+  });
+  await user.click(
+    screen.getByRole('button', { name: '检查 独立实例 资源冲突' }),
+  );
+  expect(
+    await screen.findByText('目录存在未解决问题，不能据此判断可启动。'),
+  ).toBeInTheDocument();
+  expect(screen.queryByText('other-instance-session')).not.toBeInTheDocument();
+  expect(launch).not.toHaveBeenCalled();
+});

@@ -126,7 +126,7 @@ fn check_tree(root: &Path) -> Result<()> {
     Ok(())
 }
 impl Hub {
-    async fn instance(&self, instance_id: &str) -> Result<PlayInstance> {
+    pub(crate) async fn instance(&self, instance_id: &str) -> Result<PlayInstance> {
         sqlx::query_as("SELECT * FROM play_instance WHERE id=?")
             .bind(instance_id)
             .fetch_optional(&self.pool)
@@ -219,7 +219,7 @@ impl Hub {
                 "实例关联的程序身份已变化。",
             ));
         }
-        self.check_resource_claims().await?;
+        self.check_instance_resources(instance_id).await?;
         let environment = profile_environment(
             profile_id,
             &installation.executable,

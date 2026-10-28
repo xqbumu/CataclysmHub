@@ -39,3 +39,8 @@ mod instance_launch;
 
 mod resource_claims;
 pub use resource_claims::ResourceClaim;
+
+mod resource_conflicts;
+pub use resource_conflicts::{
+    InstanceResourcePreview, ResourceConflict, ResourceScope, ResourceScopeIssue,
+};

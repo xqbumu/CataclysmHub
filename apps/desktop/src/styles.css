@@ -1646,3 +1646,19 @@ select:focus-visible {
 .resource-claims code {
   overflow-wrap: anywhere;
 }
+
+.resource-conflicts code,
+.instance-resource-scopes code {
+  display: block;
+  font-size: 12px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.resource-conflicts {
+  list-style: none;
+  padding-left: 0;
+}
+.resource-conflicts > li {
+  border-bottom: 1px solid var(--line);
+  padding: 12px 0;
+}

@@ -1,3 +1,5 @@
+import InstanceResourcesDialog from './InstanceResourcesDialog';
+import type { InstanceResourcePreview } from './bindings/InstanceResourcePreview';
 import Modal from './Modal';
 import type { LaunchPlan } from './api';
 import { useState } from 'react';
@@ -17,6 +19,8 @@ export default function PlayInstancesPanel({
   const [root, setRoot] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [resourcePreview, setResourcePreview] =
+    useState<InstanceResourcePreview | null>(null);
   const [plan, setPlan] = useState<LaunchPlan | null>(null);
   const [profileSelected, setProfileSelected] = useState(false);
   const [profileId, setProfileId] = useState('cdda-0h-source-trial-v1');
@@ -114,9 +118,27 @@ export default function PlayInstancesPanel({
           >
             预览 {item.name} 试运行
           </button>
+          <button
+            className="secondary"
+            disabled={busy || !api.desktop}
+            onClick={() =>
+              void perform(async () => {
+                setResourcePreview(null);
+                setResourcePreview(await api.previewInstanceResources(item.id));
+              })
+            }
+          >
+            检查 {item.name} 资源冲突
+          </button>
         </article>
       ))}
       {error && !plan && <p role="alert">{error}</p>}
+      {resourcePreview && (
+        <InstanceResourcesDialog
+          preview={resourcePreview}
+          onClose={() => setResourcePreview(null)}
+        />
+      )}
       {plan && (
         <Modal
           title="确认实例参数试运行"
