@@ -22,7 +22,7 @@ export default function InstanceResourcesDialog({
   return (
     <Modal title="实例资源冲突检查" onClose={onClose}>
       <p className="warning">
-        此检查只观测已知目录和当前占用，不预留资源。实际绑定未验证，多版本并发尚未开放；启动时会重新检查。
+        此检查只观测已知目录和当前占用，不预留资源，也不授予并发资格。实际绑定未验证；启动时会按所选方案重新检查。
       </p>
       <p>检查时间：{new Date(preview.checked_at).toLocaleString('zh-CN')}</p>
       <h3>本次检查的目录</h3>

@@ -1,0 +1,142 @@
+{
+  "date": "2026-10-28",
+  "tested_commit": "5eadf70",
+  "feature": "candidate-concurrency",
+  "platform": "macOS arm64",
+  "local_evidence_root": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence",
+  "sessions": [
+    {
+      "id": "8f8f5081-03f7-439f-a5cb-a8b78e117e2a",
+      "installation_id": "21fbc916-9005-41df-b50d-175f0c51b52d",
+      "state": "exited_unverified",
+      "pid": 4057,
+      "started_at": "2026-10-28T08:01:56.695040+00:00",
+      "finished_at": "2026-10-28T08:13:00.957204+00:00",
+      "exit_code": 0,
+      "play_instance_id": "9602b93f-ddca-4fcb-b0da-bebcccaa6e01",
+      "launch_profile_id": "cdda-0h-macos-concurrency-candidate-v1",
+      "instance_data_root": "/private/tmp/hub-concurrent-qa-rqzpsmun/h"
+    },
+    {
+      "id": "a4fd3d7b-eff5-4e11-8ce3-3bcd539925f1",
+      "installation_id": "642cafa8-002a-4c16-8b21-77f989be1eb3",
+      "state": "exited_unverified",
+      "pid": 13015,
+      "started_at": "2026-10-28T08:10:19.058659+00:00",
+      "finished_at": "2026-10-28T08:22:13.016322+00:00",
+      "exit_code": 0,
+      "play_instance_id": "ea155c2f-265a-456d-a19e-4890e6770b1f",
+      "launch_profile_id": "cdda-0i-1-macos-concurrency-candidate-v1",
+      "instance_data_root": "/private/tmp/hub-concurrent-qa-rqzpsmun/i"
+    },
+    {
+      "id": "8f427257-533c-4c5e-a26a-c72f9c983d68",
+      "installation_id": "21fbc916-9005-41df-b50d-175f0c51b52d",
+      "state": "exited_unverified",
+      "pid": 21107,
+      "started_at": "2026-10-28T08:18:01.799673+00:00",
+      "finished_at": "2026-10-28T08:29:27.247955+00:00",
+      "exit_code": 0,
+      "play_instance_id": "9602b93f-ddca-4fcb-b0da-bebcccaa6e01",
+      "launch_profile_id": "cdda-0h-macos-concurrency-candidate-v1",
+      "instance_data_root": "/private/tmp/hub-concurrent-qa-rqzpsmun/h"
+    },
+    {
+      "id": "c85c6c9f-38b4-47b9-bccd-e25343fda797",
+      "installation_id": "642cafa8-002a-4c16-8b21-77f989be1eb3",
+      "state": "exited_unverified",
+      "pid": 29503,
+      "started_at": "2026-10-28T08:24:48.807871+00:00",
+      "finished_at": "2026-10-28T08:28:03.880460+00:00",
+      "exit_code": 0,
+      "play_instance_id": "ea155c2f-265a-456d-a19e-4890e6770b1f",
+      "launch_profile_id": "cdda-0i-1-macos-concurrency-candidate-v1",
+      "instance_data_root": "/private/tmp/hub-concurrent-qa-rqzpsmun/i"
+    }
+  ],
+  "observations": {
+    "final-diff.json": {
+      "result": "within_declared_allowance",
+      "changes_by_scope": {
+        "instance-h": 71,
+        "instance-i": 41
+      }
+    },
+    "h-reload-diff.json": {
+      "result": "within_declared_allowance",
+      "changes_by_scope": {
+        "instance-h": 6
+      }
+    },
+    "i-reload-diff.json": {
+      "result": "within_declared_allowance",
+      "changes_by_scope": {
+        "instance-i": 9
+      }
+    }
+  },
+  "evidence": {
+    "after.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/after.json",
+      "sha256": "e28a7bed84e2f626be03ab33f66d76255d4d953f12c1b24047d06aded6bf4f6c"
+    },
+    "before.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/before.json",
+      "sha256": "3f2b92551051027398f976a52b91e6733e63063889eb68f9d6ca02936202c770"
+    },
+    "final-diff.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/final-diff.json",
+      "sha256": "7bfa942f19f2ebcc6dac5ce01282c2e6f02ec165cfb5bbbc18a6ca3931766b9a"
+    },
+    "h-exited-i-running.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/h-exited-i-running.json",
+      "sha256": "ba41bb71b51e5d18cfeceb9adc8c2f5d0b5300107ff327b0fb194ff63423cd70"
+    },
+    "h-reload-diff.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/h-reload-diff.json",
+      "sha256": "aaa163cce95645a8193f12a3b3c5d02452ae331f2b9b73cdc6a412755be919f7"
+    },
+    "h-reloaded.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/h-reloaded.json",
+      "sha256": "25b1a04b42ef5376e4b687facc07bc63447ca2470fe05ba8d447b0f0be6ed602"
+    },
+    "i-reload-before.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/i-reload-before.json",
+      "sha256": "de60cdf98865bf3b2fb52ad72a4b88d618ebe1d2ffe5d116931acabaf6159238"
+    },
+    "i-reload-diff.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/i-reload-diff.json",
+      "sha256": "11f8d3cd13e2143095802a15c24c7bad9500238269c2bfe6e06a67ed99989b77"
+    },
+    "i-reloaded.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/i-reloaded.json",
+      "sha256": "a6500a6b07594f4a6b3e287f85fd17db4cd7703df6038c828d6afffea3ea34dd"
+    },
+    "instances.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/instances.json",
+      "sha256": "64c9a9ecf846e33d30bf72f23c39d104403a8ffe069fed075c7fb35e672dfb51"
+    },
+    "registered.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/registered.json",
+      "sha256": "9cde3952252d1e72226b41071cedeb8dfbff1bf14bf4beaefcf1abb63646b598"
+    },
+    "reload-before.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/reload-before.json",
+      "sha256": "527d9ba69c4871c1ce1a241a00d49dff305747a45944dece11ed3d27bad95830"
+    },
+    "sessions-final.json": {
+      "path": "/private/tmp/hub-concurrent-qa-rqzpsmun/evidence/sessions-final.json",
+      "sha256": "66ab8f262f231e2b920852c3859afa7810483e4ba37ada6bb55259e987f2cd0e"
+    }
+  },
+  "binding_verified": false,
+  "concurrency_accepted": false,
+  "remaining": [
+    "precise H saved-state comparison and unexpected turn advancement investigation",
+    "near-simultaneous saves",
+    "inventory and map mutation recovery",
+    "cold cache and autosave",
+    "fault cases and original distribution packaging",
+    "scoped file-task coordination"
+  ]
+}

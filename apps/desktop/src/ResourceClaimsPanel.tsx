@@ -19,12 +19,18 @@ export default function ResourceClaimsPanel({
   onAcknowledge: (id: string) => void;
   busy?: boolean;
 }) {
-  const owners = claims.filter((claim) => claim.scope === 'global');
+  const byOwner = new Map<string, ResourceClaim>();
+  for (const claim of claims) {
+    const key = JSON.stringify([claim.owner_kind, claim.owner_id]);
+    if (!byOwner.has(key) || claim.scope === 'global') byOwner.set(key, claim);
+  }
+  const owners = [...byOwner.values()];
   return (
     <section className="panel resource-claims" aria-label="资源占用">
       <h2>资源占用</h2>
       <p className="inline-note">
-        当前采用全局互斥。目录列表仅表示已知保护范围，不能证明游戏没有写入其他位置；多版本并发尚未开放。
+        普通方案与文件任务保持全局互斥；实验构建的固定 QA
+        候选按完整安装与实例范围检查。目录列表仅表示已知保护范围，不能证明游戏没有写入其他位置，正式多版本并发支持尚未验收。
       </p>
       {!owners.length ? (
         <p>当前没有活动资源占用。绑定与存档兼容性仍需单独验证。</p>
@@ -39,7 +45,9 @@ export default function ResourceClaimsPanel({
                   ? '状态未知：请检查游戏及其子进程已关闭后，人工确认。'
                   : owner.reason === 'unknown_game_writes'
                     ? '游戏写入范围尚未验证，阻止其他启动和文件任务。'
-                    : '任务仍在运行或取消中，完成后自动解除占用。'}
+                    : owner.owner_kind === 'session'
+                      ? '会话按声明目录保护资源，重叠范围仍会阻止启动。'
+                      : '任务仍在运行或取消中，完成后自动解除占用。'}
               </p>
               {owner.owner_kind === 'session' &&
                 owner.state === 'interrupted_unknown' && (

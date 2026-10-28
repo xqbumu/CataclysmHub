@@ -43,6 +43,29 @@ it('allows an unknown owner outside recent history to enter the existing confirm
 it('does not treat an empty claim list as verified binding or accepted concurrency', () => {
   render(<ResourceClaimsPanel claims={[]} onAcknowledge={vi.fn()} />);
   expect(screen.getByText(/绑定与存档兼容性仍需单独验证/)).toBeInTheDocument();
-  expect(screen.getByText(/多版本并发尚未开放/)).toBeInTheDocument();
+  expect(screen.getByText(/正式多版本并发支持尚未验收/)).toBeInTheDocument();
+  expect(screen.queryByRole('button')).not.toBeInTheDocument();
+});
+
+it('counts directory-only candidates once each and displays every protected scope', () => {
+  const claims: ResourceClaim[] = ['a', 'b'].flatMap((id) =>
+    ['install', 'instance'].map((role) => ({
+      ...unknown,
+      owner_id: id,
+      state: 'running',
+      scope: 'directory',
+      access: 'write',
+      path: `/${id}/${role}`,
+      reason: 'declared_directory',
+    })),
+  );
+  render(<ResourceClaimsPanel claims={claims} onAcknowledge={vi.fn()} />);
+  expect(
+    screen.getByText('共有 2 个会话或任务正在保护资源。'),
+  ).toBeInTheDocument();
+  for (const claim of claims)
+    expect(screen.getByText(claim.path!)).toBeInTheDocument();
+  expect(screen.queryByText(/当前没有活动资源占用/)).not.toBeInTheDocument();
+  expect(screen.getAllByText(/会话按声明目录保护资源/)).toHaveLength(2);
   expect(screen.queryByRole('button')).not.toBeInTheDocument();
 });
