@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import type { ContentConfigPlan } from './bindings/ContentConfigPlan';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { it, expect, vi } from 'vitest';
 import ContentConfigDialog from './ContentConfigDialog';
@@ -355,4 +356,105 @@ it('does not choose duplicate candidate sources and bounds large dependency diag
   });
   expect(result.issues).toHaveLength(257);
   expect(result.issues.at(-1)).toContain('超过展示上限');
+});
+
+it('only requests a fresh backend preview on explicit action and shows its new baseline', async () => {
+  const user = userEvent.setup();
+  const plan: ContentConfigPlan = {
+    report: { ...report, checked_at: 'fresh-read' },
+    files: [
+      {
+        path: 'config/options.json',
+        before_sha256: 'original-hash',
+        proposed_sha256: 'new-hash',
+        proposed_json: '[]',
+      },
+    ],
+    proposed_discovery: report.discovery,
+    write_supported: false,
+  };
+  const previewContentConfig = vi.fn().mockResolvedValue(plan);
+  render(
+    <ContentConfigDialog
+      report={report}
+      api={{ previewContentConfig }}
+      onClose={vi.fn()}
+    />,
+  );
+  expect(previewContentConfig).not.toHaveBeenCalled();
+  await user.selectOptions(screen.getByLabelText('声音开关草稿'), 'true');
+  await user.click(
+    screen.getByRole('button', { name: '重新读取并生成后端预览' }),
+  );
+  expect(previewContentConfig).toHaveBeenCalledExactlyOnceWith('p', {
+    default_mods: null,
+    soundpack: null,
+    sound_enabled: true,
+  });
+  expect(await screen.findByLabelText('后端配置预览')).toHaveTextContent(
+    'fresh-read',
+  );
+  expect(screen.getByLabelText('后端配置预览')).toHaveTextContent(
+    'original-hash',
+  );
+  expect(
+    screen.queryByRole('button', { name: /确认写入|应用草稿/ }),
+  ).not.toBeInTheDocument();
+});
+
+it('discards an in-flight backend preview after editing the draft', async () => {
+  const user = userEvent.setup();
+  let complete: (plan: ContentConfigPlan) => void = () => {};
+  const pending = new Promise<ContentConfigPlan>((resolve) => {
+    complete = resolve;
+  });
+  const previewContentConfig = vi.fn().mockReturnValue(pending);
+  render(
+    <ContentConfigDialog
+      report={report}
+      api={{ previewContentConfig }}
+      onClose={vi.fn()}
+    />,
+  );
+  await user.click(
+    screen.getByRole('button', { name: '重新读取并生成后端预览' }),
+  );
+  await user.selectOptions(screen.getByLabelText('声音开关草稿'), 'false');
+  await act(async () => {
+    complete({
+      report,
+      files: [],
+      proposed_discovery: report.discovery,
+      write_supported: false,
+    });
+    await pending;
+  });
+  expect(screen.queryByLabelText('后端配置预览')).not.toBeInTheDocument();
+  expect(
+    screen.getByRole('button', { name: '重新读取并生成后端预览' }),
+  ).toBeEnabled();
+});
+
+it('shows the backend refusal reason without keeping a successful preview', async () => {
+  const user = userEvent.setup();
+  const previewContentConfig = vi
+    .fn()
+    .mockRejectedValue({
+      code: 'CONTENT_CONFIG_PREVIEW_UNAVAILABLE',
+      message: '目标声音字段尚未声明，不推断版本默认格式。',
+    });
+  render(
+    <ContentConfigDialog
+      report={report}
+      api={{ previewContentConfig }}
+      onClose={vi.fn()}
+    />,
+  );
+  await user.click(
+    screen.getByRole('button', { name: '重新读取并生成后端预览' }),
+  );
+  expect(
+    await screen.findByText('目标声音字段尚未声明，不推断版本默认格式。'),
+  ).toBeInTheDocument();
+  expect(screen.queryByLabelText('后端配置预览')).not.toBeInTheDocument();
 });

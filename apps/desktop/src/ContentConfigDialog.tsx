@@ -1,3 +1,4 @@
+import type { HubApi } from './api';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import type { ModReferenceFile } from './bindings/ModReferenceFile';
 import Modal from './Modal';
@@ -35,8 +36,10 @@ function Mods({ file }: { file: ModReferenceFile }) {
 export default function ContentConfigDialog({
   report,
   onClose,
+  api,
 }: {
   report: ContentConfigReport;
+  api?: Pick<HubApi, 'previewContentConfig'>;
   onClose: () => void;
 }) {
   return (
@@ -124,7 +127,7 @@ export default function ContentConfigDialog({
         </article>
       ))}
       <ContentDiscoveryPanel discovery={report.discovery} />
-      <ContentConfigPreviewPanel report={report} />
+      <ContentConfigPreviewPanel report={report} api={api} />
       <button onClick={onClose}>关闭</button>
     </Modal>
   );

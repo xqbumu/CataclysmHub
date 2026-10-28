@@ -1,11 +1,16 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { errorMessage, type HubApi } from './api';
+import type { ContentConfigPlan } from './bindings/ContentConfigPlan';
+import ContentDiscoveryPanel from './ContentDiscoveryPanel';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import { previewContentConfig } from './contentConfigPreview';
 
 export default function ContentConfigPreviewPanel({
   report,
+  api,
 }: {
   report: ContentConfigReport;
+  api?: Pick<HubApi, 'previewContentConfig'>;
 }) {
   const [editMods, setEditMods] = useState(false);
   const [mods, setMods] = useState(
@@ -19,7 +24,40 @@ export default function ContentConfigPreviewPanel({
   const [preview, setPreview] = useState<ReturnType<
     typeof previewContentConfig
   > | null>(null);
-  const invalidate = () => setPreview(null);
+  const revision = useRef(0);
+  const [fresh, setFresh] = useState<ContentConfigPlan | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const invalidate = () => {
+    revision.current += 1;
+    setPreview(null);
+    setFresh(null);
+    setError('');
+  };
+  const refreshPreview = async () => {
+    if (!api) return;
+    const version = ++revision.current;
+    setBusy(true);
+    setFresh(null);
+    setError('');
+    try {
+      const result = await api.previewContentConfig(report.instance_id, {
+        default_mods: editMods
+          ? mods
+              .split(/\r?\n/u)
+              .map((id) => id.trim())
+              .filter(Boolean)
+          : null,
+        soundpack: editSound ? sound.trim() : null,
+        sound_enabled: enabled === 'keep' ? null : enabled === 'true',
+      });
+      if (version === revision.current) setFresh(result);
+    } catch (error) {
+      if (version === revision.current) setError(errorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <section>
       <h3>配置草稿与差异预览</h3>
@@ -113,6 +151,38 @@ export default function ContentConfigPreviewPanel({
       >
         比较配置草稿
       </button>
+      {api && (
+        <button disabled={busy} onClick={() => void refreshPreview()}>
+          {busy ? '正在重新读取…' : '重新读取并生成后端预览'}
+        </button>
+      )}
+      {error && <p role="alert">{error}</p>}
+      {fresh && (
+        <div aria-label="后端配置预览">
+          <p>
+            重新读取时间：{fresh.report.checked_at}
+            。下方基于新读取结果；不是一致性快照或执行授权，尚未创建保护副本。
+          </p>
+          {!fresh.files.length && <p>本次读取未产生配置文件差异。</p>}
+          {fresh.files.map((file) => (
+            <article key={file.path}>
+              <p>{file.path}</p>
+              <p>
+                原文件 SHA-256：<code>{file.before_sha256}</code>
+              </p>
+              <p>
+                拟生成文件 SHA-256：<code>{file.proposed_sha256}</code>
+              </p>
+              <details>
+                <summary>拟生成 JSON（仅展示）</summary>
+                <pre>{file.proposed_json}</pre>
+              </details>
+            </article>
+          ))}
+          <ContentDiscoveryPanel discovery={fresh.proposed_discovery} />
+          <p>只生成预览，不提供确认写入；已有世界配置保持在预览范围之外。</p>
+        </div>
+      )}
       {preview && (
         <div aria-label="配置草稿结果">
           {preview.issues.map((issue) => (

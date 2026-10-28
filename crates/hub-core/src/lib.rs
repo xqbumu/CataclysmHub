@@ -69,3 +69,6 @@ pub use content_config::{
 
 mod content_discovery;
 pub use content_discovery::{ContentDiscovery, ContentFinding, ContentScope, DiscoveredContent};
+
+mod content_config_plan;
+pub use content_config_plan::{ContentConfigFilePreview, ContentConfigInput, ContentConfigPlan};

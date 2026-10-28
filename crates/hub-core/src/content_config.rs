@@ -62,7 +62,7 @@ fn child(root: &Dir, name: &str) -> std::result::Result<Dir, &'static str> {
     }
     root.open_dir_nofollow(name).map_err(|_| "unreadable")
 }
-fn document(
+pub(crate) fn document(
     root: &Dir,
     path: &str,
     remaining: &mut usize,
@@ -94,8 +94,76 @@ fn document(
     if bytes.len() > limit {
         return Err("limit_exceeded");
     }
-    let json = serde_json::from_slice(&bytes).map_err(|_| "invalid_json")?;
+    let json = serde_json::from_slice::<UniqueValue>(&bytes)
+        .map_err(|_| "invalid_json")?
+        .0;
     Ok((json, format::sha(&bytes)))
+}
+// Reject duplicate object keys instead of silently losing declarations during previews.
+struct UniqueValue(Value);
+impl<'de> serde::Deserialize<'de> for UniqueValue {
+    fn deserialize<D: serde::Deserializer<'de>>(
+        deserializer: D,
+    ) -> std::result::Result<Self, D::Error> {
+        struct Visitor;
+        impl<'de> serde::de::Visitor<'de> for Visitor {
+            type Value = UniqueValue;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                f.write_str("JSON with unique object keys")
+            }
+            fn visit_bool<E: serde::de::Error>(
+                self,
+                v: bool,
+            ) -> std::result::Result<UniqueValue, E> {
+                Ok(UniqueValue(Value::Bool(v)))
+            }
+            fn visit_i64<E: serde::de::Error>(self, v: i64) -> std::result::Result<UniqueValue, E> {
+                Ok(UniqueValue(v.into()))
+            }
+            fn visit_u64<E: serde::de::Error>(self, v: u64) -> std::result::Result<UniqueValue, E> {
+                Ok(UniqueValue(v.into()))
+            }
+            fn visit_f64<E: serde::de::Error>(self, v: f64) -> std::result::Result<UniqueValue, E> {
+                serde_json::Number::from_f64(v)
+                    .map(|n| UniqueValue(Value::Number(n)))
+                    .ok_or_else(|| E::custom("invalid number"))
+            }
+            fn visit_str<E: serde::de::Error>(
+                self,
+                v: &str,
+            ) -> std::result::Result<UniqueValue, E> {
+                Ok(UniqueValue(Value::String(v.into())))
+            }
+            fn visit_unit<E: serde::de::Error>(self) -> std::result::Result<UniqueValue, E> {
+                Ok(UniqueValue(Value::Null))
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> std::result::Result<UniqueValue, A::Error> {
+                let mut values = Vec::new();
+                while let Some(UniqueValue(value)) = seq.next_element()? {
+                    values.push(value);
+                }
+                Ok(UniqueValue(Value::Array(values)))
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(
+                self,
+                mut map: A,
+            ) -> std::result::Result<UniqueValue, A::Error> {
+                let mut values = serde_json::Map::new();
+                while let Some((key, UniqueValue(value))) =
+                    map.next_entry::<String, UniqueValue>()?
+                {
+                    if values.insert(key, value).is_some() {
+                        return Err(serde::de::Error::custom("duplicate object key"));
+                    }
+                }
+                Ok(UniqueValue(Value::Object(values)))
+            }
+        }
+        deserializer.deserialize_any(Visitor)
+    }
 }
 fn identifier(v: &Value) -> Option<String> {
     v.as_str()
@@ -262,6 +330,12 @@ fn observe(root: &Dir, entries: &[ContentEntry]) -> Result<Observed> {
 impl Hub {
     pub async fn inspect_content_config(&self, instance_id: &str) -> Result<ContentConfigReport> {
         let _gate = self.mutation.lock().await;
+        self.inspect_content_config_locked(instance_id).await
+    }
+    pub(crate) async fn inspect_content_config_locked(
+        &self,
+        instance_id: &str,
+    ) -> Result<ContentConfigReport> {
         let instance = self.instance(instance_id).await?;
         let installation = self.installation(&instance.installation_id).await?;
         let path = paths::canonical(&instance.data_root, true)?;

@@ -76,6 +76,7 @@ it('requires native scope selection and separate copy confirmation; preview canc
       .mockResolvedValueOnce('/game')
       .mockResolvedValueOnce('/copies'),
     inspectContentConfig: vi.fn(),
+    previewContentConfig: vi.fn(),
     prepareContentInstall: vi.fn(),
     startContentInstall: vi.fn(),
     contentInstallTasks: vi.fn().mockResolvedValue([]),

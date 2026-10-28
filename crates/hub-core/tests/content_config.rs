@@ -301,3 +301,142 @@ async fn candidate_discovery_never_follows_external_directory_or_metadata_links(
             .any(|f| f.code == "unsafe_metadata")
     );
 }
+
+#[tokio::test]
+async fn fresh_config_preview_preserves_other_fields_and_never_writes() {
+    let f = Fixture::new().await;
+    let original = br#"[{"name":"SOUNDPACKS","value":"old","extra":42},{"name":"SOUND_ENABLED","value":"false"},{"name":"OTHER","value":"untouched"}]"#;
+    f.write("config/options.json", original);
+    f.write(
+        "config/user-default-mods.json",
+        br#"{"type":"MOD_INFO","id":"user:default","dependencies":["dda"],"custom":{"keep":true}}"#,
+    );
+    f.write("save/W/mods.json", br#"["dda"]"#);
+    let before = f.hub.dashboard().await.unwrap().operations.len();
+    let input = hub_core::ContentConfigInput {
+        default_mods: Some(vec![]),
+        soundpack: Some("new".into()),
+        sound_enabled: Some(true),
+    };
+    let plan = f.hub.preview_content_config("p", input).await.unwrap();
+    assert!(!plan.write_supported);
+    assert_eq!(plan.files.len(), 2);
+    let options: serde_json::Value = serde_json::from_str(&plan.files[1].proposed_json).unwrap();
+    assert_eq!(options[0]["value"], "new");
+    assert_eq!(options[0]["extra"], 42);
+    assert_eq!(options[1]["value"], "true");
+    assert_eq!(options[2]["value"], "untouched");
+    let defaults: serde_json::Value = serde_json::from_str(&plan.files[0].proposed_json).unwrap();
+    assert_eq!(defaults["dependencies"], serde_json::json!([]));
+    assert_eq!(defaults["custom"]["keep"], true);
+    assert_eq!(
+        std::fs::read(f.root.join("config/options.json")).unwrap(),
+        original
+    );
+    assert_eq!(
+        std::fs::read(f.root.join("save/W/mods.json")).unwrap(),
+        br#"["dda"]"#
+    );
+    assert_eq!(f.hub.dashboard().await.unwrap().operations.len(), before);
+    f.write(
+        "config/options.json",
+        br#"[{"name":"SOUND_ENABLED","value":"true"}]"#,
+    );
+    let plan = f
+        .hub
+        .preview_content_config(
+            "p",
+            hub_core::ContentConfigInput {
+                default_mods: None,
+                soundpack: None,
+                sound_enabled: Some(false),
+            },
+        )
+        .await
+        .unwrap();
+    assert_eq!(plan.report.sound.sound_enabled.as_deref(), Some("true"));
+    assert_eq!(plan.files.len(), 1);
+}
+
+#[tokio::test]
+async fn config_preview_rejects_unknown_baselines_and_invalid_drafts() {
+    let f = Fixture::new().await;
+    for input in [
+        hub_core::ContentConfigInput {
+            default_mods: Some(vec!["a".into(), "a".into()]),
+            soundpack: None,
+            sound_enabled: None,
+        },
+        hub_core::ContentConfigInput {
+            default_mods: Some(vec![]),
+            soundpack: None,
+            sound_enabled: None,
+        },
+        hub_core::ContentConfigInput {
+            default_mods: None,
+            soundpack: Some("music".into()),
+            sound_enabled: None,
+        },
+    ] {
+        assert!(f.hub.preview_content_config("p", input).await.is_err());
+    }
+    f.write(
+        "config/options.json",
+        br#"[{"name":"OTHER","value":"keep"}]"#,
+    );
+    assert!(
+        f.hub
+            .preview_content_config(
+                "p",
+                hub_core::ContentConfigInput {
+                    default_mods: None,
+                    soundpack: None,
+                    sound_enabled: Some(true)
+                }
+            )
+            .await
+            .is_err()
+    );
+    let plan = f
+        .hub
+        .preview_content_config(
+            "p",
+            hub_core::ContentConfigInput {
+                default_mods: None,
+                soundpack: None,
+                sound_enabled: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(plan.files.is_empty());
+    assert!(!f.root.join("config/user-default-mods.json").exists());
+}
+
+#[tokio::test]
+async fn config_preview_rejects_duplicate_json_keys_and_preserves_noop_bytes() {
+    let f = Fixture::new().await;
+    f.write(
+        "config/options.json",
+        br#"[{"name":"SOUND_ENABLED","value":"true","value":"false"}]"#,
+    );
+    let input = hub_core::ContentConfigInput {
+        default_mods: None,
+        soundpack: None,
+        sound_enabled: Some(false),
+    };
+    assert!(
+        f.hub
+            .preview_content_config("p", input.clone())
+            .await
+            .is_err()
+    );
+    let original = br#"[ { "name" : "SOUND_ENABLED", "value" : "false", "extra": null } ]"#;
+    f.write("config/options.json", original);
+    let plan = f.hub.preview_content_config("p", input).await.unwrap();
+    assert!(plan.files.is_empty());
+    assert_eq!(
+        std::fs::read(f.root.join("config/options.json")).unwrap(),
+        original
+    );
+}

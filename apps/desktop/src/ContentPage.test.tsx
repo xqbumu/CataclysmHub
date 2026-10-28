@@ -25,6 +25,7 @@ function client(entries: ContentEntry[] = []): HubApi {
     ...native,
     desktop: true,
     inspectContentConfig: vi.fn(),
+    previewContentConfig: vi.fn(),
     prepareContentInstall: vi.fn(),
     startContentInstall: vi.fn(),
     contentInstallTasks: vi.fn().mockResolvedValue([]),

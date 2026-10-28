@@ -30,6 +30,7 @@ function client(): HubApi {
     desktop: true,
     pickPath: vi.fn().mockResolvedValue('/library'),
     inspectContentConfig: vi.fn(),
+    previewContentConfig: vi.fn(),
     prepareContentInstall: vi.fn().mockResolvedValue(plan),
     startContentInstall: vi.fn().mockResolvedValue('task'),
     contentInstallTasks: vi.fn().mockResolvedValue([]),
