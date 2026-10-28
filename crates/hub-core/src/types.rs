@@ -173,6 +173,8 @@ pub struct BackupEntry {
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct BackupPlan {
+    #[ts(optional = nullable)]
+    pub play_instance_id: Option<String>,
     pub id: String,
     pub plan_digest: String,
     pub source_root: String,
@@ -188,6 +190,10 @@ pub struct BackupPlan {
 }
 #[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
 pub struct BackupTask {
+    #[ts(optional = nullable)]
+    pub play_instance_id: Option<String>,
+    #[ts(optional = nullable)]
+    pub source_root: Option<String>,
     pub id: String,
     pub request_key: String,
     pub workspace_id: String,
@@ -205,6 +211,10 @@ pub struct BackupTask {
 }
 #[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
 pub struct BackupRecord {
+    #[ts(optional = nullable)]
+    pub play_instance_id: Option<String>,
+    #[ts(optional = nullable)]
+    pub source_root: Option<String>,
     pub id: String,
     pub task_id: String,
     pub workspace_id: String,

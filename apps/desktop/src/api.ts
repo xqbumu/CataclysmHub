@@ -77,6 +77,7 @@ export interface HubApi {
   previewRetention(policy: RetentionPolicy): Promise<RetentionPreview>;
   updateBackupDetails(input: BackupDetailsInput): Promise<BackupRecord>;
   backupPlan(): Promise<BackupPlan>;
+  instanceBackupPlan(instanceId: string): Promise<BackupPlan>;
   createBackup(
     planId: string,
     planDigest: string,
@@ -136,6 +137,8 @@ export const api: HubApi = {
   updateBackupDetails: (input) =>
     desktopOnly('update_backup_details', { input }),
   backupPlan: () => desktopOnly('prepare_backup'),
+  instanceBackupPlan: (instanceId) =>
+    desktopOnly('prepare_instance_backup', { instanceId }),
   createBackup: (planId, planDigest, requestKey) =>
     desktopOnly('create_backup', {
       planId,

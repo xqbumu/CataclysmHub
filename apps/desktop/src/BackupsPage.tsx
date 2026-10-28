@@ -54,6 +54,7 @@ export default function BackupsPage({
   run: (action: () => Promise<void>) => Promise<void>;
   onConfigure: () => void;
 }) {
+  const [sourceInstance, setSourceInstance] = useState('');
   const [plan, setPlan] = useState<BackupPlan | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const requestKey = useRef<string | null>(null);
@@ -61,6 +62,7 @@ export default function BackupsPage({
     ['running', 'cancelling'].includes(task.state),
   );
   const blocked =
+    data.resource_claims.length > 0 ||
     !!active ||
     data.inspection_tasks.some((task) =>
       ['running', 'cancelling'].includes(task.state),
@@ -91,15 +93,42 @@ export default function BackupsPage({
       <section className="panel scan-toolbar">
         <div>
           <span className="eyebrow">INDEPENDENT FULL ARCHIVES</span>
-          <h2>整个存档根目录的完整备份</h2>
+          <h2>
+            {sourceInstance
+              ? '实例数据根的完整备份'
+              : '整个存档根目录的完整备份'}
+          </h2>
           <p className="file-path">{data.workspace.backup_dir}</p>
         </div>
+        <label>
+          备份来源
+          <select
+            aria-label="备份来源"
+            value={sourceInstance}
+            disabled={busy}
+            onChange={(event) => {
+              setSourceInstance(event.target.value);
+              setPlan(null);
+              setAcknowledged(false);
+              requestKey.current = null;
+            }}
+          >
+            <option value="">工作区存档根目录</option>
+            {data.play_instances.map((instance) => (
+              <option key={instance.id} value={instance.id}>
+                {instance.name} · 实例数据根（绑定未验证）
+              </option>
+            ))}
+          </select>
+        </label>
         <button
           className="primary"
           disabled={busy || blocked || !api.desktop}
           onClick={() =>
             void run(async () => {
-              const next = await api.backupPlan();
+              const next = await (sourceInstance
+                ? api.instanceBackupPlan(sourceInstance)
+                : api.backupPlan());
               setPlan(next);
               setAcknowledged(false);
               requestKey.current = crypto.randomUUID();
@@ -113,7 +142,7 @@ export default function BackupsPage({
       <div className="notice">
         <CircleHelp size={18} />
         <span>
-          当前创建的是整个存档根目录的尽力快照。完整性通过表示文件、清单和
+          按所选工作区存档根或实例数据根创建尽力快照。实例备份不含游戏安装与共享缓存。完整性通过表示文件、清单和
           SHA-256 一致，不代表游戏语义一致或跨版本兼容。覆盖恢复尚未开放。
         </span>
       </div>
@@ -209,11 +238,27 @@ export default function BackupsPage({
             <article className="panel backup-record" key={backup.id}>
               <div className="row-between">
                 <div>
-                  <span className="eyebrow">SAVE ROOT · TAR / ZSTANDARD</span>
+                  <span className="eyebrow">
+                    {backup.play_instance_id
+                      ? 'INSTANCE DATA ROOT'
+                      : 'SAVE ROOT'}{' '}
+                    · TAR / ZSTANDARD
+                  </span>
                   <h3>
                     {backup.display_name ||
                       new Date(backup.created_at).toLocaleString('zh-CN')}
                   </h3>
+                  {backup.play_instance_id && (
+                    <p className="file-path">
+                      实例：
+                      {data.play_instances.find(
+                        (i) => i.id === backup.play_instance_id,
+                      )?.name ?? backup.play_instance_id}{' '}
+                      · 绑定未验证
+                      <br />
+                      {backup.source_root}
+                    </p>
+                  )}
                   {backup.display_name && (
                     <small className="muted">
                       创建于{' '}
@@ -319,7 +364,11 @@ export default function BackupsPage({
             预览只确认文件范围和容量。确认后才会创建临时副本与归档；源文件不会被移动、覆盖或删除。
           </p>
           <dl className="launch-details">
-            <dt>源存档根目录（完整范围）</dt>
+            <dt>
+              {plan.play_instance_id
+                ? '源实例数据根（存档、配置及其他普通文件）'
+                : '源存档根目录（完整范围）'}
+            </dt>
             <dd>{plan.source_root}</dd>
             <dt>目标备份目录</dt>
             <dd>{plan.backup_dir}</dd>

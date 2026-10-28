@@ -20,11 +20,14 @@ use std::{
     },
 };
 
-const COLUMNS: &str = "id,request_key,workspace_id,backup_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at";
+const COLUMNS: &str = "id,request_key,workspace_id,backup_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at,play_instance_id,source_root";
 #[derive(Clone)]
 pub(crate) struct PreparedPlan {
     pub plan: BackupPlan,
     workspace_id: String,
+    instance: Option<crate::PlayInstance>,
+    source_identity: Arc<same_file::Handle>,
+    backup_identity: Arc<same_file::Handle>,
 }
 #[derive(Clone)]
 enum Work {
@@ -111,9 +114,9 @@ fn safe_roots(source: &str, backup: &str, data: &Path) -> Result<(PathBuf, PathB
     if paths::text(&source_path)? != source || paths::text(&backup_path)? != backup {
         return Err(changed());
     }
-    if paths::overlap(&source_path, &backup_path)
-        || paths::overlap(&source_path, data)
-        || paths::overlap(&backup_path, data)
+    if crate::play_instances::overlaps(&source_path, &backup_path)?
+        || crate::play_instances::overlaps(&source_path, data)?
+        || crate::play_instances::overlaps(&backup_path, data)?
     {
         return Err(HubError::new(
             "PATH_OVERLAP",
@@ -352,6 +355,17 @@ fn do_create(
     }
     let backup =
         Dir::open_ambient_dir(&backup_path, cap_std::ambient_authority()).map_err(io_error)?;
+    let source =
+        Dir::open_ambient_dir(&source_path, cap_std::ambient_authority()).map_err(io_error)?;
+    if same_file::Handle::from_file(source.try_clone().map_err(io_error)?.into_std_file())
+        .map_err(io_error)?
+        != *prepared.source_identity
+        || same_file::Handle::from_file(backup.try_clone().map_err(io_error)?.into_std_file())
+            .map_err(io_error)?
+            != *prepared.backup_identity
+    {
+        return Err(changed());
+    }
     let partial = format!(".partial-{backup_id}");
     backup.create_dir(&partial).map_err(io_error)?;
     let work = backup.open_dir_nofollow(&partial).map_err(io_error)?;
@@ -371,8 +385,6 @@ fn do_create(
     )?;
     work.create_dir("data").map_err(io_error)?;
     let data = work.open_dir_nofollow("data").map_err(io_error)?;
-    let source =
-        Dir::open_ambient_dir(&source_path, cap_std::ambient_authority()).map_err(io_error)?;
     let mut entries = prepared.plan.entries.clone();
     phase.store(1, Ordering::Release);
     progress.store(0, Ordering::Release);
@@ -384,13 +396,21 @@ fn do_create(
         return Err(changed());
     }
     let manifest = Manifest {
-        schema_version: 1,
+        schema_version: if prepared.instance.is_some() { 2 } else { 1 },
         backup_id: backup_id.into(),
         created_at: now(),
-        scope: "save_root".into(),
+        scope: if prepared.instance.is_some() {
+            "instance_data_root"
+        } else {
+            "save_root"
+        }
+        .into(),
         world_id: None,
         world_alias: None,
-        source_token: prepared.workspace_id.clone(),
+        source_token: prepared
+            .instance
+            .as_ref()
+            .map_or(prepared.workspace_id.clone(), |i| i.id.clone()),
         consistency: "best_effort".into(),
         game: None,
         profile_id: None,
@@ -403,7 +423,7 @@ fn do_create(
         file_count: entries.iter().filter(|e| e.file_type == "file").count() as u32,
         total_bytes: prepared.plan.total_bytes.clone(),
         entries,
-        extensions: serde_json::json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"boundary_verified":false}),
+        extensions: serde_json::json!({"platform":std::env::consts::OS,"arch":std::env::consts::ARCH,"boundary_verified":false,"instance_source":prepared.instance.as_ref().map(|i|serde_json::json!({"instance_id":i.id,"installation_id":i.installation_id,"installation_sha256":i.installation_sha256,"binding_verified":false}))}),
         compression_version: zstd::zstd_safe::version_string().into(),
         world_contexts: vec![],
     };
@@ -431,14 +451,43 @@ fn do_create(
 impl Hub {
     pub async fn prepare_backup(&self) -> Result<BackupPlan> {
         let _guard = self.mutation.lock().await;
+        self.prepare_backup_inner(None).await
+    }
+    pub async fn prepare_instance_backup(&self, instance_id: &str) -> Result<BackupPlan> {
+        let _guard = self.mutation.lock().await;
+        let instance = self.instance(instance_id).await?;
+        if !format::valid_instance_provenance(
+            &instance.id,
+            &instance.installation_id,
+            &instance.installation_sha256,
+        ) {
+            return Err(HubError::new(
+                "INSTANCE_CONTEXT_INVALID",
+                "实例来源记录无效，无法生成可验证备份；未创建临时目录。",
+            ));
+        }
+
+        let installation = self.installation(&instance.installation_id).await?;
+        self.instance_identity(&instance, &installation.working_dir)
+            .await?;
+        self.prepare_backup_inner(Some(instance)).await
+    }
+    async fn prepare_backup_inner(
+        &self,
+        instance: Option<crate::PlayInstance>,
+    ) -> Result<BackupPlan> {
         self.check_resource_claims().await?;
         let workspace = self
             .dashboard()
             .await?
             .workspace
             .ok_or(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"))?;
-        let (source, backup) =
-            safe_roots(&workspace.save_dir, &workspace.backup_dir, &self.data_dir)?;
+        let source_root = instance
+            .as_ref()
+            .map_or(workspace.save_dir.clone(), |i| i.data_root.clone());
+        let (source, backup) = safe_roots(&source_root, &workspace.backup_dir, &self.data_dir)?;
+        let source_identity = Arc::new(same_file::Handle::from_path(&source).map_err(io_error)?);
+        let backup_identity = Arc::new(same_file::Handle::from_path(&backup).map_err(io_error)?);
         let entries =
             tokio::task::spawn_blocking(move || source_entries(&source, &AtomicBool::new(false)))
                 .await
@@ -461,15 +510,17 @@ impl Hub {
         let digest = sha(&serde_json::to_vec(&(
             &plan_id,
             &workspace.id,
-            &workspace.save_dir,
+            &source_root,
             &workspace.backup_dir,
+            &instance,
             &entries,
         ))
         .map_err(|_| changed())?);
         let plan = BackupPlan {
+            play_instance_id: instance.as_ref().map(|i| i.id.clone()),
             id: plan_id,
             plan_digest: digest,
-            source_root: workspace.save_dir,
+            source_root,
             backup_dir: workspace.backup_dir,
             entry_count: entries.len() as u32,
             file_count: entries.iter().filter(|e| e.file_type == "file").count() as u32,
@@ -479,7 +530,12 @@ impl Hub {
             expires_at: (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339(),
             entries,
             warnings: vec![
-                "范围为整个存档根目录，包含所有世界候选及共享/未知普通文件。".into(),
+                if instance.is_some() {
+                    "范围为整个实例数据根，包含存档、配置及其他普通文件；不含游戏安装与其缓存。"
+                        .into()
+                } else {
+                    "范围为整个存档根目录，包含所有世界候选及共享/未知普通文件。".into()
+                },
                 "游戏格式与外部进程尚未验证；本次仅为尽力快照，不保证游戏语义一致。".into(),
                 "仅保存普通文件字节及空目录，不保证 ACL、扩展属性或全部权限元数据。".into(),
             ],
@@ -494,6 +550,9 @@ impl Hub {
             PreparedPlan {
                 plan: plan.clone(),
                 workspace_id: workspace.id,
+                instance,
+                source_identity,
+                backup_identity,
             },
         );
         Ok(plan)
@@ -608,11 +667,32 @@ impl Hub {
         let workspace = self.dashboard().await?.workspace.ok_or_else(changed)?;
         if let Work::Create(prepared) = &work
             && (prepared.workspace_id != workspace.id
-                || prepared.plan.source_root != workspace.save_dir
+                || (prepared.instance.is_none() && prepared.plan.source_root != workspace.save_dir)
                 || prepared.plan.backup_dir != workspace.backup_dir)
         {
             return Err(changed());
         }
+        if let Work::Create(prepared) = &work
+            && let Some(snapshot) = &prepared.instance
+        {
+            let current = self.instance(&snapshot.id).await?;
+            if current.data_root != prepared.plan.source_root
+                || current.installation_id != snapshot.installation_id
+                || current.installation_sha256 != snapshot.installation_sha256
+            {
+                return Err(changed());
+            }
+            let installation = self.installation(&current.installation_id).await?;
+            self.instance_identity(&current, &installation.working_dir)
+                .await?;
+        }
+        let (play_instance_id, source_root) = match &work {
+            Work::Create(p) => (
+                p.plan.play_instance_id.clone(),
+                Some(p.plan.source_root.clone()),
+            ),
+            Work::Verify(r) => (r.play_instance_id.clone(), r.source_root.clone()),
+        };
         let backup_dir = workspace.backup_dir.clone();
         let data_dir = self.data_dir.clone();
         let operation = if matches!(work, Work::Create(_)) {
@@ -622,8 +702,8 @@ impl Hub {
         };
         let created = now();
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
-        sqlx::query("INSERT INTO backup_task (id,request_key,request_digest,workspace_id,backup_id,operation,state,phase,created_at) VALUES (?,?,?,?,?,?,'running','preflight',?)")
-            .bind(task_id).bind(key).bind(digest).bind(workspace_id).bind(backup_id).bind(operation).bind(&created).execute(&mut *tx).await.map_err(HubError::db)?;
+        sqlx::query("INSERT INTO backup_task (id,request_key,request_digest,workspace_id,backup_id,operation,state,phase,created_at,play_instance_id,source_root) VALUES (?,?,?,?,?,?,'running','preflight',?,?,?)")
+            .bind(task_id).bind(key).bind(digest).bind(workspace_id).bind(backup_id).bind(operation).bind(&created).bind(&play_instance_id).bind(&source_root).execute(&mut *tx).await.map_err(HubError::db)?;
         sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
             .bind(id())
             .bind(task_id)
@@ -674,7 +754,16 @@ impl Hub {
                         .map_err(io_error)?;
                     let (manifest, verification) =
                         format::verify_dir(&root, Some(&record.archive_sha256), &job_flag)?;
-                    if verification.backup_id != record.id
+                    let matching_source = match &record.play_instance_id {
+                        Some(instance_id) => {
+                            manifest.schema_version == 2
+                                && manifest.scope == "instance_data_root"
+                                && manifest.source_token == *instance_id
+                        }
+                        None => manifest.schema_version == 1 && manifest.scope == "save_root",
+                    };
+                    if !matching_source
+                        || verification.backup_id != record.id
                         || verification.manifest_sha256 != record.manifest_sha256
                     {
                         return Err(format::invalid());
@@ -717,6 +806,8 @@ impl Hub {
             hub.scan_controls.lock().await.remove(&worker_id);
         });
         Ok(BackupTask {
+            play_instance_id,
+            source_root,
             id: task_id.into(),
             request_key: key.into(),
             workspace_id: workspace_id.into(),
@@ -798,7 +889,7 @@ impl Hub {
                 match work {
                     Work::Create(prepared) => {
                         sqlx::query(
-                            "INSERT INTO backup_archive (id,task_id,workspace_id,relative_dir,created_at,entry_count,file_count,total_bytes,consistency,verification,verified_at,archive_sha256,manifest_sha256) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                            "INSERT INTO backup_archive (id,task_id,workspace_id,relative_dir,created_at,entry_count,file_count,total_bytes,consistency,verification,verified_at,archive_sha256,manifest_sha256,play_instance_id,source_root) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         )
                         .bind(&v.backup_id)
                         .bind(task_id)
@@ -813,6 +904,8 @@ impl Hub {
                         .bind(&v.verified_at)
                         .bind(&v.archive_sha256)
                         .bind(&v.manifest_sha256)
+                        .bind(&prepared.plan.play_instance_id)
+                        .bind(&prepared.plan.source_root)
                         .execute(&mut *tx)
                         .await
                         .map_err(HubError::db)?;

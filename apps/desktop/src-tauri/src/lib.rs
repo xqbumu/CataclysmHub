@@ -171,6 +171,13 @@ async fn get_scan_report(
 }
 
 #[tauri::command]
+async fn prepare_instance_backup(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+) -> Result<hub_core::BackupPlan, HubError> {
+    state.hub.prepare_instance_backup(&instance_id).await
+}
+#[tauri::command]
 async fn prepare_backup(
     state: tauri::State<'_, AppState>,
 ) -> Result<hub_core::BackupPlan, HubError> {
@@ -319,6 +326,7 @@ pub fn run() {
             cancel_world_scan,
             get_scan_report,
             prepare_backup,
+            prepare_instance_backup,
             create_backup,
             verify_backup,
             cancel_backup,

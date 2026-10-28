@@ -12,7 +12,7 @@ WITH owners AS (
   UNION ALL SELECT 'scan',t.id,w.save_dir,'read' FROM task t JOIN workspace w ON w.id=t.workspace_id
   UNION ALL SELECT 'backup',t.id,w.backup_dir,CASE WHEN t.operation='backup.create' THEN 'write' ELSE 'read' END
     FROM backup_task t JOIN workspace w ON w.id=t.workspace_id
-  UNION ALL SELECT 'backup',t.id,w.save_dir,'read' FROM backup_task t JOIN workspace w ON w.id=t.workspace_id WHERE t.operation='backup.create'
+  UNION ALL SELECT 'backup',t.id,COALESCE(t.source_root,w.save_dir),'read' FROM backup_task t JOIN workspace w ON w.id=t.workspace_id WHERE t.operation='backup.create'
   UNION ALL SELECT 'restore',t.id,w.backup_dir,'read' FROM restore_task t JOIN workspace w ON w.id=t.workspace_id
   UNION ALL SELECT 'restore',id,destination,'write' FROM restore_task
   UNION ALL SELECT 'inspection',t.id,r.destination,'read' FROM inspection_task t JOIN restore_task r ON r.id=t.restore_task_id

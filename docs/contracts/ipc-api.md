@@ -129,3 +129,7 @@ preview_retention 接受 `{ policy: { keep_recent, daily_days, weekly_weeks } }`
 ## 当前实现补充：实例资源冲突预检
 
 `preview_instance_resources({ instanceId }) -> InstanceResourcePreview` 为只读接口，仅接受已登记实例 ID，由服务端构造安装与玩家数据范围。返回时间、目录用途、范围问题及全局/物理目录冲突；binding_verified、concurrency_available 恒为 false。无选择器副作用、无执行/解锁授权；声明超限返回 RESOURCE_SCOPE_LIMIT，未知实例返回 INSTANCE_NOT_FOUND。具体比较、界面和执行边界见 [物理目录冲突预检](../design/instance-resource-conflicts.md)。schema 8 不变。
+
+## 当前实现补充：实例完整备份（schema 9）
+
+`prepare_instance_backup({ instanceId }) -> BackupPlan`，来源仅由已登记实例解析，计划新增可空 play_instance_id。后续沿用 create_backup 的计划 ID、摘要、单次确认和幂等请求键。BackupTask/BackupRecord 新增可空 play_instance_id、source_root；旧历史保留 null。实例清单使用 manifest v2，工作区继续 v1；receipt 仍为 v1。INSTANCE_CONTEXT_INVALID 表示来源元数据不能生成可读归档，未写临时目录。范围、目录身份、保留预览排除及独立恢复边界见 [实例备份](../design/instance-backup.md)。

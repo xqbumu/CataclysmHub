@@ -51,3 +51,9 @@ verify-restored 输出 restore-inspection v1，嵌套复用 restore-verification
 检查 data/ 的精确载荷集合；容器外层的笔记等额外文件不属于载荷集合，历史报告不能代替本次核对。错误码 RESTORED_DATA_MISMATCH 表示载荷缺失、不完整可读、类型/集合/大小/摘要不匹配；PERMISSION_DENIED 保留明确的权限原因；RESTORE_MARKER_INVALID 表示控制标记不是普通文件（包括链接），不能按正常容器解释。源归档错误沿用原归档校验错误码。
 
 Schema 以相对 $ref 引用 restore-verification.schema.json，应从同目录或本地资源注册表解析，不需要网络。对应示例来自合成原生恢复产物的只读检查，不含私有路径。标记观察和载荷检查不是原子快照，操作时应关闭外部写入者。
+
+## 当前实现补充：实例清单 v2
+
+实例数据根备份使用 [backup-manifest-v2.schema.json](backup-manifest-v2.schema.json)，[示例](examples/backup-manifest-v2.json)为合成空范围，不是有效归档证据。v2 明确 scope=instance_data_root、source_token=实例 UUID，extensions.instance_source 保存登记安装 UUID/SHA-256 和未验证状态；不写源绝对路径。读取器还要求 source_token 与实例 UUID 一致、所有路径/摘要/计数/预算校验通过，不接受擅自提升绑定/边界状态。当前 v2 仅 best_effort，game/profile/adapter/world/character 等未实现语义不作兼容声明。
+
+工作区清单仍为 v1/save_root，旧 v1 的读取与新目录恢复保留；外部 receipt 仍为 v1，仅描述归档/清单摘要，不代表内部清单也必须为 v1。旧 reader 遇到 v2 应明确拒绝。恢复的 data/ 包含实例根下的相对路径，不自动复原安装或登记游玩绑定。

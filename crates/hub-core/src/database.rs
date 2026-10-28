@@ -86,7 +86,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 8 {
+        if version > 9 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -110,7 +110,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 8 {
+        if version > 0 && version < 9 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -151,7 +151,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 8 {
+        if version < 9 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -219,7 +219,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-008.sql"))
+            if version < 8 {
+                sqlx::raw_sql(include_str!("migration-008.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-009.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {
@@ -373,7 +384,7 @@ impl Hub {
         .map_err(HubError::db)?;
         let mut scan_tasks = sqlx::query_as::<_, crate::ScanTask>("SELECT id,request_key,workspace_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at FROM task ORDER BY created_at DESC,id LIMIT 20")
             .fetch_all(&mut *tx).await.map_err(HubError::db)?;
-        let mut backup_tasks = sqlx::query_as::<_, crate::BackupTask>("SELECT id,request_key,workspace_id,backup_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at FROM backup_task ORDER BY created_at DESC,id LIMIT 20").fetch_all(&mut *tx).await.map_err(HubError::db)?;
+        let mut backup_tasks = sqlx::query_as::<_, crate::BackupTask>("SELECT id,request_key,workspace_id,backup_id,operation,state,phase,processed_entries,revision,error_code,created_at,finished_at,play_instance_id,source_root FROM backup_task ORDER BY created_at DESC,id LIMIT 20").fetch_all(&mut *tx).await.map_err(HubError::db)?;
         let backups = sqlx::query_as::<_, crate::BackupRecord>(
             "SELECT * FROM backup_archive ORDER BY created_at DESC,id LIMIT 100",
         )

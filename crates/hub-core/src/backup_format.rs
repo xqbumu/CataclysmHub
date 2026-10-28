@@ -176,10 +176,56 @@ fn bounded_read(reader: impl Read, maximum: u64) -> Result<Vec<u8>> {
     }
     Ok(bytes)
 }
+pub(crate) fn valid_instance_provenance(instance: &str, installation: &str, digest: &str) -> bool {
+    uuid::Uuid::parse_str(instance).is_ok()
+        && uuid::Uuid::parse_str(installation).is_ok()
+        && valid_sha(digest)
+}
 fn validate_manifest(manifest: &Manifest) -> Result<BTreeMap<String, BackupEntry>> {
-    if manifest.schema_version != 1
-        || manifest.scope != "save_root"
-        || manifest.world_id.is_some()
+    if manifest.schema_version == 2 {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct InstanceSource {
+            instance_id: String,
+            installation_id: String,
+            installation_sha256: String,
+            binding_verified: bool,
+        }
+        let context: InstanceSource = serde_json::from_value(
+            manifest
+                .extensions
+                .get("instance_source")
+                .cloned()
+                .ok_or_else(invalid)?,
+        )
+        .map_err(|_| invalid())?;
+        if manifest.consistency != "best_effort"
+            || manifest.game.is_some()
+            || manifest.profile_id.is_some()
+            || manifest.adapter_version.is_some()
+            || manifest.world_alias.is_some()
+            || !manifest.characters.is_empty()
+            || !manifest.world_contexts.is_empty()
+            || context.instance_id != manifest.source_token
+            || !valid_instance_provenance(
+                &context.instance_id,
+                &context.installation_id,
+                &context.installation_sha256,
+            )
+            || context.binding_verified
+            || manifest
+                .extensions
+                .get("boundary_verified")
+                .and_then(|v| v.as_bool())
+                != Some(false)
+        {
+            return Err(invalid());
+        }
+    }
+    if !matches!(
+        (manifest.schema_version, manifest.scope.as_str()),
+        (1, "save_root") | (2, "instance_data_root")
+    ) || manifest.world_id.is_some()
         || manifest.compression != "zstd"
         || manifest.archive_format != "tar"
         || manifest.entries.len() > MAX_ENTRIES
@@ -460,5 +506,60 @@ pub(crate) fn source_failure_status(code: &str) -> Option<&'static str> {
             Some("unavailable")
         }
         _ => None,
+    }
+}
+
+#[cfg(test)]
+mod instance_manifest_tests {
+    use super::*;
+    #[test]
+    fn instance_context_is_strict_and_cannot_promote_binding_or_relabel_a_scope() {
+        let instance = crate::database::id();
+        let installation = crate::database::id();
+        let value = serde_json::json!({
+            "schema_version":2,"backup_id":crate::database::id(),"created_at":now(),"scope":"instance_data_root",
+            "world_id":null,"world_alias":null,"source_token":instance,"consistency":"best_effort",
+            "game":null,"profile_id":null,"adapter_version":null,"tool_version":"test","compression":"zstd","archive_format":"tar",
+            "characters":[],"entry_count":0,"file_count":0,"total_bytes":"0","entries":[],
+            "extensions":{"boundary_verified":false,"instance_source":{"instance_id":instance,"installation_id":installation,"installation_sha256":"a".repeat(64),"binding_verified":false}},
+            "compression_version":"test","world_contexts":[]
+        });
+        let parse = |v: serde_json::Value| serde_json::from_value::<Manifest>(v).unwrap();
+        validate_manifest(&parse(value.clone())).unwrap();
+        for (pointer, replacement) in [
+            (
+                "/extensions/instance_source/installation_id",
+                serde_json::json!("game"),
+            ),
+            (
+                "/extensions/instance_source/instance_id",
+                serde_json::json!("instance"),
+            ),
+            (
+                "/extensions/instance_source/binding_verified",
+                serde_json::json!(true),
+            ),
+            (
+                "/extensions/instance_source/instance_id",
+                serde_json::json!(crate::database::id()),
+            ),
+            (
+                "/extensions/instance_source/installation_sha256",
+                serde_json::json!("invalid"),
+            ),
+            ("/extensions/instance_source", serde_json::Value::Null),
+            ("/extensions/boundary_verified", serde_json::json!(true)),
+            ("/scope", serde_json::json!("save_root")),
+            ("/schema_version", serde_json::json!(99)),
+        ] {
+            let mut invalid = value.clone();
+            *invalid.pointer_mut(pointer).unwrap() = replacement;
+            assert!(validate_manifest(&parse(invalid)).is_err(), "{pointer}");
+        }
+        let mut legacy = value;
+        legacy["schema_version"] = serde_json::json!(1);
+        legacy["scope"] = serde_json::json!("save_root");
+        legacy["extensions"] = serde_json::json!({});
+        validate_manifest(&parse(legacy)).unwrap();
     }
 }

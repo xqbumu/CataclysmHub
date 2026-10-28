@@ -87,6 +87,7 @@ function client(): HubApi {
     previewRetention: vi.fn(),
     updateBackupDetails: vi.fn(),
     backupPlan: vi.fn(),
+    instanceBackupPlan: vi.fn(),
     createBackup: vi.fn(),
     verifyBackup: vi.fn(),
     restorePlan: vi.fn(),

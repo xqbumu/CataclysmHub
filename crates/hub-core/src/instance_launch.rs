@@ -137,7 +137,7 @@ impl Hub {
                 "实例不存在，请刷新游戏库。",
             ))
     }
-    async fn instance_identity(
+    pub(crate) async fn instance_identity(
         &self,
         instance: &PlayInstance,
         working_dir: &str,

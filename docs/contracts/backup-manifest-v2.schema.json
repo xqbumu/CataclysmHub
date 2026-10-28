@@ -1,0 +1,221 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "backup-manifest v2 instance data root reader contract",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 2
+    },
+    "backup_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "scope": {
+      "const": "instance_data_root"
+    },
+    "world_id": {
+      "type": "null"
+    },
+    "world_alias": {
+      "type": "null"
+    },
+    "source_token": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "consistency": {
+      "const": "best_effort"
+    },
+    "game": {
+      "type": "null"
+    },
+    "profile_id": {
+      "type": "null"
+    },
+    "adapter_version": {
+      "type": "null"
+    },
+    "tool_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "compression": {
+      "const": "zstd"
+    },
+    "archive_format": {
+      "const": "tar"
+    },
+    "characters": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "entry_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "file_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "total_bytes": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)$"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "relative_path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "file_type": {
+            "enum": [
+              "file",
+              "directory"
+            ]
+          },
+          "size": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]*)$"
+          },
+          "sha256": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "mtime": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "relative_path",
+          "file_type",
+          "size",
+          "sha256"
+        ],
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "file_type": {
+                  "const": "file"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[a-f0-9]{64}$"
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "size": {
+                  "const": "0"
+                },
+                "sha256": {
+                  "type": "null"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "properties": {
+        "platform": {
+          "type": "string"
+        },
+        "arch": {
+          "type": "string"
+        },
+        "boundary_verified": {
+          "const": false
+        },
+        "instance_source": {
+          "type": "object",
+          "properties": {
+            "instance_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "installation_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "installation_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "binding_verified": {
+              "const": false
+            }
+          },
+          "required": [
+            "instance_id",
+            "installation_id",
+            "installation_sha256",
+            "binding_verified"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "boundary_verified",
+        "instance_source"
+      ],
+      "additionalProperties": true
+    },
+    "compression_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "world_contexts": {
+      "type": "array",
+      "maxItems": 0
+    }
+  },
+  "required": [
+    "schema_version",
+    "backup_id",
+    "created_at",
+    "scope",
+    "world_id",
+    "world_alias",
+    "source_token",
+    "consistency",
+    "game",
+    "profile_id",
+    "adapter_version",
+    "tool_version",
+    "compression",
+    "archive_format",
+    "characters",
+    "entry_count",
+    "file_count",
+    "total_bytes",
+    "entries",
+    "extensions",
+    "compression_version",
+    "world_contexts"
+  ],
+  "additionalProperties": false
+}

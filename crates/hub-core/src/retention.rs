@@ -172,7 +172,7 @@ fn calculate(
         warnings: vec![
             "这是元数据规则模拟，不读取介质、不重新校验归档，也不执行删除。".into(),
             "容量为源文件逻辑字节数，不是归档占用或可释放空间。".into(),
-            "当前仅覆盖已登记的手动存档根目录备份；最近份数不是自动检查点保留策略。".into(),
+            "当前仅覆盖工作区存档根目录备份；实例数据备份不参与本预览，也未开放清理。最近份数不是自动检查点策略。".into(),
             "日/周窗口按 UTC 计算，周从周一开始；尚未开放本地时区和持久策略设置。".into(),
             "游戏版本、存档环境和升级前保护点关联尚未验证；不能据此认定跨版本可回滚或授权删除。"
                 .into(),
@@ -188,7 +188,7 @@ impl Hub {
             .await
             .map_err(HubError::db)?;
         let workspace = workspace.ok_or(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"))?;
-        let rows=sqlx::query_as::<_,Snapshot>("SELECT b.id,b.display_name,b.created_at,b.total_bytes,b.metadata_revision,b.retention_locked,b.verification,b.consistency,COALESCE(refs.referenced,0) AS referenced FROM backup_archive b LEFT JOIN (SELECT backup_id,1 AS referenced FROM restore_task GROUP BY backup_id) refs ON refs.backup_id=b.id WHERE b.workspace_id=? ORDER BY b.id LIMIT 5001").bind(workspace).fetch_all(&mut *tx).await.map_err(HubError::db)?;
+        let rows=sqlx::query_as::<_,Snapshot>("SELECT b.id,b.display_name,b.created_at,b.total_bytes,b.metadata_revision,b.retention_locked,b.verification,b.consistency,COALESCE(refs.referenced,0) AS referenced FROM backup_archive b LEFT JOIN (SELECT backup_id,1 AS referenced FROM restore_task GROUP BY backup_id) refs ON refs.backup_id=b.id WHERE b.workspace_id=? AND b.play_instance_id IS NULL ORDER BY b.id LIMIT 5001").bind(workspace).fetch_all(&mut *tx).await.map_err(HubError::db)?;
         if rows.len() > 5000 {
             return Err(HubError::new(
                 "RETENTION_LIMIT_EXCEEDED",
