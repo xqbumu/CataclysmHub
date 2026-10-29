@@ -487,3 +487,37 @@ async fn recognition_reads_current_program_without_running_or_trusting_its_name(
         "SOURCE_CHANGED"
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn application_import_registers_real_entry_and_deduplicates_direct_import() {
+    let (temp, hub, _) = setup().await;
+    let bundle = temp.path().join("Game.app");
+    let entry = bundle.join("Contents/Resources/cataclysm-tiles");
+    std::fs::create_dir_all(entry.parent().unwrap()).unwrap();
+    std::fs::copy(temp.path().join("game/test.exe"), &entry).unwrap();
+    let imported = hub
+        .import_installation(bundle.to_str().unwrap(), "App")
+        .await
+        .unwrap();
+    assert_eq!(
+        imported.executable,
+        std::fs::canonicalize(&entry).unwrap().to_str().unwrap()
+    );
+    assert_eq!(
+        imported.working_dir,
+        std::fs::canonicalize(entry.parent().unwrap())
+            .unwrap()
+            .to_str()
+            .unwrap()
+    );
+    let direct = hub
+        .import_installation(entry.to_str().unwrap(), "Again")
+        .await
+        .unwrap();
+    assert_eq!(direct.id, imported.id);
+    assert_eq!(
+        std::fs::read(&entry).unwrap(),
+        b"synthetic executable, never run"
+    );
+}

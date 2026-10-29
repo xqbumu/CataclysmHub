@@ -219,7 +219,7 @@ async fn pick_path(
     };
     let selected = tauri::async_runtime::spawn_blocking(move || {
         let picker = app.dialog().file().set_title(if executable {
-            "选择游戏可执行文件"
+            "选择游戏程序或 .app 应用"
         } else {
             "选择现有目录"
         });

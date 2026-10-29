@@ -29,7 +29,11 @@ impl Hub {
                 "安装名称须为 1～100 个可显示字符。",
             ));
         }
-        let path = paths::canonical(executable, false)?;
+        let selected = executable.to_owned();
+        let path =
+            tokio::task::spawn_blocking(move || crate::application_entry::resolve(&selected))
+                .await
+                .map_err(|_| HubError::new("APPLICATION_ENTRY_FAILED", "无法检查游戏入口。"))??;
         paths::executable(&path)?;
         let canonical = paths::text(&path)?;
         if let Some(existing) =

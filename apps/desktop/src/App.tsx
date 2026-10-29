@@ -965,7 +965,8 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             }}
           >
             <p className="muted">
-              选择你信任的游戏可执行文件。这里只建立本地索引，不复制或重新下载游戏。
+              选择你信任的游戏程序或 macOS .app
+              应用。这里只建立本地索引，不复制游戏。
             </p>
             <label className="field-label" htmlFor="install-name">
               安装名称
@@ -988,7 +989,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                 id="executable"
                 readOnly
                 value={executable}
-                placeholder="选择可执行文件，不是游戏目录"
+                placeholder="选择游戏程序或 macOS .app 应用"
               />
               <button
                 type="button"
@@ -1004,8 +1005,8 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
               </button>
             </div>
             <p className="inline-note">
-              macOS 请进入游戏应用包的 Contents/MacOS
-              选择实际程序；当前暂不自动识别 .app 启动器。
+              macOS 可直接选择 .app
+              应用。若存在多个入口，请进入包内选择实际游戏程序。
             </p>
             {error && (
               <p role="alert" className="modal-error">
