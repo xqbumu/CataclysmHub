@@ -1,3 +1,4 @@
+import RemoteCatalogPanel from './RemoteCatalogPanel';
 import WorkspaceTabs from './WorkspaceTabs';
 import InstanceContentPanel from './InstanceContentPanel';
 import { emptyDashboard, type Dashboard } from './api';
@@ -106,7 +107,7 @@ export default function ContentPage({
       </button>
       <p className="inline-note">
         选择直接包含 modinfo.json 或 soundpack.txt
-        的单个包目录。可重复登记以刷新；源文件保持原样。支持安装到独立资源目录；远端下载、启用、升级与文件删除尚未开放。
+        的单个包目录。可重复登记以刷新；源文件保持原样。支持安装到独立资源目录；远端下载见“下载资源”；下载后需解包再登记，不自动启用、升级或删除。
       </p>
       {error && (
         <p role="alert" className="alert">
@@ -256,6 +257,11 @@ export default function ContentPage({
           id: 'instance',
           label: '实例配置',
           content: <InstanceContentPanel api={api} data={data} />,
+        },
+        {
+          id: 'download',
+          label: '下载资源',
+          content: <RemoteCatalogPanel kind="resource" />,
         },
         { id: 'library', label: '资源来源库', content: library },
       ]}

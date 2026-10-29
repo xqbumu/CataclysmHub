@@ -1,3 +1,5 @@
+import RemoteCatalogPanel from './RemoteCatalogPanel';
+import { syncInitialGameCatalog } from './remoteCatalog';
 import HubSettings from './HubSettings';
 import InstallationDetails from './InstallationDetails';
 import TaskCenter from './TaskCenter';
@@ -164,6 +166,9 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
     const result = await api.dashboard();
     setData(result);
   }, [api]);
+  useEffect(() => {
+    void syncInitialGameCatalog();
+  }, []);
   useEffect(() => {
     let stopped = false;
     let timeout: ReturnType<typeof setTimeout>;
@@ -832,6 +837,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                           onSetup={() => setPage('settings')}
                         />
                       ),
+                    },
+                    {
+                      id: 'remote',
+                      label: '获取游戏',
+                      content: <RemoteCatalogPanel kind="game" />,
                     },
                     {
                       id: 'copies',

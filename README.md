@@ -60,6 +60,10 @@ macOS 打包命令生成 `target/debug/bundle/macos/Cataclysm Hub.app`。开发�
 
 元数据已升级至 schema 15。打开旧工作区前会在元数据目录创建并校验 `metadata-v{旧版本}-{uuid}.sqlite` 备份，再事务执行迁移。该文件是元数据保护副本，不是游戏存档备份。
 
+### 获取游戏与资源
+
+“游戏库 → 获取游戏”从 DDA、BN、TLG、EOD、TISH 的官方仓库读取近期发布及最新非预发布版本。首次启动自动尝试同步，之后点击“更新版本”更新；离线失败保留缓存，不自动重试。“模组与声音 → 下载资源”提供 CC-Sounds、Kenan DDA 历史包及 BN 固定提交包。下载支持进度、取消、校验和原始包删除；解包后仍需通过已有入口登记游戏或单个资源目录，再配置实例。详见 [上游目录与下载说明](docs/design/upstream-catalog-downloads.md)。
+
 ## 独立完整备份
 
 进入“独立备份”，预览整个存档根目录的文件范围，关闭游戏并确认尽力快照风险后创建。应用先复制和哈希比对源文件，再写 TAR+Zstandard，回读校验通过后发布 `{backup_id}/archive.tar.zst` 与 `receipt.json`。源文件保持不变。所有新备份的一致性标识为 best_effort，文件完整性通过不代表游戏语义一致。

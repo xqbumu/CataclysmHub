@@ -1,0 +1,143 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { expect, it, vi } from 'vitest';
+import RemoteCatalogPanel from './RemoteCatalogPanel';
+import type { RemoteView, RemoteApi } from './remoteCatalog';
+const fixture: RemoteView = {
+  sources: [
+    { id: 'dda', name: 'DDA', kind: 'game', repo: 'CleverRaven/Cataclysm-DDA' },
+    {
+      id: 'sound',
+      name: '声音',
+      kind: 'soundpack',
+      repo: 'Fris0uman/CDDA-Soundpacks',
+    },
+  ],
+  catalog: {
+    downloads: [],
+    listings: {
+      dda: {
+        attempted: true,
+        updated: '2026-10-29T00:00:00Z',
+        error: null,
+        releases: [
+          {
+            tag: '0.I',
+            prerelease: false,
+            published: '2026-10-29',
+            assets: [
+              {
+                id: 7,
+                name: 'windows.zip',
+                size: 100,
+                url: 'https://github.com/CleverRaven/Cataclysm-DDA/releases/download/0.I/windows.zip',
+                digest: null,
+              },
+            ],
+          },
+        ],
+      },
+    },
+  },
+};
+function client(): RemoteApi {
+  return {
+    progress: vi.fn().mockResolvedValue(null),
+    cancel: vi.fn().mockResolvedValue(undefined),
+    view: vi.fn().mockResolvedValue(fixture),
+    sync: vi.fn().mockResolvedValue(fixture),
+    download: vi.fn().mockResolvedValue({ path: '/downloads/windows.zip' }),
+    remove: vi.fn().mockResolvedValue(fixture),
+  };
+}
+it('requests first-attempt semantics, separates resource sources, and manually refreshes only on click', async () => {
+  const c = client();
+  const u = userEvent.setup();
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  await waitFor(() => expect(c.sync).toHaveBeenCalledWith('dda', false));
+  expect(
+    screen.queryByRole('option', { name: '声音' }),
+  ).not.toBeInTheDocument();
+  await u.click(screen.getByRole('button', { name: '更新版本' }));
+  await waitFor(() => expect(c.sync).toHaveBeenLastCalledWith('dda', true));
+  expect(c.download).not.toHaveBeenCalled();
+});
+it('requires an explicit asset confirmation and preserves target ids', async () => {
+  const c = client();
+  const u = userEvent.setup();
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  await screen.findByText('0.I');
+  await u.click(screen.getByText('0.I'));
+  await u.click(screen.getByRole('button', { name: '下载' }));
+  expect(c.download).not.toHaveBeenCalled();
+  await u.click(screen.getByRole('button', { name: '确认下载' }));
+  await waitFor(() => expect(c.download).toHaveBeenCalledWith('dda', '0.I', 7));
+  expect(await screen.findByRole('status')).toHaveTextContent(
+    '/downloads/windows.zip',
+  );
+});
+it('keeps cached releases after a manual network failure', async () => {
+  const c = client();
+  const u = userEvent.setup();
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  await screen.findByText('0.I');
+  vi.mocked(c.sync).mockRejectedValueOnce('rate limit');
+  await u.click(screen.getByRole('button', { name: '更新版本' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('rate limit');
+  expect(screen.getByText('0.I')).toBeInTheDocument();
+});
+it('does not delete a downloaded file until confirmation', async () => {
+  const c = client();
+  const v: RemoteView = {
+    ...fixture,
+    catalog: {
+      ...fixture.catalog,
+      downloads: [
+        {
+          id: 'x',
+          source: 'dda',
+          tag: '0.I',
+          name: 'saved.zip',
+          path: '/saved.zip',
+          size: 100,
+          sha256: 'a',
+          upstream_verified: false,
+        },
+      ],
+    },
+  };
+  vi.mocked(c.view).mockResolvedValue(v);
+  vi.mocked(c.sync).mockResolvedValue(v);
+  const u = userEvent.setup();
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  await screen.findByText(/saved.zip ·/);
+  await u.click(screen.getByText(/saved.zip ·/));
+  await u.click(screen.getByRole('button', { name: '删除下载包' }));
+  expect(c.remove).not.toHaveBeenCalled();
+  await u.click(screen.getByRole('button', { name: '确认删除下载包' }));
+  await waitFor(() => expect(c.remove).toHaveBeenCalledWith('x'));
+});
+it('offers cancellation while a large download is pending', async () => {
+  const c = client();
+  let rejectDownload: (e: Error) => void = () => {};
+  vi.mocked(c.download).mockImplementation(
+    () =>
+      new Promise((_resolve, reject) => {
+        rejectDownload = reject;
+      }),
+  );
+  vi.mocked(c.cancel).mockImplementation(async () => {
+    rejectDownload(new Error('下载已取消'));
+  });
+  const u = userEvent.setup();
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  await screen.findByText('0.I');
+  await u.click(screen.getByText('0.I'));
+  await u.click(screen.getByRole('button', { name: '下载' }));
+  await u.click(screen.getByRole('button', { name: '确认下载' }));
+  await u.click(await screen.findByRole('button', { name: '取消下载' }));
+  await waitFor(() => expect(c.cancel).toHaveBeenCalledOnce());
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '确认下载' })).toBeEnabled(),
+  );
+});

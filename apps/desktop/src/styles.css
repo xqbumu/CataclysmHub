@@ -843,7 +843,7 @@ footer > span:last-child {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-size: 9px !important;
+  font-size: 12px;
 }
 .full {
   width: 100%;
@@ -2338,4 +2338,143 @@ textarea {
 .settings-layout {
   display: grid;
   gap: 24px;
+}
+
+/* Compact workspace rhythm; preserve readable text and 40px interaction targets. */
+main {
+  max-width: 1680px;
+  padding: 18px 24px 0;
+}
+.topbar {
+  height: 50px;
+  padding: 0 24px;
+}
+.page-heading {
+  margin-bottom: 14px;
+}
+.page-heading h1 {
+  font-size: 24px;
+}
+.page-heading p {
+  margin-top: 4px;
+}
+.panel {
+  padding: 16px;
+}
+.stats-grid {
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.stat {
+  padding: 12px 16px;
+}
+.stat strong {
+  font-size: 26px;
+  margin: 4px 0;
+}
+.overview-actions {
+  margin-bottom: 14px;
+}
+.action-grid {
+  margin-top: 10px;
+  gap: 8px;
+}
+.action-grid > button {
+  padding: 12px;
+}
+.view-tabs {
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+}
+.game-grid,
+.content-list {
+  gap: 12px;
+}
+.game-details {
+  padding: 16px;
+}
+.game-details h3 {
+  margin: 4px 0;
+  font-size: 17px;
+}
+.instances-panel article {
+  padding: 12px 16px;
+  margin: 10px 0;
+}
+.settings-layout {
+  gap: 16px;
+}
+.catalog-toolbar {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(180px, 2fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+.catalog-toolbar label {
+  margin: 0;
+}
+.remote-catalog > p {
+  margin: 8px 0;
+}
+.remote-catalog h3 {
+  margin: 16px 0 8px;
+}
+.release-list details,
+.download-list details {
+  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
+}
+.release-list summary {
+  cursor: pointer;
+  line-height: 28px;
+  overflow-wrap: anywhere;
+}
+.release-list summary span {
+  margin-left: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.asset-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 85px 105px 64px;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+}
+.asset-row button {
+  margin: 0;
+}
+.download-list summary {
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 700px) {
+  main {
+    padding: 14px 12px 0;
+  }
+  .catalog-toolbar {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .asset-row {
+    grid-template-columns: minmax(0, 1fr) 64px;
+  }
+  .asset-row small {
+    display: none;
+  }
+  .release-list summary span {
+    margin-left: 8px;
+  }
+}
+.remote-catalog .file-path {
+  display: block;
+  white-space: normal;
+  margin: 0;
+  font-size: 13px;
+  color: var(--text, #e4e8e2);
+  overflow-wrap: anywhere;
+}
+.remote-catalog a {
+  color: var(--green);
 }

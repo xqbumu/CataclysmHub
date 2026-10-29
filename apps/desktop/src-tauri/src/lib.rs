@@ -1,3 +1,4 @@
+mod catalog;
 use hub_core::{
     Dashboard, Hub, HubError, Installation, LaunchPlan, ScanReport, ScanTask, Session, Workspace,
     WorkspaceInput,
@@ -10,10 +11,91 @@ use std::{
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
+struct RemoteState(std::result::Result<catalog::Store, String>);
+impl RemoteState {
+    fn store(&self) -> std::result::Result<&catalog::Store, String> {
+        self.0.as_ref().map_err(Clone::clone)
+    }
+}
 struct AppState {
     hub: Arc<Hub>,
     selected: Mutex<HashSet<PathBuf>>,
     managed_root: PathBuf,
+}
+#[tauri::command]
+fn remote_download_progress(
+    store: tauri::State<'_, RemoteState>,
+) -> Result<Option<catalog::Transfer>, String> {
+    Ok(store.store()?.progress())
+}
+#[tauri::command]
+fn cancel_remote_download(store: tauri::State<'_, RemoteState>) -> Result<(), String> {
+    store.store()?.cancel();
+    Ok(())
+}
+#[tauri::command]
+async fn remote_catalog(store: tauri::State<'_, RemoteState>) -> Result<catalog::View, String> {
+    Ok(store.store()?.view().await)
+}
+#[tauri::command]
+async fn sync_remote_source(
+    store: tauri::State<'_, RemoteState>,
+    id: String,
+    manual: bool,
+) -> Result<catalog::View, String> {
+    store.store()?.sync(&id, manual).await
+}
+#[tauri::command]
+async fn remove_remote_download(
+    store: tauri::State<'_, RemoteState>,
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<catalog::View, String> {
+    use cap_fs_ext::DirExt;
+    let parent = cap_std::fs::Dir::open_ambient_dir(
+        state.managed_root.parent().ok_or("缺少目录")?,
+        cap_std::ambient_authority(),
+    )
+    .map_err(|e| e.to_string())?;
+    let root = parent
+        .open_dir_nofollow(state.managed_root.file_name().ok_or("缺少目录")?)
+        .map_err(|e| e.to_string())?;
+    let downloads = root
+        .open_dir_nofollow("downloads")
+        .map_err(|e| e.to_string())?;
+    store.store()?.remove_download(&id, &downloads).await
+}
+#[tauri::command]
+async fn download_remote_asset(
+    store: tauri::State<'_, RemoteState>,
+    state: tauri::State<'_, AppState>,
+    source: String,
+    tag: String,
+    asset_id: u64,
+) -> Result<catalog::Download, String> {
+    use cap_fs_ext::DirExt;
+    prepare_default_directory(&state, "downloads").map_err(|e| e.message)?;
+    let parent = cap_std::fs::Dir::open_ambient_dir(
+        state.managed_root.parent().ok_or("缺少目录")?,
+        cap_std::ambient_authority(),
+    )
+    .map_err(|e| e.to_string())?;
+    let managed = parent
+        .open_dir_nofollow(state.managed_root.file_name().ok_or("缺少目录")?)
+        .map_err(|e| e.to_string())?;
+    let downloads = managed
+        .open_dir_nofollow("downloads")
+        .map_err(|e| e.to_string())?;
+    store
+        .store()?
+        .download(
+            &source,
+            &tag,
+            asset_id,
+            &downloads,
+            &state.managed_root.join("downloads"),
+        )
+        .await
 }
 fn selection_error() -> HubError {
     HubError::new("PATH_NOT_SELECTED", "请通过本机文件选择器重新选择路径。")
@@ -621,6 +703,7 @@ pub fn run() {
                 .ok_or("应用数据目录缺少名称")?
                 .to_string_lossy();
             let managed_root = local.with_file_name(format!("{namespace}.workspace"));
+            app.manage(RemoteState(catalog::Store::open(&dir)));
             app.manage(AppState {
                 hub,
                 selected: Mutex::new(HashSet::new()),
@@ -629,6 +712,12 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            remove_remote_download,
+            remote_download_progress,
+            cancel_remote_download,
+            remote_catalog,
+            sync_remote_source,
+            download_remote_asset,
             register_managed_instance,
             workspace_defaults,
             hub_preferences,
