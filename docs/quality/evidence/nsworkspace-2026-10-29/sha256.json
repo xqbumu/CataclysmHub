@@ -1,0 +1,18 @@
+{
+  "01-stale-cache.png": "f56c08a19ea26161226d9cd366cefdceb81b0393c49b5815934d1642e4a1932b",
+  "02-preserved-main-menu.png": "8dddfeb89dcaecce42fcb22b929d9f0c1002c17240b7945e078ec33d1e3047a4",
+  "03-quit-confirmation.png": "bdb126791c113c7f9d1881b5aecbed522466b69bed230f60efc6f9c2e2cf3f22",
+  "driver.swift": "a52fe93a485671a8f84790f83d3cca4b9c0eb69b0cad986538aadfe855eab9e3",
+  "game-preserved.swift": "c67f713b51f6888ec722ea0eb166ce106be4e123e2a586f7bf450205f9787dac",
+  "game.swift": "08d3d43e89e507f7c13f310b875cd8d300211811e09f99a654150e53828fae27",
+  "native-receiver.json": "0202ad538bce464662283c6f92089e6352ca54e6a0629a44655b446ab2ab0f1d",
+  "pair.swift": "6aae8d9e1772ce9c670ce7161b37a2e8023d95c576470c6f010cf9b2a526b505",
+  "receiver.swift": "22f721befb3f3c502f2c159c1833025614d555823dec6cf70cd31d7d61a1dab4",
+  "result-appkit.json": "8a42e7fbd19be78f5efae1a39c04bce6cec5f3e6b747e80c623399d6f7af5632",
+  "result-foundation.json": "cdd59d2e89be5e95139551002b2770ce5d1c2d24c7699a52fb6b9ea0adeef706",
+  "result-game-preserved.json": "8c4ffb8c5b814850acb47f27eab67623f83ef02dd145a1ba245f1395950090d9",
+  "result-game.json": "17c8af6f51f14c586f35e5771dedf428f78763228bb5d945f61599b1dbf57c23",
+  "result-pair.json": "7ace1a04c6805f2be26444f3f1f7fd53ad45a94307f8fe35a73a1696f5571860",
+  "script-receiver.json": "50d468f320fc665708ee76a097aae4c6d0c8c07205545e036d7038a946fc086f",
+  "verification.json": "8bc5d7f0726fff5afc237913126501f09178627734ac4d7fb5196eb5e8e7cffd"
+}

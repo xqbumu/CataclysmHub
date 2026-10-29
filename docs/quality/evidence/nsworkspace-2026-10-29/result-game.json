@@ -1,0 +1,28 @@
+{
+  "arguments" : [
+    "--basepath",
+    "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-qa.app\/Contents\/Resources\/",
+    "--userdir",
+    "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/",
+    "--savedir",
+    "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/save\/",
+    "--configdir",
+    "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/config\/"
+  ],
+  "bundle_url" : "\/private\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-qa.app",
+  "callback_completed" : true,
+  "callback_pid" : 18692,
+  "environment" : {
+    "DYLD_FRAMEWORK_PATH" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-qa.app\/Contents\/Resources",
+    "DYLD_LIBRARY_PATH" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-qa.app\/Contents\/Resources",
+    "HOME" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/home",
+    "TMPDIR" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/tmp",
+    "XDG_CACHE_HOME" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/cache",
+    "XDG_CONFIG_HOME" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/config",
+    "XDG_DATA_HOME" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/data",
+    "XDG_STATE_HOME" : "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-instance\/state"
+  },
+  "error" : "",
+  "executable_url" : "\/private\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/game-qa.app\/Contents\/MacOS\/cataclysm-hub-qa",
+  "terminated_at_callback" : false
+}

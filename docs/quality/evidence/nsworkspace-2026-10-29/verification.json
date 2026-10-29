@@ -1,0 +1,32 @@
+{
+  "sample": "Contents/Resources/data/mods/Aftershock/modinfo.json",
+  "comparison": {
+    "source": {
+      "mtime_ns": 1793154185643754672,
+      "size": 484,
+      "sha256": "34ca06a280ae7566fe4cecffbb6d676ea8f6e42729097e41f7b4ffac30b8f6d8"
+    },
+    "ordinary_copy": {
+      "mtime_ns": 1793264029097379203,
+      "size": 484,
+      "sha256": "34ca06a280ae7566fe4cecffbb6d676ea8f6e42729097e41f7b4ffac30b8f6d8"
+    },
+    "preserved_copy": {
+      "mtime_ns": 1793154185643754672,
+      "size": 484,
+      "sha256": "34ca06a280ae7566fe4cecffbb6d676ea8f6e42729097e41f7b4ffac30b8f6d8"
+    }
+  },
+  "preserved_game_pid": 20946,
+  "process_absent_after_game_quit": true,
+  "game_exit_code": "not_available_from_NSWorkspace",
+  "instance_files": [
+    "config/base_colors.json",
+    "config/cache/base_colors.json.1793264387669.fb",
+    "config/cache/imgui_style.json.1793264387829.fb",
+    "config/debug.log",
+    "config/fonts.json",
+    "config/imgui_style.json",
+    "config/options.json"
+  ]
+}

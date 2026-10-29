@@ -1,0 +1,39 @@
+[
+  {
+    "callback_completed" : true,
+    "callback_executable" : "\/private\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native.app\/Contents\/MacOS\/receiver",
+    "callback_pid" : 13307,
+    "error" : "",
+    "mode" : "native",
+    "observed_termination" : true,
+    "receiver" : {
+      "argv" : [
+        "--userdir",
+        "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native-instance",
+        "--savedir",
+        "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native-instance\/save"
+      ],
+      "executable" : "\/private\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native.app\/Contents\/MacOS\/receiver",
+      "marker" : "native",
+      "pid" : 13307,
+      "ppid" : 1
+    }
+  },
+  {
+    "callback_completed" : true,
+    "callback_executable" : "\/private\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/script.app\/Contents\/Resources\/cataclysm-tiles",
+    "callback_pid" : 13351,
+    "error" : "",
+    "mode" : "script",
+    "observed_termination" : true,
+    "receiver" : {
+      "argv" : [
+
+      ],
+      "executable" : ".\/cataclysm-tiles",
+      "marker" : "script",
+      "pid" : 13351,
+      "ppid" : 13344
+    }
+  }
+]

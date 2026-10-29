@@ -1,0 +1,36 @@
+{
+  "all_terminated" : true,
+  "rows" : [
+    {
+      "callback_pid" : 15870,
+      "error" : "",
+      "mode" : "native-1",
+      "receiver" : {
+        "argv" : [
+          "--userdir",
+          "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native-1-instance"
+        ],
+        "executable" : "\/private\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native.app\/Contents\/MacOS\/receiver",
+        "marker" : "native-1",
+        "pid" : 15870,
+        "ppid" : 1
+      }
+    },
+    {
+      "callback_pid" : 15871,
+      "error" : "",
+      "mode" : "native-2",
+      "receiver" : {
+        "argv" : [
+          "--userdir",
+          "\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native-2-instance"
+        ],
+        "executable" : "\/private\/var\/folders\/x7\/sn3s0frn66g8t84w6mtx6s9h0000gn\/T\/hub-nsworkspace-probe-ueiamboe\/native.app\/Contents\/MacOS\/receiver",
+        "marker" : "native-2",
+        "pid" : 15871,
+        "ppid" : 1
+      }
+    }
+  ],
+  "simultaneous_distinct_processes" : true
+}
