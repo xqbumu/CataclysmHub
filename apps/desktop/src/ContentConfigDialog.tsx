@@ -1,3 +1,4 @@
+import type { ConfigChangeApi } from './ConfigChangePanel';
 import type { ProtectionApi } from './ContentConfigProtectionPanel';
 import type { HubApi } from './api';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
@@ -39,10 +40,12 @@ export default function ContentConfigDialog({
   onClose,
   api,
   protectionApi,
+  changeApi,
 }: {
   report: ContentConfigReport;
   api?: Pick<HubApi, 'previewContentConfig'>;
   protectionApi?: ProtectionApi;
+  changeApi?: ConfigChangeApi;
   onClose: () => void;
 }) {
   return (
@@ -134,6 +137,7 @@ export default function ContentConfigDialog({
         report={report}
         api={api}
         protectionApi={protectionApi}
+        changeApi={changeApi}
       />
       <button onClick={onClose}>关闭</button>
     </Modal>

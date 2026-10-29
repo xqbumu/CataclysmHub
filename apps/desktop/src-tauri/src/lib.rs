@@ -114,6 +114,56 @@ async fn cancel_content_install(
     state.hub.cancel_content_install(&id).await
 }
 #[tauri::command]
+async fn prepare_config_change(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+    input: hub_core::ContentConfigInput,
+    backup_id: String,
+) -> Result<hub_core::ConfigChangePlan, HubError> {
+    state
+        .hub
+        .prepare_config_change(&instance_id, input, &backup_id)
+        .await
+}
+#[tauri::command]
+async fn apply_config_change(
+    state: tauri::State<'_, AppState>,
+    plan_id: String,
+    digest: String,
+    request_key: String,
+    confirmed: bool,
+) -> Result<hub_core::ConfigChange, HubError> {
+    state
+        .hub
+        .apply_config_change(&plan_id, &digest, &request_key, confirmed)
+        .await
+}
+#[tauri::command]
+async fn config_changes(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<hub_core::ConfigChange>, HubError> {
+    state.hub.config_changes().await
+}
+#[tauri::command]
+async fn inspect_config_change(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<hub_core::ConfigChangeObservation, HubError> {
+    state.hub.inspect_config_change(&id).await
+}
+#[tauri::command]
+async fn resolve_config_change(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    expected_hash: String,
+    confirmed: bool,
+) -> Result<hub_core::ConfigChangeObservation, HubError> {
+    state
+        .hub
+        .resolve_config_change(&id, &expected_hash, confirmed)
+        .await
+}
+#[tauri::command]
 async fn prepare_content_config_protection(
     state: tauri::State<'_, AppState>,
     instance_id: String,
@@ -450,6 +500,11 @@ pub fn run() {
             inspect_content_config,
             preview_content_config,
             prepare_content_config_protection,
+            prepare_config_change,
+            apply_config_change,
+            config_changes,
+            inspect_config_change,
+            resolve_config_change,
             prepare_content_install,
             start_content_install,
             content_install_tasks,

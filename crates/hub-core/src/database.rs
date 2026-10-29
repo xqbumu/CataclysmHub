@@ -22,6 +22,9 @@ pub struct Hub {
     pub(crate) candidate_sessions:
         Mutex<HashMap<String, Arc<crate::candidate_launch::CandidateBinding>>>,
     pub(crate) plans: Mutex<HashMap<String, crate::process::PreparedLaunch>>,
+    pub(crate) config_change_running: Mutex<std::collections::HashSet<String>>,
+    pub(crate) config_change_plans:
+        Mutex<HashMap<String, crate::config_change::PreparedConfigChange>>,
     pub(crate) restore_plans: Mutex<HashMap<String, crate::managed_restore::PreparedRestore>>,
     pub(crate) backup_plans: Mutex<HashMap<String, crate::backup::PreparedPlan>>,
     pub(crate) runtime_recovery: Mutex<HashMap<String, crate::task_recovery::RuntimeFailure>>,
@@ -92,7 +95,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 12 {
+        if version > 13 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -116,7 +119,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 12 {
+        if version > 0 && version < 13 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -157,7 +160,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 12 {
+        if version < 13 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -269,7 +272,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-012.sql"))
+            if version < 12 {
+                sqlx::raw_sql(include_str!("migration-012.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-013.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {
@@ -284,6 +298,8 @@ impl Hub {
             pool,
             data_dir,
             mutation: Mutex::new(()),
+            config_change_running: Mutex::new(std::collections::HashSet::new()),
+            config_change_plans: Mutex::new(HashMap::new()),
             content_install_plans: Mutex::new(HashMap::new()),
             plans: Mutex::new(HashMap::new()),
             candidate_sessions: Mutex::new(HashMap::new()),
@@ -297,6 +313,24 @@ impl Hub {
         });
         // A previous child may still be alive. Never infer exit or a stable save from app restart.
         let mut tx = hub.pool.begin().await.map_err(HubError::db)?;
+        let interrupted_config: Vec<String> =
+            sqlx::query_scalar("SELECT id FROM config_change WHERE state='applying'")
+                .fetch_all(&mut *tx)
+                .await
+                .map_err(HubError::db)?;
+        for task in interrupted_config {
+            sqlx::query("UPDATE config_change SET state='recovery_required',error_code='CONFIG_CHANGE_INTERRUPTED' WHERE id=?").bind(&task).execute(&mut *tx).await.map_err(HubError::db)?;
+            sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
+                .bind(id())
+                .bind(task)
+                .bind("config.apply")
+                .bind("recovery_required")
+                .bind("CONFIG_CHANGE_INTERRUPTED")
+                .bind(now())
+                .execute(&mut *tx)
+                .await
+                .map_err(HubError::db)?;
+        }
         let interrupted: Vec<String> =
             sqlx::query_scalar("SELECT id FROM session WHERE state IN ('starting','running')")
                 .fetch_all(&mut *tx)

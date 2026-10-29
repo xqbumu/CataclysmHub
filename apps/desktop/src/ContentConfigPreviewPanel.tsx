@@ -1,3 +1,4 @@
+import ConfigChangePanel, { type ConfigChangeApi } from './ConfigChangePanel';
 import ContentConfigProtectionPanel, {
   type ProtectionApi,
 } from './ContentConfigProtectionPanel';
@@ -13,10 +14,12 @@ export default function ContentConfigPreviewPanel({
   report,
   api,
   protectionApi,
+  changeApi,
 }: {
   report: ContentConfigReport;
   api?: Pick<HubApi, 'previewContentConfig'>;
   protectionApi?: ProtectionApi;
+  changeApi?: ConfigChangeApi;
 }) {
   const [editMods, setEditMods] = useState(false);
   const [mods, setMods] = useState(
@@ -198,7 +201,16 @@ export default function ContentConfigPreviewPanel({
               input={freshInput}
             />
           )}
-          <p>只生成预览，不提供确认写入；已有世界配置保持在预览范围之外。</p>
+          {changeApi && freshInput && fresh.files.length === 1 && (
+            <ConfigChangePanel
+              api={changeApi}
+              instanceId={report.instance_id}
+              input={freshInput}
+            />
+          )}
+          <p>
+            预览本身不执行写入；单文件应用须在独立入口重新校验并确认，已有世界配置不在范围内。
+          </p>
         </div>
       )}
       {preview && (
@@ -229,7 +241,7 @@ export default function ContentConfigPreviewPanel({
             后续执行前须退出目标游戏、重新读取并核对配置与资源、为目标配置建立可验证的原文件保护副本。涉及已有世界或版本迁移时，还须备份存档并验证恢复；本预览未创建或检查保护点，不能作为写入授权。
           </p>
           <p>
-            请先在独立实验实例验证新世界创建与声音播放；本轮不提供应用草稿按钮。
+            请先在独立实验实例验证新世界创建与声音播放；应用前须使用后端单文件准备与确认入口。
           </p>
         </div>
       )}

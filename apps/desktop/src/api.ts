@@ -1,3 +1,6 @@
+import type { ConfigChangePlan } from './bindings/ConfigChangePlan';
+import type { ConfigChange } from './bindings/ConfigChange';
+import type { ConfigChangeObservation } from './bindings/ConfigChangeObservation';
 import type { ContentConfigProtectionPlan } from './bindings/ContentConfigProtectionPlan';
 import type { ContentConfigInput } from './bindings/ContentConfigInput';
 import type { ContentConfigPlan } from './bindings/ContentConfigPlan';
@@ -65,6 +68,22 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  prepareConfigChange(
+    instanceId: string,
+    input: ContentConfigInput,
+    backupId: string,
+  ): Promise<ConfigChangePlan>;
+  applyConfigChange(
+    planId: string,
+    digest: string,
+    requestKey: string,
+  ): Promise<ConfigChange>;
+  configChanges(): Promise<ConfigChange[]>;
+  inspectConfigChange(id: string): Promise<ConfigChangeObservation>;
+  resolveConfigChange(
+    id: string,
+    expectedHash: string,
+  ): Promise<ConfigChangeObservation>;
   prepareContentConfigProtection(
     instanceId: string,
     input: ContentConfigInput,
@@ -164,6 +183,19 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  prepareConfigChange: (instanceId, input, backupId) =>
+    desktopOnly('prepare_config_change', { instanceId, input, backupId }),
+  applyConfigChange: (planId, digest, requestKey) =>
+    desktopOnly('apply_config_change', {
+      planId,
+      digest,
+      requestKey,
+      confirmed: true,
+    }),
+  configChanges: () => desktopOnly('config_changes', {}),
+  inspectConfigChange: (id) => desktopOnly('inspect_config_change', { id }),
+  resolveConfigChange: (id, expectedHash) =>
+    desktopOnly('resolve_config_change', { id, expectedHash, confirmed: true }),
   prepareContentConfigProtection: (instanceId, input) =>
     desktopOnly('prepare_content_config_protection', { instanceId, input }),
   previewContentConfig: (instanceId, input) =>

@@ -301,7 +301,7 @@ async fn schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision() {
         let f = Fixture::new().await;
         let pool = f.pool().await;
         if !fail {
-            sqlx::query("DROP TABLE content_install_task")
+            sqlx::raw_sql("DROP TABLE config_change; DROP TABLE content_install_task")
                 .execute(&pool)
                 .await
                 .unwrap();
@@ -332,7 +332,7 @@ async fn schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision() {
                 .fetch_one(&pool)
                 .await
                 .unwrap(),
-            if fail { 11 } else { 12 }
+            if fail { 11 } else { 13 }
         );
         assert!(
             std::fs::read_dir(f.temp.path().join("metadata"))

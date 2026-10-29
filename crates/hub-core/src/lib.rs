@@ -75,3 +75,6 @@ pub use content_config_plan::{ContentConfigFilePreview, ContentConfigInput, Cont
 
 mod content_config_protection;
 pub use content_config_protection::ContentConfigProtectionPlan;
+
+mod config_change;
+pub use config_change::{ConfigChange, ConfigChangeObservation, ConfigChangePlan};

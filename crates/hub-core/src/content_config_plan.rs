@@ -93,6 +93,14 @@ impl Hub {
     ) -> Result<ContentConfigPlan> {
         validate(&input)?;
         let _gate = self.mutation.lock().await;
+        self.preview_content_config_locked(instance_id, input).await
+    }
+    pub(crate) async fn preview_content_config_locked(
+        &self,
+        instance_id: &str,
+        input: ContentConfigInput,
+    ) -> Result<ContentConfigPlan> {
+        validate(&input)?;
         let instance = self.instance(instance_id).await?;
         let root = Dir::open_ambient_dir(&instance.data_root, cap_std::ambient_authority())
             .map_err(|_| invalid("实例目录不可访问。"))?;

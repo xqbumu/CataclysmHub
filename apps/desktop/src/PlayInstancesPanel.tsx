@@ -1,3 +1,4 @@
+import { ConfigChangeHistory } from './ConfigChangePanel';
 import ContentConfigDialog from './ContentConfigDialog';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import InstanceResourcesDialog from './InstanceResourcesDialog';
@@ -174,6 +175,7 @@ export default function PlayInstancesPanel({
       {error && !plan && <p role="alert">{error}</p>}
       {contentReport && (
         <ContentConfigDialog
+          changeApi={api}
           protectionApi={api}
           api={api}
           report={contentReport}
@@ -304,6 +306,7 @@ export default function PlayInstancesPanel({
           登记实例
         </button>
       </form>
+      <ConfigChangeHistory api={api} />
     </section>
   );
 }

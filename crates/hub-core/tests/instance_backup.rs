@@ -335,7 +335,7 @@ async fn schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot() 
     let f = Fixture::new().await;
     let data = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; PRAGMA user_version=8;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; PRAGMA user_version=8;").execute(&pool).await.unwrap();
     pool.close().await;
     drop(f.hub);
     let hub = Hub::open(&data).await.unwrap();
@@ -351,7 +351,7 @@ async fn schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot() 
             .fetch_one(&pool)
             .await
             .unwrap(),
-        12
+        13
     );
     let snapshot = std::fs::read_dir(&data)
         .unwrap()
@@ -391,7 +391,7 @@ async fn failed_schema_nine_migration_rolls_back_earlier_source_columns() {
     let f = Fixture::new().await;
     let data = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; PRAGMA user_version=8;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; PRAGMA user_version=8;").execute(&pool).await.unwrap();
     pool.close().await;
     drop(f.hub);
     assert_eq!(
@@ -600,4 +600,407 @@ async fn configuration_protection_rejects_no_changes_and_unknown_sessions() {
         "GAME_RUNNING_OR_UNKNOWN"
     );
     assert_eq!(std::fs::read_dir(f.path("backups")).unwrap().count(), 0);
+}
+
+async fn config_ready(f: &Fixture) -> (hub_core::ConfigChangePlan, Vec<u8>) {
+    let original = br#"[{"name":"SOUND_ENABLED","value":"false","extra":42}]"#.to_vec();
+    std::fs::write(f.path("a/config/options.json"), &original).unwrap();
+    let backup = f.create(&f.a).await;
+    assert_eq!(backup.state, "succeeded");
+    (
+        f.hub
+            .prepare_config_change(&f.a, sound_draft(), &backup.backup_id)
+            .await
+            .unwrap(),
+        original,
+    )
+}
+async fn config_wait(hub: &Hub, id: &str) -> hub_core::ConfigChange {
+    for _ in 0..1000 {
+        let row = hub
+            .config_changes()
+            .await
+            .unwrap()
+            .into_iter()
+            .find(|r| r.id == id)
+            .unwrap();
+        if row.state != "applying" {
+            return row;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    panic!("config change did not finish")
+}
+#[tokio::test]
+async fn single_config_apply_requires_confirmation_and_never_replays_request() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+    assert!(f.hub.config_changes().await.unwrap().is_empty());
+    let key = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        f.hub
+            .apply_config_change(&plan.id, &plan.plan_digest, &key, false)
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIRMATION_REQUIRED"
+    );
+    let started = f
+        .hub
+        .apply_config_change(&plan.id, &plan.plan_digest, &key, true)
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &started.id).await.state, "applied");
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        plan.proposed_json.as_bytes()
+    );
+    let before = std::fs::metadata(f.path("a/config/options.json"))
+        .unwrap()
+        .modified()
+        .unwrap();
+    assert_eq!(
+        f.hub
+            .apply_config_change(&plan.id, &plan.plan_digest, &key, true)
+            .await
+            .unwrap()
+            .state,
+        "applied"
+    );
+    assert_eq!(
+        std::fs::metadata(f.path("a/config/options.json"))
+            .unwrap()
+            .modified()
+            .unwrap(),
+        before
+    );
+    assert_eq!(
+        std::fs::read(f.path("a/save/world.dat")).unwrap(),
+        b"instance A world"
+    );
+    let restored = f.path("before-config-apply");
+    restore_backup_to_new_directory(&f.path("backups").join(&plan.backup_id), &restored).unwrap();
+    assert_eq!(
+        std::fs::read(restored.join("data/config/options.json")).unwrap(),
+        original
+    );
+    assert!(f.hub.dashboard().await.unwrap().resource_claims.is_empty());
+}
+#[tokio::test]
+async fn replaced_config_identity_preserves_protection_and_requires_explicit_resolution() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    std::fs::rename(f.path("a/config/options.json"), f.path("old-options.json")).unwrap();
+    std::fs::write(f.path("a/config/options.json"), &original).unwrap();
+    let task = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        config_wait(&f.hub, &task.id).await.state,
+        "recovery_required"
+    );
+    assert!(
+        f.hub
+            .dashboard()
+            .await
+            .unwrap()
+            .resource_claims
+            .iter()
+            .any(|c| c.owner_kind == "config_change")
+    );
+    let observation = f.hub.inspect_config_change(&task.id).await.unwrap();
+    assert_eq!(observation.matches, "original");
+    assert!(
+        f.hub
+            .resolve_config_change(&task.id, &observation.current_sha256, false)
+            .await
+            .is_err()
+    );
+    std::fs::write(f.path("a/config/options.json"), b"external").unwrap();
+    assert!(
+        f.hub
+            .resolve_config_change(&task.id, &observation.current_sha256, true)
+            .await
+            .is_err()
+    );
+    assert_eq!(
+        f.hub.inspect_config_change(&task.id).await.unwrap().matches,
+        "other"
+    );
+    std::fs::write(f.path("a/config/options.json"), &original).unwrap();
+    assert_eq!(
+        f.hub
+            .resolve_config_change(&task.id, &observation.current_sha256, true)
+            .await
+            .unwrap()
+            .change
+            .state,
+        "resolved_original"
+    );
+    assert!(f.hub.dashboard().await.unwrap().resource_claims.is_empty());
+}
+#[tokio::test]
+async fn archive_changes_after_prepare_block_config_publication() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    std::fs::write(
+        f.path("backups")
+            .join(&plan.backup_id)
+            .join("archive.tar.zst"),
+        b"tampered",
+    )
+    .unwrap();
+    let task = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        config_wait(&f.hub, &task.id).await.state,
+        "recovery_required"
+    );
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+}
+#[tokio::test]
+async fn ignored_intent_or_failed_audit_never_starts_config_io() {
+    for trigger in [
+        "CREATE TRIGGER reject_config BEFORE INSERT ON config_change BEGIN SELECT RAISE(IGNORE); END",
+        "CREATE TRIGGER reject_config BEFORE INSERT ON operation_log WHEN NEW.action='config.apply' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END",
+    ] {
+        let f = Fixture::new().await;
+        let (plan, original) = config_ready(&f).await;
+        let pool = f.pool().await;
+        sqlx::query(trigger).execute(&pool).await.unwrap();
+        assert!(
+            f.hub
+                .apply_config_change(
+                    &plan.id,
+                    &plan.plan_digest,
+                    &uuid::Uuid::new_v4().to_string(),
+                    true
+                )
+                .await
+                .is_err()
+        );
+        assert!(f.hub.config_changes().await.unwrap().is_empty());
+        assert_eq!(
+            std::fs::read(f.path("a/config/options.json")).unwrap(),
+            original
+        );
+    }
+}
+#[tokio::test]
+async fn failed_terminal_record_retains_claim_across_restart_without_replaying_io() {
+    let f = Fixture::new().await;
+    let (plan, _) = config_ready(&f).await;
+    let pool = f.pool().await;
+    sqlx::query("CREATE TRIGGER reject_result BEFORE INSERT ON operation_log WHEN NEW.action='config.apply' AND NEW.status='applied' BEGIN SELECT RAISE(ABORT,'audit unavailable'); END").execute(&pool).await.unwrap();
+    let key = uuid::Uuid::new_v4().to_string();
+    let task = f
+        .hub
+        .apply_config_change(&plan.id, &plan.plan_digest, &key, true)
+        .await
+        .unwrap();
+    for _ in 0..500 {
+        if std::fs::read(f.path("a/config/options.json")).unwrap() == plan.proposed_json.as_bytes()
+        {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let observation = f.hub.inspect_config_change(&task.id).await.unwrap();
+    assert_eq!(observation.matches, "proposed");
+    assert_eq!(observation.change.state, "applying");
+    assert!(!f.hub.dashboard().await.unwrap().resource_claims.is_empty());
+    let source = f.path("a/config/options.json");
+    let metadata = f.path("metadata");
+    let modified = std::fs::metadata(&source).unwrap().modified().unwrap();
+    pool.close().await;
+    drop(f.hub);
+    let reopened = Hub::open(&metadata).await.unwrap();
+    let row = reopened.config_changes().await.unwrap().remove(0);
+    assert_eq!(row.state, "recovery_required");
+    assert_eq!(
+        std::fs::metadata(&source).unwrap().modified().unwrap(),
+        modified
+    );
+    assert_eq!(
+        reopened
+            .apply_config_change(&plan.id, &plan.plan_digest, &key, true)
+            .await
+            .unwrap()
+            .state,
+        "recovery_required"
+    );
+    assert_eq!(
+        reopened
+            .resolve_config_change(&task.id, &observation.current_sha256, true)
+            .await
+            .unwrap()
+            .change
+            .state,
+        "resolved_proposed"
+    );
+    assert!(
+        reopened
+            .dashboard()
+            .await
+            .unwrap()
+            .resource_claims
+            .is_empty()
+    );
+    assert_eq!(
+        std::fs::metadata(&source).unwrap().modified().unwrap(),
+        modified
+    );
+}
+#[tokio::test]
+async fn config_apply_rechecks_session_admission_and_rejects_multiple_files() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    std::fs::write(
+        f.path("a/config/user-default-mods.json"),
+        br#"{"type":"MOD_INFO","id":"user:default","dependencies":["dda"]}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_config_change(
+                &f.a,
+                hub_core::ContentConfigInput {
+                    default_mods: Some(vec![]),
+                    soundpack: None,
+                    sound_enabled: Some(true)
+                },
+                &plan.backup_id
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIG_CHANGE_SINGLE_FILE"
+    );
+    let pool = f.pool().await;
+    sqlx::query("INSERT INTO session (id,installation_id,state,started_at) VALUES ('unknown',?,'interrupted_unknown','now')").bind(&f.installation).execute(&pool).await.unwrap();
+    assert_eq!(
+        f.hub
+            .apply_config_change(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "GAME_RUNNING_OR_UNKNOWN"
+    );
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+}
+
+#[tokio::test]
+async fn schema_twelve_upgrade_preserves_instance_backup_and_snapshots_old_metadata() {
+    let f = Fixture::new().await;
+    let backup = f.create(&f.a).await;
+    assert_eq!(backup.state, "succeeded");
+    let metadata = f.path("metadata");
+    let pool = f.pool().await;
+    sqlx::raw_sql("DROP TABLE config_change; PRAGMA user_version=12;")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(f.hub);
+    let reopened = Hub::open(&metadata).await.unwrap();
+    assert_eq!(
+        reopened.dashboard().await.unwrap().backups[0].id,
+        backup.backup_id
+    );
+    assert!(reopened.config_changes().await.unwrap().is_empty());
+    assert!(std::fs::read_dir(&metadata).unwrap().any(|e| {
+        e.unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with("metadata-v12-")
+    }));
+}
+
+#[tokio::test]
+async fn candidate_metadata_changed_after_preparation_prevents_application() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    std::fs::create_dir_all(f.path("a/sound/new")).unwrap();
+    std::fs::write(
+        f.path("a/sound/new/soundpack.txt"),
+        b"NAME: new\nVIEW: New\n",
+    )
+    .unwrap();
+    let task = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(
+        config_wait(&f.hub, &task.id).await.state,
+        "recovery_required"
+    );
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+}
+
+#[tokio::test]
+async fn changing_backup_workspace_invalidates_prepared_config_application() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    std::fs::create_dir(f.path("different-backups")).unwrap();
+    let pool = f.pool().await;
+    sqlx::query("UPDATE workspace SET backup_dir=?")
+        .bind(f.path("different-backups").to_str().unwrap())
+        .execute(&pool)
+        .await
+        .unwrap();
+    assert!(
+        f.hub
+            .apply_config_change(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .is_err()
+    );
+    assert!(f.hub.config_changes().await.unwrap().is_empty());
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
 }
