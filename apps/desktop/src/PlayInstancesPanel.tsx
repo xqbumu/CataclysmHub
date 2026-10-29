@@ -86,11 +86,12 @@ export default function PlayInstancesPanel({
           return;
         }
         setRecognition(result);
+        const saved = preferences.instance_profiles[item.id];
         if (
-          !preferences.instance_profiles[item.id] &&
-          result.recommended_profile
+          result.recommended_profile &&
+          (!saved || saved === result.recommended_profile)
         ) {
-          setProfileId(result.recommended_profile);
+          if (!saved) setProfileId(result.recommended_profile);
           setProfileSelected(true);
         }
       } catch (err) {

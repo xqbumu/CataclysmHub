@@ -20,6 +20,16 @@ fn sample_version(hash: &str) -> Option<&'static str> {
         _ => None,
     }
 }
+/// Describe the imported binary record, without claiming a fresh disk inspection.
+pub(crate) fn describe_registered(installation: &mut crate::Installation) {
+    if installation.version.is_none()
+        && installation.branch.is_none()
+        && let Some(version) = sample_version(&installation.sha256)
+    {
+        installation.version = Some(version.into());
+        installation.branch = Some("DDA".into());
+    }
+}
 fn recommend(version: Option<&str>, executable: &Path, macos: bool) -> Option<String> {
     if !macos {
         return None;

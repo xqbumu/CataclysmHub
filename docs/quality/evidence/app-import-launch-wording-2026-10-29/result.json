@@ -1,0 +1,29 @@
+{
+  "base_commit": "cf13bd2",
+  "changes": "registered sample identity display, consistent confirmation wording, matching saved profile preview without duplicate checkbox",
+  "workspace": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb",
+  "raw_legacy_version_fields": [
+    [
+      null,
+      null
+    ]
+  ],
+  "sessions_before": 2,
+  "sessions_after": 2,
+  "game_launched": false,
+  "checks": {
+    "frontend_tests": 114,
+    "rust_tests": 270,
+    "ignored_environment_tests": 2,
+    "python_tests": 28,
+    "debug_bundle": "passed"
+  },
+  "native_checks": [
+    "legacy card displays registered 0.I-1 / DDA",
+    "existing matching profile allows preview without changing selection or expanding advanced controls",
+    "confirmation separates sample recognition from game binding/resource compatibility",
+    "cancelled confirmation; no additional session"
+  ],
+  "build_notes": "Earlier checks overlapped a frontend build and packaging; a transient blank window was observed. Verification completed with a sequential rebuild after all checks. No cache or product root cause asserted. Registered-version screenshot was captured before the final saved-profile acknowledgement tweak; its core projection was unchanged.",
+  "binary_sha256": "cd98114821bec708d8d26bcd329287500cbf747d45a7210fe150d2617616017e"
+}

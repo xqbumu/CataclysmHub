@@ -397,8 +397,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
               </div>
               <h3>{game.name}</h3>
               <p className="muted">
-                版本 {game.version ?? 'unknown'} · 分支{' '}
-                {game.branch ?? 'unknown'}
+                登记版本 {game.version ?? '未知'} · 分支 {game.branch ?? '未知'}
               </p>
               <p className="file-path" title={game.executable}>
                 <Terminal size={13} />
@@ -960,7 +959,9 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                 setImporting(false);
                 setPage('games');
                 setGameView('installations');
-                setNotice('安装已导入。版本暂为 unknown，启动前请核对预览。');
+                setNotice(
+                  '安装已导入。可在安装卡查看登记版本，首次启动时会检查当前程序并推荐适用方案。',
+                );
               });
             }}
           >

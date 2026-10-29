@@ -521,3 +521,58 @@ async fn application_import_registers_real_entry_and_deduplicates_direct_import(
         b"synthetic executable, never run"
     );
 }
+
+#[tokio::test]
+async fn dashboard_describes_recorded_sample_without_changing_legacy_rows_or_trusting_name() {
+    let (temp, hub, id) = setup().await;
+    let database = temp.path().join("metadata/metadata.sqlite");
+    let connection = sqlx::SqlitePool::connect(&format!("sqlite://{}", database.to_str().unwrap()))
+        .await
+        .unwrap();
+    assert!(
+        hub.dashboard()
+            .await
+            .unwrap()
+            .installations
+            .iter()
+            .find(|i| i.id == id)
+            .unwrap()
+            .version
+            .is_none()
+    );
+    sqlx::query("UPDATE installation SET sha256=?,name='BN 0.I' WHERE id=?")
+        .bind("3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a")
+        .bind(&id)
+        .execute(&connection)
+        .await
+        .unwrap();
+    let data = hub.dashboard().await.unwrap();
+    let record = data.installations.iter().find(|i| i.id == id).unwrap();
+    assert_eq!(record.version.as_deref(), Some("0.I-1"));
+    assert_eq!(record.branch.as_deref(), Some("DDA"));
+    let old: (Option<String>, Option<String>) =
+        sqlx::query_as("SELECT version,branch FROM installation WHERE id=?")
+            .bind(&id)
+            .fetch_one(&connection)
+            .await
+            .unwrap();
+    assert_eq!(old, (None, None));
+    // Recorded identity is separate from current disk evidence.
+    assert_eq!(
+        hub.inspect_installation_recognition(id.clone())
+            .await
+            .unwrap_err()
+            .code,
+        "SOURCE_CHANGED"
+    );
+    sqlx::query("UPDATE installation SET version='explicit',branch='other' WHERE id=?")
+        .bind(&id)
+        .execute(&connection)
+        .await
+        .unwrap();
+    let data = hub.dashboard().await.unwrap();
+    let record = data.installations.iter().find(|i| i.id == id).unwrap();
+    assert_eq!(record.version.as_deref(), Some("explicit"));
+    assert_eq!(record.branch.as_deref(), Some("other"));
+    connection.close().await;
+}

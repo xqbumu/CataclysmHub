@@ -65,7 +65,7 @@ impl Hub {
         })
         .await
         .map_err(|_| HubError::new("INSTANCE_CHECK_FAILED", "实例目录检查未完成。"))??;
-        let installation = Installation {
+        let mut installation = Installation {
             id: id(),
             name: name.to_owned(),
             executable: canonical,
@@ -77,6 +77,7 @@ impl Hub {
             arch: std::env::consts::ARCH.to_owned(),
             imported_at: now(),
         };
+        crate::installation_recognition::describe_registered(&mut installation);
         Ok(installation)
     }
     pub(crate) async fn write_installation(

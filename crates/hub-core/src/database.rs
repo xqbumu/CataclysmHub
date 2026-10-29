@@ -501,12 +501,15 @@ impl Hub {
             .fetch_optional(&mut *tx)
             .await
             .map_err(HubError::db)?;
-        let installations = sqlx::query_as::<_, Installation>(
+        let mut installations = sqlx::query_as::<_, Installation>(
             "SELECT * FROM installation ORDER BY imported_at DESC, id",
         )
         .fetch_all(&mut *tx)
         .await
         .map_err(HubError::db)?;
+        for installation in &mut installations {
+            crate::installation_recognition::describe_registered(installation);
+        }
         let sessions = sqlx::query_as::<_, Session>(
             "SELECT * FROM session ORDER BY started_at DESC, id LIMIT 50",
         )

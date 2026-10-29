@@ -510,7 +510,7 @@ impl Hub {
         plan.save_dir = paths::text(&PathBuf::from(&instance.data_root).join("save"))?;
         plan.warnings = vec![
             format!(
-                "这是显式选择的 {profile_id} 源码参数试运行；没有识别或验证本地程序版本，不适用于任意游戏。"
+                "所选启动方案：{profile_id}。程序样本识别与游戏验收分开记录，实际目录绑定和资源兼容性仍需在游戏中验证。"
             ),
             "确认后将准备实例 save/config 子目录并传递目录参数；实际绑定仍未验证，不会复制或迁移原存档。".into(),
             "游戏还可能写入安装基础目录和数据目录的缓存；本方案保持全局互斥，不允许并行游玩。"

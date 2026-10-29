@@ -473,55 +473,64 @@ it('does not launch when a saved profile fails current backend checks', async ()
   expect(launch).not.toHaveBeenCalled();
 });
 
-it('prefills a matching recognized profile but requires first-run confirmation', async () => {
-  const user = userEvent.setup();
-  const launch = vi.fn();
-  const instanceLaunchPlan = vi.fn();
-  render(
-    <PlayInstancesPanel
-      api={{
-        ...api,
-        desktop: true,
-        preferences: vi
-          .fn()
-          .mockResolvedValue({ revision: 0, instance_profiles: {} }),
-        inspectInstallationRecognition: vi.fn().mockResolvedValue({
-          installation_id: 'g',
-          executable_sha256: 'hash',
-          version: '0.I-1',
-          recommended_profile: 'cdda-0i-1-macos-native-trial-v1',
-          evidence: '匹配已记录样本',
-        }),
-        instanceLaunchPlan,
-        launch,
-      }}
-      data={{
-        ...emptyDashboard,
-        play_instances: [
-          {
-            id: 'a',
-            name: 'A',
+it.each([false, true])(
+  'prefills matching recognition without launching (saved=%s)',
+  async (saved) => {
+    const user = userEvent.setup();
+    const launch = vi.fn();
+    const instanceLaunchPlan = vi.fn();
+    render(
+      <PlayInstancesPanel
+        api={{
+          ...api,
+          desktop: true,
+          preferences: vi.fn().mockResolvedValue({
+            revision: 0,
+            instance_profiles: saved
+              ? { a: 'cdda-0i-1-macos-native-trial-v1' }
+              : {},
+          }),
+          inspectInstallationRecognition: vi.fn().mockResolvedValue({
             installation_id: 'g',
-            installation_sha256: 'hash',
-            data_root: '/a',
-            binding_status: 'unverified',
-            created_at: '',
-          },
-        ],
-      }}
-      onRefresh={vi.fn()}
-    />,
-  );
-  await user.click(screen.getByRole('button', { name: '启动 A' }));
-  expect(await screen.findByRole('status')).toHaveTextContent(
-    '识别版本：CDDA 0.I-1',
-  );
-  expect(screen.getByLabelText('游戏版本')).toHaveValue(
-    'cdda-0i-1-macos-native-trial-v1',
-  );
-  expect(launch).not.toHaveBeenCalled();
-  expect(instanceLaunchPlan).not.toHaveBeenCalled();
-});
+            executable_sha256: 'hash',
+            version: '0.I-1',
+            recommended_profile: 'cdda-0i-1-macos-native-trial-v1',
+            evidence: '匹配已记录样本',
+          }),
+          instanceLaunchPlan,
+          launch,
+        }}
+        data={{
+          ...emptyDashboard,
+          play_instances: [
+            {
+              id: 'a',
+              name: 'A',
+              installation_id: 'g',
+              installation_sha256: 'hash',
+              data_root: '/a',
+              binding_status: 'unverified',
+              created_at: '',
+            },
+          ],
+        }}
+        onRefresh={vi.fn()}
+      />,
+    );
+    await user.click(
+      screen.getByRole('button', { name: saved ? '启动设置 A' : '启动 A' }),
+    );
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      '识别版本：CDDA 0.I-1',
+    );
+    expect(screen.getByLabelText('游戏版本')).toHaveValue(
+      'cdda-0i-1-macos-native-trial-v1',
+    );
+    expect(screen.getByRole('button', { name: '预览 A 试运行' })).toBeEnabled();
+    expect(launch).not.toHaveBeenCalled();
+    expect(instanceLaunchPlan).not.toHaveBeenCalled();
+  },
+);
 it('does not prefill a recommendation belonging to another installation', async () => {
   const user = userEvent.setup();
   render(
