@@ -1,0 +1,42 @@
+[
+  {
+    "name": "01-character.png",
+    "sha256": "fe6b679a7b665f3807f958fd9e822c677434d492909f58fb44e90b64a4ce02ae"
+  },
+  {
+    "name": "02-before-save.png",
+    "sha256": "4fbd6aad78d5cf11106b7e2b35bff43998cf52fb7d0b503f6ba24099980a3a1d"
+  },
+  {
+    "name": "03-saved-world.png",
+    "sha256": "fa0f703e05fba82e31e2935c584819da46550728b63da6b8327cacc26e03994a"
+  },
+  {
+    "name": "04-load-character.png",
+    "sha256": "1c3d03cb817b057077e6e5a8d8778cb4baee28e17a4ca41a9525269c1875b42a"
+  },
+  {
+    "name": "05-reloaded.png",
+    "sha256": "2e3bb9f3b74bf5efde72e5818a0223b61206b1a23dfc660a63b5c1d66ca6e148"
+  },
+  {
+    "name": "06-reloaded-character.png",
+    "sha256": "baf43e9b8e9ac68095e25131f4e268e8ed72700d68ac778cc92cdea51fd1c0cf"
+  },
+  {
+    "name": "07-final-hub.ax.txt",
+    "sha256": "652e8249d78011c5966e25904f64d6ec3741d45651f443b3559519fb9895e714"
+  },
+  {
+    "name": "07-final-hub.png",
+    "sha256": "3f9abb57579325064e3f13f4b39f98c3fb48f344dd818edf88553dfcb075335c"
+  },
+  {
+    "name": "observer.py",
+    "sha256": "836646bc0e6260884f9cf2b0f9b766114be22aeb2cd20d301fd62cdb8a188504"
+  },
+  {
+    "name": "result.json",
+    "sha256": "b9b9362dc28e8d481c84fc683694589602e57024c185586e6d7593b74edbb45c"
+  }
+]

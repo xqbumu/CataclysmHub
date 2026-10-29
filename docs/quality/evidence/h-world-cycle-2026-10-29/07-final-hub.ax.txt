@@ -1,0 +1,2 @@
+There has been no change in the accessibility tree for Window: "Cataclysm Hub".
+The focused UI element is 73 HTML content Description: Cataclysm Hub, URL: tauri://localhost
