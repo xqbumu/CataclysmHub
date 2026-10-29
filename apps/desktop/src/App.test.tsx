@@ -101,7 +101,9 @@ describe('workspace and launch safety', () => {
   it('does not invent backup health or enable unimplemented actions', async () => {
     render(<App api={client()} />);
     expect(await screen.findByText('建立你的安全工作区')).toBeVisible();
-    expect(screen.getByRole('button', { name: /存档历史/ })).toBeDisabled();
+    expect(
+      screen.queryByRole('button', { name: /存档历史/ }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /导入游戏/ })).toBeDisabled();
     expect(screen.getByRole('button', { name: /保存工作区/ })).toBeDisabled();
   });
@@ -130,6 +132,8 @@ describe('workspace and launch safety', () => {
     const api = client({ ...emptyDashboard, workspace, installations: [game] });
     const user = userEvent.setup();
     render(<App api={api} />);
+    await user.click(await screen.findByRole('button', { name: /^游戏库/ }));
+    await user.click(screen.getByRole('tab', { name: /安装版本/ }));
     await user.click(await screen.findByRole('button', { name: /启动预览/ }));
     const dialog = screen.getByRole('dialog');
     await user.click(
@@ -145,6 +149,8 @@ describe('workspace and launch safety', () => {
     const api = client({ ...emptyDashboard, workspace, installations: [game] });
     const user = userEvent.setup();
     render(<App api={api} />);
+    await user.click(await screen.findByRole('button', { name: /^游戏库/ }));
+    await user.click(screen.getByRole('tab', { name: /安装版本/ }));
     await user.click(await screen.findByRole('button', { name: /启动预览/ }));
     await user.click(screen.getByRole('button', { name: /生成启动预览/ }));
     await user.click(await screen.findByRole('button', { name: '确认启动' }));
@@ -197,7 +203,7 @@ describe('workspace and launch safety', () => {
     );
     await userEvent
       .setup()
-      .click(await screen.findByRole('button', { name: '操作记录' }));
+      .click(await screen.findByRole('button', { name: '任务与记录' }));
     const table = screen.getByRole('table');
     expect(within(table).queryByText('启动失败')).not.toBeInTheDocument();
     expect(within(table).getByText('失败')).toBeVisible();
@@ -235,6 +241,7 @@ describe('workspace and launch safety', () => {
       const user = userEvent.setup();
       render(<App api={api} />);
       await user.click(await screen.findByRole('button', { name: /^游戏库/ }));
+      await user.click(screen.getByText('启动设置与实验方案'));
       const ack = screen.getByRole('checkbox', {
         name: /使用所选源码参数方案/,
       });

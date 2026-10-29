@@ -49,13 +49,14 @@ const report: ContentConfigReport = {
   issues: [],
   binding_verified: false,
 };
-it('distinguishes missing and broken files from explicit empty configuration and catalog absence', () => {
+it('distinguishes missing and broken files from explicit empty configuration and catalog absence', async () => {
   render(<ContentConfigDialog report={report} onClose={vi.fn()} />);
   expect(
     screen.getByText(/文件或目录缺失，不能推断默认值/),
   ).toBeInTheDocument();
   expect(screen.getByText(/JSON 损坏或正在变化/)).toBeInTheDocument();
   expect(screen.getByText('声明顺序：显式空列表')).toBeInTheDocument();
+  await userEvent.setup().click(screen.getByRole('tab', { name: /资源诊断/ }));
   expect(
     screen.getByText(/资源库未登记匹配项，不代表目标游戏缺少该资源/),
   ).toBeInTheDocument();
@@ -66,7 +67,7 @@ it('distinguishes missing and broken files from explicit empty configuration and
     screen.queryByRole('button', { name: /启用|写入|卸载/ }),
   ).not.toBeInTheDocument();
 });
-it('shows ambiguous registrations without selecting a winner', () => {
+it('shows ambiguous registrations without selecting a winner', async () => {
   render(
     <ContentConfigDialog
       report={{
@@ -83,6 +84,7 @@ it('shows ambiguous registrations without selecting a winner', () => {
       onClose={vi.fn()}
     />,
   );
+  await userEvent.setup().click(screen.getByRole('tab', { name: /资源诊断/ }));
   expect(screen.getByText(/存在歧义，不能自动选择/)).toBeInTheDocument();
 });
 it('opens read-only inspection for an instance without creating a launch plan', async () => {
@@ -117,7 +119,7 @@ it('opens read-only inspection for an instance without creating a launch plan', 
   expect(await screen.findByRole('dialog')).toBeInTheDocument();
 });
 
-it('keeps incomplete discovery and dependency ambiguity distinct from compatibility', () => {
+it('keeps incomplete discovery and dependency ambiguity distinct from compatibility', async () => {
   render(
     <ContentConfigDialog
       report={{
@@ -152,6 +154,7 @@ it('keeps incomplete discovery and dependency ambiguity distinct from compatibil
       onClose={vi.fn()}
     />,
   );
+  await userEvent.setup().click(screen.getByRole('tab', { name: /资源诊断/ }));
   expect(screen.getByRole('alert')).toHaveTextContent('候选扫描不完整');
   expect(screen.getByText(/重复 ID，未选择覆盖赢家/)).toBeInTheDocument();
   expect(screen.getByText(/依赖未在本次候选范围中发现/)).toBeInTheDocument();
@@ -166,6 +169,7 @@ it('keeps incomplete discovery and dependency ambiguity distinct from compatibil
 it('previews an explicit empty default without changing existing worlds and invalidates on edits', async () => {
   const user = userEvent.setup();
   render(<ContentConfigDialog report={report} onClose={vi.fn()} />);
+  await userEvent.setup().click(screen.getByRole('tab', { name: '修改配置' }));
   await user.click(screen.getByLabelText('拟调整新世界默认模组'));
   await user.clear(screen.getByRole('textbox', { name: /默认模组 ID/ }));
   await user.click(screen.getByRole('button', { name: '比较配置草稿' }));
@@ -182,6 +186,7 @@ it('previews an explicit empty default without changing existing worlds and inva
 it('previews sound enablement with unknown baseline without inventing default values', async () => {
   const user = userEvent.setup();
   render(<ContentConfigDialog report={report} onClose={vi.fn()} />);
+  await userEvent.setup().click(screen.getByRole('tab', { name: '修改配置' }));
   await user.selectOptions(screen.getByLabelText('声音开关草稿'), 'true');
   await user.click(screen.getByRole('button', { name: '比较配置草稿' }));
   expect(screen.getByLabelText('配置草稿结果')).toHaveTextContent(
@@ -384,6 +389,7 @@ it('only requests a fresh backend preview on explicit action and shows its new b
       onClose={vi.fn()}
     />,
   );
+  await userEvent.setup().click(screen.getByRole('tab', { name: '修改配置' }));
   expect(previewContentConfig).not.toHaveBeenCalled();
   await user.selectOptions(screen.getByLabelText('声音开关草稿'), 'true');
   await user.click(
@@ -419,6 +425,7 @@ it('discards an in-flight backend preview after editing the draft', async () => 
       onClose={vi.fn()}
     />,
   );
+  await userEvent.setup().click(screen.getByRole('tab', { name: '修改配置' }));
   await user.click(
     screen.getByRole('button', { name: '重新读取并生成后端预览' }),
   );
@@ -451,6 +458,7 @@ it('shows the backend refusal reason without keeping a successful preview', asyn
       onClose={vi.fn()}
     />,
   );
+  await userEvent.setup().click(screen.getByRole('tab', { name: '修改配置' }));
   await user.click(
     screen.getByRole('button', { name: '重新读取并生成后端预览' }),
   );

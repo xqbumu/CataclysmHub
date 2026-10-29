@@ -74,7 +74,7 @@ export default function ContentConfigPreviewPanel({
   };
   return (
     <section>
-      <h3>配置草稿与差异预览</h3>
+      <h3>1. 选择要修改的配置</h3>
       <p>
         基于本次报告（{report.checked_at}
         ）在内存中比较，不重新读取文件，也不写入。关闭即丢弃；无差异或无提示都不代表兼容验证通过。
@@ -172,7 +172,8 @@ export default function ContentConfigPreviewPanel({
       )}
       {error && <p role="alert">{error}</p>}
       {fresh && (
-        <div aria-label="后端配置预览">
+        <div aria-label="后端配置预览" className="config-section">
+          <h3>2. 核对差异与保护副本</h3>
           <p>
             重新读取时间：{fresh.report.checked_at}
             。下方基于新读取结果；不是一致性快照或执行授权。预览本身不创建保护副本，可在下方单独创建备份。
@@ -193,7 +194,18 @@ export default function ContentConfigPreviewPanel({
               </details>
             </article>
           ))}
-          <ContentDiscoveryPanel discovery={fresh.proposed_discovery} />
+          <details
+            className="disclosure"
+            open={
+              fresh.proposed_discovery.findings.length > 0 ||
+              fresh.proposed_discovery.truncated
+            }
+          >
+            <summary>
+              本次变更诊断 · {fresh.proposed_discovery.findings.length} 项
+            </summary>
+            <ContentDiscoveryPanel discovery={fresh.proposed_discovery} />
+          </details>
           {protectionApi && freshInput && fresh.files.length > 0 && (
             <ContentConfigProtectionPanel
               api={protectionApi}

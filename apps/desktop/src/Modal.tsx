@@ -1,14 +1,17 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 export default function Modal({
   title,
   children,
   onClose,
+  wide = false,
 }: {
   title: string;
   children: ReactNode;
   onClose: () => void;
+  wide?: boolean;
 }) {
+  const titleId = useId();
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current;
@@ -18,16 +21,17 @@ export default function Modal({
   return (
     <dialog
       ref={dialog}
+      className={wide ? 'modal-wide' : undefined}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
       }}
-      aria-labelledby="modal-title"
+      aria-labelledby={titleId}
     >
       <div className="modal-head">
         <div>
           <span className="eyebrow">CATACLYSM HUB</span>
-          <h2 id="modal-title">{title}</h2>
+          <h2 id={titleId}>{title}</h2>
         </div>
         <button
           className="icon-button"
@@ -37,7 +41,7 @@ export default function Modal({
           <X size={19} />
         </button>
       </div>
-      {children}
+      <div className="modal-body">{children}</div>
     </dialog>
   );
 }

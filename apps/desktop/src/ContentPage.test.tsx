@@ -85,3 +85,32 @@ it('labels failed refresh data as historical and supports picker cancellation', 
   await user.click(screen.getByRole('button', { name: '刷新元数据' }));
   expect(api.refreshContent).toHaveBeenCalledWith('one');
 });
+it('combines resource search with type filtering without changing registrations', async () => {
+  const sound: ContentEntry = {
+    ...entry,
+    id: 'sound',
+    kind: 'soundpack',
+    definitions: [
+      { ...entry.definitions[0], content_id: 'music', name: 'Music Pack' },
+    ],
+  };
+  const api = client([entry, sound]);
+  const user = userEvent.setup();
+  render(<ContentPage api={api} />);
+  expect(
+    await screen.findByRole('heading', { name: '模组 · Example' }),
+  ).toBeVisible();
+  await user.type(screen.getByLabelText('搜索资源'), 'music');
+  expect(
+    screen.getByRole('heading', { name: '声音包 · Music Pack' }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('heading', { name: '模组 · Example' }),
+  ).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText('显示类型'), 'mod');
+  expect(screen.getByText('没有匹配的资源，请调整搜索条件。')).toBeVisible();
+  await user.clear(screen.getByLabelText('搜索资源'));
+  expect(screen.getByRole('heading', { name: '模组 · Example' })).toBeVisible();
+  expect(api.registerContent).not.toHaveBeenCalled();
+  expect(api.forgetContent).not.toHaveBeenCalled();
+});

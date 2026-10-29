@@ -12,6 +12,8 @@ export default function ContentPage({ api }: { api: HubApi }) {
   const [entries, setEntries] = useState<ContentEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [filter, setFilter] = useState('all');
+  const [query, setQuery] = useState('');
   const [kind, setKind] = useState('mod');
   const [installRevision, setInstallRevision] = useState(0);
   const [removing, setRemoving] = useState<ContentEntry | null>(null);
@@ -54,6 +56,16 @@ export default function ContentPage({ api }: { api: HubApi }) {
       counts.set(key, (counts.get(key) ?? 0) + 1);
     }
   }
+  const visibleEntries = entries.filter(
+    (entry) =>
+      (filter === 'all' || entry.kind === filter) &&
+      (!query ||
+        entry.definitions.some((d) =>
+          `${d.name} ${d.content_id}`
+            .toLowerCase()
+            .includes(query.toLowerCase()),
+        )),
+  );
   return (
     <section className="panel">
       <h2>模组与声音包资源库</h2>
@@ -93,81 +105,110 @@ export default function ContentPage({ api }: { api: HubApi }) {
         </p>
       )}
       {!entries.length && <p>尚无登记资源。</p>}
-      {entries.map((entry) => (
-        <article className="panel" key={entry.id}>
-          <h3>
-            {entry.kind === 'mod' ? '模组' : '声音包'} ·{' '}
-            {entry.definitions.map((d) => d.name).join(' / ')}
-          </h3>
-          <p className="file-path">本地来源：{entry.root}</p>
-          <p>兼容性：未验证 · 启用状态：未读取 · 许可证／上游来源：未知</p>
-          {entry.last_error && (
-            <p role="alert">
-              刷新失败：{entry.last_error}
-              。下方为历史元数据，不代表资源当前可用。
-            </p>
-          )}
-          {entry.definitions.map((definition, index) => (
-            <div key={`${definition.content_id}:${index}`}>
-              <p>
-                ID：{definition.content_id} · 版本声明：
-                {definition.version ?? '未知'}
-              </p>
-              {(counts.get(
-                JSON.stringify([entry.kind, definition.content_id]),
-              ) ?? 0) > 1 ? (
-                <p className="alert">
-                  重复 ID：请核对不同包与版本，不能据此自动选择覆盖。
-                </p>
-              ) : null}
-              {entry.kind === 'mod' && (
-                <p>
-                  声明依赖：
-                  {definition.dependencies === null
-                    ? '未知（未声明）'
-                    : definition.dependencies.length
-                      ? definition.dependencies.join('、')
-                      : '空列表'}
-                  {definition.dependencies
-                    ?.filter((id) => !ids.has(id))
-                    .map((id) => (
-                      <span key={id}>
-                        {' '}
-                        · 未在资源库找到：{id}（游戏内置资源未扫描）
-                      </span>
-                    ))}
-                </p>
-              )}
-            </div>
-          ))}
-          <ContentInstallButton
-            api={api}
-            entryId={entry.id}
-            unavailable={busy || !!entry.last_error}
-            onStarted={() => setInstallRevision((r) => r + 1)}
+      <div className="content-toolbar">
+        <label>
+          搜索资源
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="名称或资源 ID"
           />
-          <details>
-            <summary>元数据记录</summary>
-            <p>最近成功读取：{entry.checked_at}</p>
-            <p className="file-path">元数据 SHA-256：{entry.metadata_sha256}</p>
-            <p>
-              仅包含描述文件，不是整包校验，也不证明来源真实性、音频完整或游戏可加载。
-            </p>
-          </details>
-          <button
-            disabled={busy || !api.desktop}
-            onClick={() => void run(() => api.refreshContent(entry.id))}
+        </label>
+        <label>
+          显示类型
+          <select
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
           >
-            刷新元数据
-          </button>
-          <button
-            disabled={busy || !api.desktop}
-            onClick={() => setRemoving(entry)}
-          >
-            移除登记
-          </button>
-        </article>
-      ))}
+            <option value="all">全部资源</option>
+            <option value="mod">模组</option>
+            <option value="soundpack">声音包</option>
+          </select>
+        </label>
+      </div>
+      {entries.length > 0 && visibleEntries.length === 0 && (
+        <p role="status">没有匹配的资源，请调整搜索条件。</p>
+      )}
+      <div className="content-list">
+        {visibleEntries.map((entry) => (
+          <article className="panel" key={entry.id}>
+            <h3>
+              {entry.kind === 'mod' ? '模组' : '声音包'} ·{' '}
+              {entry.definitions.map((d) => d.name).join(' / ')}
+            </h3>
+            <p className="file-path">本地来源：{entry.root}</p>
+            <p>兼容性：未验证 · 启用状态：未读取 · 许可证／上游来源：未知</p>
+            {entry.last_error && (
+              <p role="alert">
+                刷新失败：{entry.last_error}
+                。下方为历史元数据，不代表资源当前可用。
+              </p>
+            )}
+            {entry.definitions.map((definition, index) => (
+              <div key={`${definition.content_id}:${index}`}>
+                <p>
+                  ID：{definition.content_id} · 版本声明：
+                  {definition.version ?? '未知'}
+                </p>
+                {(counts.get(
+                  JSON.stringify([entry.kind, definition.content_id]),
+                ) ?? 0) > 1 ? (
+                  <p className="alert">
+                    重复 ID：请核对不同包与版本，不能据此自动选择覆盖。
+                  </p>
+                ) : null}
+                {entry.kind === 'mod' && (
+                  <p>
+                    声明依赖：
+                    {definition.dependencies === null
+                      ? '未知（未声明）'
+                      : definition.dependencies.length
+                        ? definition.dependencies.join('、')
+                        : '空列表'}
+                    {definition.dependencies
+                      ?.filter((id) => !ids.has(id))
+                      .map((id) => (
+                        <span key={id}>
+                          {' '}
+                          · 未在资源库找到：{id}（游戏内置资源未扫描）
+                        </span>
+                      ))}
+                  </p>
+                )}
+              </div>
+            ))}
+            <ContentInstallButton
+              api={api}
+              entryId={entry.id}
+              unavailable={busy || !!entry.last_error}
+              onStarted={() => setInstallRevision((r) => r + 1)}
+            />
+            <details>
+              <summary>元数据记录</summary>
+              <p>最近成功读取：{entry.checked_at}</p>
+              <p className="file-path">
+                元数据 SHA-256：{entry.metadata_sha256}
+              </p>
+              <p>
+                仅包含描述文件，不是整包校验，也不证明来源真实性、音频完整或游戏可加载。
+              </p>
+            </details>
+            <button
+              disabled={busy || !api.desktop}
+              onClick={() => void run(() => api.refreshContent(entry.id))}
+            >
+              刷新元数据
+            </button>
+            <button
+              disabled={busy || !api.desktop}
+              onClick={() => setRemoving(entry)}
+            >
+              移除登记
+            </button>
+          </article>
+        ))}
+      </div>
       <ContentInstallTasks api={api} revision={installRevision} />
       {removing && (
         <Modal

@@ -1,3 +1,5 @@
+import WorkspaceTabs from './WorkspaceTabs';
+import { ConfigChangeHistory } from './ConfigChangePanel';
 import ContentPage from './ContentPage';
 import InstallationCopiesPanel from './InstallationCopiesPanel';
 import ResourceClaimsPanel from './ResourceClaimsPanel';
@@ -13,13 +15,9 @@ import {
   ArrowUpRight,
   ChevronRight,
   CircleDot,
-  Clock3,
   FileText,
   FolderOpen,
   Gamepad2,
-  GitBranch,
-  Globe2,
-  HardDrive,
   LayoutDashboard,
   LoaderCircle,
   Plus,
@@ -45,21 +43,14 @@ import {
 } from './api';
 
 type Page =
-  | 'overview'
-  | 'games'
-  | 'worlds'
-  | 'backups'
-  | 'content'
-  | 'activity'
-  | 'settings';
+  'overview' | 'games' | 'backups' | 'content' | 'activity' | 'settings';
 const pages: Record<Page, string> = {
-  overview: '概览',
+  overview: '总览',
   games: '游戏库',
-  worlds: '世界与角色',
-  backups: '独立备份',
-  content: '内容资源',
-  activity: '操作记录',
-  settings: '工作区',
+  backups: '存档与备份',
+  content: '模组与声音',
+  activity: '任务与记录',
+  settings: '设置',
 };
 const pathFields: [keyof WorkspaceInput, string, string][] = [
   ['save_dir', '存档根目录', '选择游戏现有的存档目录，只读发现，不修改原文件'],
@@ -135,6 +126,7 @@ function NavItem({
 }
 
 export default function App({ api = nativeApi }: { api?: HubApi }) {
+  const [gameView, setGameView] = useState('instances');
   const [page, setPage] = useState<Page>('overview');
   const [data, setData] = useState(emptyDashboard);
   const [loading, setLoading] = useState(true);
@@ -318,12 +310,6 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
           );
         return (
           <article className="panel game-card" key={game.id}>
-            <div className="game-art">
-              <Radiation size={44} />
-              <span>CATACLYSM</span>
-              <small>LOCAL INSTALLATION</small>
-              <div className="art-grid" />
-            </div>
             <div className="game-details">
               <div className="row-between">
                 <span className="eyebrow">
@@ -398,7 +384,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             selected={page === 'overview'}
             onClick={() => setPage('overview')}
           >
-            概览
+            总览
           </NavItem>
           <NavItem
             icon={Gamepad2}
@@ -408,21 +394,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             游戏库<span className="nav-count">{data.installations.length}</span>
           </NavItem>
           <NavItem
-            icon={Globe2}
-            selected={page === 'worlds'}
-            onClick={() => setPage('worlds')}
-          >
-            世界与角色
-          </NavItem>
-          <NavItem icon={GitBranch} soon>
-            存档历史
-          </NavItem>
-          <NavItem
             icon={Archive}
             selected={page === 'backups'}
             onClick={() => setPage('backups')}
           >
-            独立备份
+            存档与备份
           </NavItem>
           <span className="nav-label second">管理</span>
           <NavItem
@@ -430,21 +406,21 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             selected={page === 'content'}
             onClick={() => setPage('content')}
           >
-            内容资源
+            模组与声音
           </NavItem>
           <NavItem
             icon={FileText}
             selected={page === 'activity'}
             onClick={() => setPage('activity')}
           >
-            操作记录
+            任务与记录
           </NavItem>
           <NavItem
             icon={SlidersHorizontal}
             selected={page === 'settings'}
             onClick={() => setPage('settings')}
           >
-            工作区设置
+            设置
           </NavItem>
         </nav>
         <div className="sidebar-bottom">
@@ -487,24 +463,19 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
         <main>
           <div className="page-heading">
             <div>
-              <span className="eyebrow">SURVIVE. ORGANIZE. PRESERVE.</span>
-              <h1>
-                {page === 'overview' ? '每一次生存，都值得保留。' : pages[page]}
-              </h1>
+              <h1>{pages[page]}</h1>
               <p>
                 {page === 'overview'
-                  ? '管理你的游戏与存档，让下一次出发更从容。'
+                  ? '从一个实例开始，管理你的下一次游玩。'
                   : page === 'games'
-                    ? '并存管理本地安装，启动前确认环境与参数。'
-                    : page === 'worlds'
-                      ? '只读枚举世界候选、共享文件与无法确认的边界。'
-                      : page === 'backups'
-                        ? '完整归档与独立校验，明确记录采集一致性和文件完整性。'
-                        : page === 'content'
-                          ? '登记本地模组和声音包，核对元数据与依赖提示。'
-                          : page === 'activity'
-                            ? '查看本地操作和进程状态，追溯每一次变更。'
-                            : '分离数据目录，为后续的世界保护建立基础。'}
+                    ? '实例用于游玩，安装版本用于管理游戏程序。'
+                    : page === 'backups'
+                      ? '查看世界、创建保护副本，或恢复到新目录。'
+                      : page === 'content'
+                        ? '管理本地资源包；实例配置从游戏库进入。'
+                        : page === 'activity'
+                          ? '集中处理资源占用、配置恢复与操作记录。'
+                          : '查看本机数据位置与工作区配置。'}
               </p>
             </div>
             {(page === 'overview' || page === 'games') && (
@@ -573,271 +544,249 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                   <div className="stats-grid">
                     <Stat
                       icon={Gamepad2}
-                      label="本地游戏"
-                      value={String(data.installations.length)}
+                      label="游玩实例"
+                      value={String(data.play_instances.length)}
+                      detail={`${data.installations.length} 个本地安装版本`}
+                    />
+                    <Stat
+                      icon={Activity}
+                      label="正在运行"
+                      value={String(running.length)}
                       detail={
-                        running.length
-                          ? `${running.length} 个直接进程运行中`
-                          : '尚无运行中的已监测进程'
+                        unknown.length
+                          ? `${unknown.length} 个会话待确认`
+                          : '仅显示 Hub 监测的进程'
                       }
-                    />
-                    <Stat
-                      icon={Globe2}
-                      label="世界存档"
-                      value="—"
-                      detail="世界候选可在“世界与角色”扫描"
-                    />
-                    <Stat
-                      icon={GitBranch}
-                      label="存档检查点"
-                      value="—"
-                      detail="自动检查点尚未启用"
                     />
                     <Stat
                       icon={Archive}
-                      label="完整备份"
+                      label="保护副本"
                       value={String(data.backups.length)}
-                      detail={
-                        data.backups.length
-                          ? `${data.backups.filter((backup) => backup.verification === 'verified').length} 份最近校验通过 · 尽力快照`
-                          : '尚无已验证的独立备份'
-                      }
-                      warning={
-                        data.backups.length === 0 ||
-                        data.backups.some(
-                          (backup) => backup.verification !== 'verified',
-                        )
-                      }
+                      detail="完整性与游戏兼容性分别验证"
                     />
                   </div>
                   {!workspace ? (
-                    <div className="overview-grid">
-                      {setup}
-                      <aside className="guide">
-                        <div className="guide-icon">
-                          <ShieldCheck size={30} />
-                        </div>
-                        <span className="eyebrow">
-                          BUILT AROUND YOUR WORLDS
-                        </span>
-                        <h2>
-                          先保护世界，
-                          <br />
-                          再探索未知。
-                        </h2>
-                        <p>
-                          Git
-                          历史与独立备份将分别保护你的存档。文件校验、采集稳定性与游戏兼容性会分别显示。
-                        </p>
-                        <ol>
-                          <li className="current">
-                            <span>01</span>
-                            <div>
-                              配置工作区<small>分离存档、备份与资源目录</small>
-                            </div>
-                          </li>
-                          <li>
-                            <span>02</span>
-                            <div>
-                              导入现有游戏
-                              <small>选择可执行文件，预览后启动</small>
-                            </div>
-                          </li>
-                          <li>
-                            <span>03</span>
-                            <div>
-                              建立世界保护<small>将在后续开发阶段开放</small>
-                            </div>
-                          </li>
-                        </ol>
-                        <div className="guide-bottom">
-                          <HardDrive size={15} />
-                          不上传存档 · 不修改游戏原文件
-                        </div>
-                      </aside>
-                    </div>
+                    setup
                   ) : (
-                    <>
-                      <div className="section-heading library-heading">
-                        <div>
-                          <span className="eyebrow">READY WHEN YOU ARE</span>
-                          <h2>你的游戏库</h2>
-                        </div>
+                    <section className="panel overview-actions">
+                      <h2>接下来做什么</h2>
+                      <div className="action-grid">
                         <button
-                          className="text-button"
-                          onClick={() => setPage('games')}
+                          onClick={() => {
+                            setGameView('instances');
+                            setPage('games');
+                          }}
                         >
-                          查看全部
-                          <ArrowUpRight size={16} />
-                        </button>
-                      </div>
-                      {data.installations.length ? (
-                        gameCards
-                      ) : (
-                        <EmptyLibrary
-                          onImport={openImport}
-                          disabled={busy || !api.desktop}
-                        />
-                      )}
-                    </>
-                  )}
-                  <div className="bottom-grid">
-                    <section className="panel recent">
-                      <div className="section-heading">
-                        <h2>最近动态</h2>
-                        <button
-                          className="text-button"
-                          onClick={() => setPage('activity')}
-                        >
-                          全部记录
-                          <ArrowUpRight size={15} />
-                        </button>
-                      </div>
-                      {data.operations.length ? (
-                        data.operations.slice(0, 3).map((op) => (
-                          <div className="activity-item" key={op.id}>
-                            <span className="activity-icon">
-                              <Activity size={15} />
-                            </span>
-                            <div>
-                              <strong>
-                                {actionNames[op.action] ?? op.action}
-                              </strong>
-                              <small>
-                                {statusNames[op.status] ?? op.status}
-                              </small>
-                            </div>
-                            <time>{time(op.created_at)}</time>
-                          </div>
-                        ))
-                      ) : (
-                        <div className="empty-inline">
-                          <Clock3 size={20} />
+                          <Gamepad2 />
                           <span>
-                            还没有操作记录
-                            <small>
-                              完成工作区配置后，操作将在这里留下记录。
-                            </small>
+                            <strong>管理游玩实例</strong>
+                            <small>启动、配置模组与声音</small>
                           </span>
-                        </div>
-                      )}
-                    </section>
-                    <section className="safety-card">
-                      <div>
-                        <span className="eyebrow">BACKUP HEALTH</span>
-                        <span className="pill warning">
-                          <TriangleAlert size={12} />
-                          {data.backups.some(
-                            (backup) => backup.verification === 'verified',
-                          )
-                            ? '已建立尽力快照'
-                            : '尚未建立保护'}
-                        </span>
+                          <ArrowRight size={18} />
+                        </button>
+                        <button onClick={() => setPage('backups')}>
+                          <Archive />
+                          <span>
+                            <strong>保护与恢复存档</strong>
+                            <small>选择范围、备份、核验与恢复</small>
+                          </span>
+                          <ArrowRight size={18} />
+                        </button>
+                        <button onClick={() => setPage('content')}>
+                          <Puzzle />
+                          <span>
+                            <strong>整理本地资源</strong>
+                            <small>登记模组和声音包</small>
+                          </span>
+                          <ArrowRight size={18} />
+                        </button>
                       </div>
-                      <h3>别让唯一的存档，成为唯一的机会。</h3>
-                      <p>
-                        可在“独立备份”创建尽力快照并校验文件。可恢复到新目录并回读校验；覆盖恢复尚未开放。
-                      </p>
                     </section>
-                  </div>
-                </>
-              )}
-              {page === 'worlds' && (
-                <WorldsPage
-                  api={api}
-                  data={data}
-                  busy={busy}
-                  run={act}
-                  onConfigure={() => setPage('settings')}
-                />
-              )}
-              {page === 'backups' && (
-                <BackupsPage
-                  api={api}
-                  data={data}
-                  busy={busy}
-                  error={error}
-                  run={act}
-                  onConfigure={() => setPage('settings')}
-                />
-              )}
-              {page === 'content' && <ContentPage api={api} />}
-              {page === 'settings' && setup}
-              {page === 'games' &&
-                (data.installations.length ? (
-                  gameCards
-                ) : (
-                  <EmptyLibrary
-                    disabled={!workspace || busy || !api.desktop}
-                    onImport={openImport}
-                    needsWorkspace={!workspace}
-                    onSetup={() => setPage('settings')}
-                  />
-                ))}
-              {page === 'games' && workspace && (
-                <>
-                  <InstallationCopiesPanel
-                    api={api}
-                    data={data}
-                    onRefresh={refresh}
-                  />
-                  <PlayInstancesPanel
-                    api={api}
-                    data={data}
-                    onRefresh={refresh}
-                  />
+                  )}
                   <ResourceClaimsPanel
                     claims={data.resource_claims}
                     onAcknowledge={setAcknowledging}
                     busy={busy}
                   />
+                  <section className="panel recent">
+                    <div className="section-heading">
+                      <h2>最近操作</h2>
+                      <button
+                        className="text-button"
+                        onClick={() => setPage('activity')}
+                      >
+                        查看全部 <ArrowUpRight size={16} />
+                      </button>
+                    </div>
+                    {data.operations.length ? (
+                      data.operations.slice(0, 4).map((op) => (
+                        <div className="activity-item" key={op.id}>
+                          <Activity size={16} />
+                          <div>
+                            <strong>
+                              {actionNames[op.action] ?? op.action}
+                            </strong>
+                            <small>{statusNames[op.status] ?? op.status}</small>
+                          </div>
+                          <time>{time(op.created_at)}</time>
+                        </div>
+                      ))
+                    ) : (
+                      <p className="muted">
+                        还没有操作记录。配置工作区后即可导入游戏。
+                      </p>
+                    )}
+                  </section>
                 </>
               )}
+              {page === 'backups' && (
+                <WorkspaceTabs
+                  label="存档管理视图"
+                  items={[
+                    {
+                      id: 'archives',
+                      label: '独立备份',
+                      content: (
+                        <BackupsPage
+                          api={api}
+                          data={data}
+                          busy={busy}
+                          error={error}
+                          run={act}
+                          onConfigure={() => setPage('settings')}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'worlds',
+                      label: '世界与角色',
+                      content: (
+                        <WorldsPage
+                          api={api}
+                          data={data}
+                          busy={busy}
+                          run={act}
+                          onConfigure={() => setPage('settings')}
+                        />
+                      ),
+                    },
+                  ]}
+                />
+              )}
+              {page === 'content' && <ContentPage api={api} />}
+              {page === 'settings' && setup}
+              {page === 'games' && (
+                <WorkspaceTabs
+                  label="游戏库视图"
+                  value={gameView}
+                  onChange={setGameView}
+                  items={[
+                    {
+                      id: 'instances',
+                      label: '游玩实例',
+                      content: workspace ? (
+                        <PlayInstancesPanel
+                          api={api}
+                          data={data}
+                          onRefresh={refresh}
+                        />
+                      ) : (
+                        <EmptyLibrary
+                          disabled
+                          onImport={openImport}
+                          needsWorkspace
+                          onSetup={() => setPage('settings')}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'installations',
+                      label: `安装版本 (${data.installations.length})`,
+                      content: data.installations.length ? (
+                        gameCards
+                      ) : (
+                        <EmptyLibrary
+                          disabled={!workspace || busy || !api.desktop}
+                          onImport={openImport}
+                          needsWorkspace={!workspace}
+                          onSetup={() => setPage('settings')}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'copies',
+                      label: '安装复制',
+                      content: workspace ? (
+                        <InstallationCopiesPanel
+                          api={api}
+                          data={data}
+                          onRefresh={refresh}
+                        />
+                      ) : (
+                        <p className="notice">请先配置工作区。</p>
+                      ),
+                    },
+                  ]}
+                />
+              )}
               {page === 'activity' && (
-                <section className="panel activity-panel">
-                  <div className="section-heading">
-                    <h2>本地操作日志</h2>
-                    <span className="muted">
-                      最近 {data.operations.length} 条 · 不含存档内容
-                    </span>
-                  </div>
-                  {data.operations.length ? (
-                    <div className="table-scroll">
-                      <table>
-                        <thead>
-                          <tr>
-                            <th>操作</th>
-                            <th>状态</th>
-                            <th>任务标识</th>
-                            <th>时间</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {data.operations.map((op) => (
-                            <tr key={op.id}>
-                              <td>
-                                {actionNames[op.action] ?? op.action}
-                                {op.error_code && (
-                                  <small className="error-code">
-                                    {op.error_code}
-                                  </small>
-                                )}
-                              </td>
-                              <td>{statusNames[op.status] ?? op.status}</td>
-                              <td className="mono">{op.task_id.slice(0, 8)}</td>
-                              <td>{time(op.created_at)}</td>
+                <>
+                  <ResourceClaimsPanel
+                    claims={data.resource_claims}
+                    onAcknowledge={setAcknowledging}
+                    busy={busy}
+                  />
+                  <details className="panel disclosure">
+                    <summary>配置应用与回滚记录</summary>
+                    <ConfigChangeHistory api={api} />
+                  </details>
+                  <section className="panel activity-panel">
+                    <div className="section-heading">
+                      <h2>本地操作日志</h2>
+                      <span className="muted">
+                        最近 {data.operations.length} 条 · 不含存档内容
+                      </span>
+                    </div>
+                    {data.operations.length ? (
+                      <div className="table-scroll">
+                        <table>
+                          <thead>
+                            <tr>
+                              <th>操作</th>
+                              <th>状态</th>
+                              <th>任务标识</th>
+                              <th>时间</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="empty-inline">
-                      <FileText size={22} />
-                      <span>尚无本地记录</span>
-                    </div>
-                  )}
-                </section>
+                          </thead>
+                          <tbody>
+                            {data.operations.map((op) => (
+                              <tr key={op.id}>
+                                <td>
+                                  {actionNames[op.action] ?? op.action}
+                                  {op.error_code && (
+                                    <small className="error-code">
+                                      {op.error_code}
+                                    </small>
+                                  )}
+                                </td>
+                                <td>{statusNames[op.status] ?? op.status}</td>
+                                <td className="mono">
+                                  {op.task_id.slice(0, 8)}
+                                </td>
+                                <td>{time(op.created_at)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="empty-inline">
+                        <FileText size={22} />
+                        <span>尚无本地记录</span>
+                      </div>
+                    )}
+                  </section>
+                </>
               )}
             </>
           )}
@@ -866,6 +815,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                 await api.importInstallation(executable, name);
                 setImporting(false);
                 setPage('games');
+                setGameView('installations');
                 setNotice('安装已导入。版本暂为 unknown，启动前请核对预览。');
               });
             }}

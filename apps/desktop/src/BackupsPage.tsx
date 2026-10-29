@@ -169,7 +169,10 @@ export default function BackupsPage({
           可请求独立实例备份或新目录恢复预览；后端会重新检查读写范围。恢复请选择独立父目录，重叠范围仍会被阻止。
         </p>
       )}
-      <RetentionPanel api={api} busy={busy} run={run} />
+      <details className="panel disclosure">
+        <summary>保留策略与清理预览</summary>
+        <RetentionPanel api={api} busy={busy} run={run} />
+      </details>
       {latest && (
         <section className="scan-task" aria-live="polite">
           <div>

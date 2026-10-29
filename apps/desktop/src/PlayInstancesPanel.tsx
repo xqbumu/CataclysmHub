@@ -1,4 +1,3 @@
-import { ConfigChangeHistory } from './ConfigChangePanel';
 import ContentConfigDialog from './ContentConfigDialog';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import InstanceResourcesDialog from './InstanceResourcesDialog';
@@ -46,63 +45,78 @@ export default function PlayInstancesPanel({
   }
   return (
     <section className="panel instances-panel">
-      <h2>游玩实例 · 隔离准备</h2>
+      <h2>游玩实例</h2>
       <p>
         一个安装可以登记多个实例。数据目录用于后续隔离存档、配置、缓存与日志。
       </p>
-      <p className="warning">
-        实际目录绑定尚未验证。原有启动不使用实例目录；试运行须显式选择参数方案，普通方案并行启动尚未开放；固定
-        QA
-        组合可在实验构建中选择并发候选，尚未完成真实双开验收。可在“独立备份”选择实例数据根创建尽力快照，安装与共享缓存不在其中。
+      <p className="inline-note">
+        目录绑定尚未验证。启动前须选择并确认参数方案；并发仅限实验候选。
       </p>
-      <label>
-        <input
-          type="checkbox"
-          checked={profileSelected}
-          disabled={busy}
-          onChange={(event) => setProfileSelected(event.target.checked)}
-        />
-        使用所选源码参数方案试运行（本地程序版本未验证）
-      </label>
-      <label>
-        试运行参数方案
-        <select
-          value={profileId}
-          disabled={busy}
-          onChange={(event) => {
-            setProfileId(event.target.value);
-            setProfileSelected(false);
-          }}
-        >
-          <option value="cdda-0h-macos-concurrency-candidate-v1">
-            CDDA H · 固定 QA 并发候选（实验构建限定）
-          </option>
-          <option value="cdda-0i-1-macos-concurrency-candidate-v1">
-            CDDA I · 固定 QA 并发候选（实验构建限定）
-          </option>
-          <option value="cdda-0h-source-trial-v1">
-            CDDA 0.H 源码参数（通用）
-          </option>
-          <option value="cdda-0h-release-macos-native-trial-v1">
-            CDDA 0.H-RELEASE · macOS 原生本体入口
-          </option>
-          <option value="cdda-0i-1-macos-native-trial-v1">
-            CDDA 0.I-1 · macOS 原生本体入口
-          </option>
-          <option value="cdda-0h-release-macos-trial-v2">
-            CDDA 0.H-RELEASE · macOS · 独立 HOME 与临时目录
-          </option>
-          <option value="cdda-0i-1-macos-trial-v2">
-            CDDA 0.I-1 · macOS · 独立 HOME 与临时目录
-          </option>
-          <option value="cdda-0h-release-macos-trial-v1">
-            CDDA 0.H-RELEASE · macOS SDL2 发布包
-          </option>
-          <option value="cdda-0i-1-macos-trial-v1">
-            CDDA 0.I-1 · macOS SDL2 发布包
-          </option>
-        </select>
-      </label>
+      <details className="disclosure launch-settings">
+        <summary>启动设置与实验方案</summary>
+        <p className="warning">
+          原有安装启动不使用实例目录。普通方案保持全局互斥；固定 QA
+          并发候选尚未完成正式验收。实例备份不含安装与共享缓存。
+        </p>
+        <label>
+          <input
+            type="checkbox"
+            checked={profileSelected}
+            disabled={busy}
+            onChange={(event) => setProfileSelected(event.target.checked)}
+          />
+          使用所选源码参数方案试运行（本地程序版本未验证）
+        </label>
+        <label>
+          试运行参数方案
+          <select
+            value={profileId}
+            disabled={busy}
+            onChange={(event) => {
+              setProfileId(event.target.value);
+              setProfileSelected(false);
+            }}
+          >
+            <option value="cdda-0h-macos-concurrency-candidate-v1">
+              CDDA H · 固定 QA 并发候选（实验构建限定）
+            </option>
+            <option value="cdda-0i-1-macos-concurrency-candidate-v1">
+              CDDA I · 固定 QA 并发候选（实验构建限定）
+            </option>
+            <option value="cdda-0h-source-trial-v1">
+              CDDA 0.H 源码参数（通用）
+            </option>
+            <option value="cdda-0h-release-macos-native-trial-v1">
+              CDDA 0.H-RELEASE · macOS 原生本体入口
+            </option>
+            <option value="cdda-0i-1-macos-native-trial-v1">
+              CDDA 0.I-1 · macOS 原生本体入口
+            </option>
+            <option value="cdda-0h-release-macos-trial-v2">
+              CDDA 0.H-RELEASE · macOS · 独立 HOME 与临时目录
+            </option>
+            <option value="cdda-0i-1-macos-trial-v2">
+              CDDA 0.I-1 · macOS · 独立 HOME 与临时目录
+            </option>
+            <option value="cdda-0h-release-macos-trial-v1">
+              CDDA 0.H-RELEASE · macOS SDL2 发布包
+            </option>
+            <option value="cdda-0i-1-macos-trial-v1">
+              CDDA 0.I-1 · macOS SDL2 发布包
+            </option>
+          </select>
+        </label>
+      </details>
+      {!profileSelected && data.play_instances.length > 0 && (
+        <p className="inline-note">
+          试运行前，请展开“启动设置与实验方案”选择参数并勾选确认。配置读取不受此限制。
+        </p>
+      )}
+      {!data.play_instances.length && (
+        <div className="empty-inline">
+          尚无游玩实例。先导入安装版本，再登记独立数据目录。
+        </div>
+      )}
       {data.play_instances.map((item) => (
         <article key={item.id}>
           <h3>{item.name} · 绑定未验证</h3>
@@ -113,7 +127,10 @@ export default function PlayInstancesPanel({
               )?.name
             }
           </p>
-          <p className="mono">{item.data_root}</p>
+          <details className="inline-details">
+            <summary>数据目录</summary>
+            <p className="mono">{item.data_root}</p>
+          </details>
           {data.sessions
             .filter((session) => session.play_instance_id === item.id)
             .slice(0, 3)
@@ -241,72 +258,77 @@ export default function PlayInstancesPanel({
           </div>
         </Modal>
       )}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void perform(async () => {
-            await api.registerPlayInstance({
-              installation_id: installationId,
-              name,
-              data_root: root,
-            });
-            setName('');
-            setRoot('');
-            await onRefresh();
-          });
-        }}
+      <details
+        className="disclosure"
+        open={data.play_instances.length === 0 ? true : undefined}
       >
-        <label>
-          关联安装
-          <select
-            value={installationId}
-            disabled={busy}
-            onChange={(e) => setInstallationId(e.target.value)}
-          >
-            <option value="">选择已导入的游戏</option>
-            {data.installations.map((game) => (
-              <option key={game.id} value={game.id}>
-                {game.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          实例名称
-          <input
-            value={name}
-            disabled={busy}
-            maxLength={100}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        <p>
-          选择现有空目录，须与安装、工作区和其他实例分离。登记不会迁移文件。
-        </p>
-        <button
-          type="button"
-          className="secondary-button"
-          disabled={busy || !api.desktop}
-          onClick={() =>
+        <summary>登记新实例</summary>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
             void perform(async () => {
-              const selected = await api.pickPath('directory');
-              if (selected) setRoot(selected);
-            })
-          }
+              await api.registerPlayInstance({
+                installation_id: installationId,
+                name,
+                data_root: root,
+              });
+              setName('');
+              setRoot('');
+              await onRefresh();
+            });
+          }}
         >
-          选择实例空目录
-        </button>
-        <p className="mono">{root || '尚未选择'}</p>
-        <button
-          className="primary-button"
-          disabled={
-            busy || !api.desktop || !installationId || !name.trim() || !root
-          }
-        >
-          登记实例
-        </button>
-      </form>
-      <ConfigChangeHistory api={api} />
+          <label>
+            关联安装
+            <select
+              value={installationId}
+              disabled={busy}
+              onChange={(e) => setInstallationId(e.target.value)}
+            >
+              <option value="">选择已导入的游戏</option>
+              {data.installations.map((game) => (
+                <option key={game.id} value={game.id}>
+                  {game.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            实例名称
+            <input
+              value={name}
+              disabled={busy}
+              maxLength={100}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <p>
+            选择现有空目录，须与安装、工作区和其他实例分离。登记不会迁移文件。
+          </p>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={busy || !api.desktop}
+            onClick={() =>
+              void perform(async () => {
+                const selected = await api.pickPath('directory');
+                if (selected) setRoot(selected);
+              })
+            }
+          >
+            选择实例空目录
+          </button>
+          <p className="mono">{root || '尚未选择'}</p>
+          <button
+            className="primary-button"
+            disabled={
+              busy || !api.desktop || !installationId || !name.trim() || !root
+            }
+          >
+            登记实例
+          </button>
+        </form>
+      </details>
     </section>
   );
 }

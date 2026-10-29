@@ -391,6 +391,7 @@ describe('full backup confirmation and integrity display', () => {
     };
     vi.mocked(api.previewRetention).mockResolvedValue(report);
     show(api, { ...emptyDashboard, workspace, backups: [record] });
+    await user.click(screen.getByText('保留策略与清理预览'));
     await user.click(screen.getByRole('button', { name: '生成保留预览' }));
     expect(api.previewRetention).toHaveBeenCalledExactlyOnceWith({
       keep_recent: 7,
@@ -411,6 +412,7 @@ describe('full backup confirmation and integrity display', () => {
     const api = client();
     const user = userEvent.setup();
     show(api);
+    await user.click(screen.getByText('保留策略与清理预览'));
     const field = screen.getByLabelText('最近备份份数');
     await user.clear(field);
     await user.type(field, '1001');

@@ -36,7 +36,7 @@ it('requires a native selection and keeps binding uncertainty explicit', async (
       onRefresh={onRefresh}
     />,
   );
-  expect(screen.getByText(/并行启动尚未开放/)).toBeInTheDocument();
+  expect(screen.getByText(/普通方案保持全局互斥/)).toBeInTheDocument();
   expect(screen.getByRole('button', { name: '登记实例' })).toBeDisabled();
   await user.selectOptions(screen.getByLabelText('关联安装'), 'game');
   await user.type(screen.getByLabelText('实例名称'), '独立世界');
@@ -91,6 +91,7 @@ it('requires choosing a trial profile and a separate confirmation before launch'
   );
   const preview = screen.getByRole('button', { name: '预览 独立实例 试运行' });
   expect(preview).toBeDisabled();
+  await user.click(screen.getByText('启动设置与实验方案'));
   await user.click(screen.getByRole('checkbox'));
   await user.click(preview);
   expect(instanceLaunchPlan).toHaveBeenCalledWith(
@@ -141,6 +142,7 @@ it('changing a version profile clears acknowledgement and forwards the selected 
       onRefresh={vi.fn()}
     />,
   );
+  await user.click(screen.getByText('启动设置与实验方案'));
   await user.click(screen.getByRole('checkbox'));
   await user.selectOptions(
     screen.getByLabelText('试运行参数方案'),
@@ -287,6 +289,7 @@ it('lets an explicit candidate request backend admission while other claims exis
       onRefresh={vi.fn()}
     />,
   );
+  await user.click(screen.getByText('启动设置与实验方案'));
   await user.click(screen.getByRole('checkbox'));
   expect(
     screen.getByRole('button', { name: '预览 Candidate 试运行' }),

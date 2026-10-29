@@ -297,7 +297,10 @@ export default function ConfigChangePanel({
           <p>保护备份：{plan.backup_id}</p>
           <p>原摘要：{plan.before_sha256}</p>
           <p>新摘要：{plan.after_sha256}</p>
-          <pre>{plan.proposed_json}</pre>
+          <details>
+            <summary>查看完整拟写入配置</summary>
+            <pre>{plan.proposed_json}</pre>
+          </details>
           <p>
             此次会替换上述配置文件；保留未修改字段的解析值，JSON
             格式可能变化。不会自动启动游戏或验证加载兼容性。关闭窗口不会取消已经提交的应用。
