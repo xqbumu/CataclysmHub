@@ -139,3 +139,109 @@ it('exposes cancellation for active tasks and keeps interrupted work distinct fr
   ).toBeInTheDocument();
   expect(screen.queryByText(/副本校验完成/)).not.toBeInTheDocument();
 });
+
+it('binds deployment preview and confirmation to the explicitly chosen instance without a directory picker', async () => {
+  const api = client();
+  api.prepareInstanceContentInstall = vi.fn().mockResolvedValue({
+    instance_id: 'a',
+    instance_name: '实例 A',
+    installation_id: 'g',
+    plan: {
+      ...plan,
+      parent_dir: '/a',
+      destination: '/a/content-plan',
+      payload_root: '/a/sound/hub-plan',
+    },
+  });
+  const user = userEvent.setup();
+  render(
+    <ContentInstallButton
+      api={api}
+      entryId="entry"
+      unavailable={false}
+      onStarted={vi.fn()}
+      instances={[
+        {
+          id: 'a',
+          name: '实例 A',
+          installation_id: 'g',
+          installation_sha256: 'hash',
+          data_root: '/a',
+          binding_status: 'unverified',
+          created_at: '',
+        },
+        {
+          id: 'b',
+          name: '实例 B',
+          installation_id: 'g',
+          installation_sha256: 'hash',
+          data_root: '/b',
+          binding_status: 'unverified',
+          created_at: '',
+        },
+      ]}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '部署到游玩实例' }));
+  expect(screen.getByRole('button', { name: '预览实例部署' })).toBeDisabled();
+  await user.selectOptions(screen.getByLabelText('目标游玩实例'), 'a');
+  await user.click(screen.getByRole('button', { name: '预览实例部署' }));
+  const modal = await screen.findByRole('dialog', { name: '确认实例资源部署' });
+  expect(api.prepareInstanceContentInstall).toHaveBeenCalledWith('entry', 'a');
+  expect(api.pickPath).not.toHaveBeenCalled();
+  expect(api.startContentInstall).not.toHaveBeenCalled();
+  expect(within(modal).getByText(/目标实例：实例 A/)).toBeInTheDocument();
+  expect(
+    within(modal).getByRole('button', { name: '确认部署到此实例' }),
+  ).toBeDisabled();
+  await user.click(within(modal).getByRole('checkbox'));
+  await user.click(
+    within(modal).getByRole('button', { name: '确认部署到此实例' }),
+  );
+  expect(api.startContentInstall).toHaveBeenCalledWith(
+    'plan',
+    'digest',
+    expect.any(String),
+    true,
+  );
+});
+
+it('rejects a deployment response for a different instance before confirmation', async () => {
+  const api = client();
+  api.prepareInstanceContentInstall = vi.fn().mockResolvedValue({
+    instance_id: 'wrong',
+    instance_name: 'Wrong',
+    installation_id: 'g',
+    plan,
+  });
+  const user = userEvent.setup();
+  render(
+    <ContentInstallButton
+      api={api}
+      entryId="entry"
+      unavailable={false}
+      onStarted={vi.fn()}
+      instances={[
+        {
+          id: 'a',
+          name: 'A',
+          installation_id: 'g',
+          installation_sha256: 'hash',
+          data_root: '/a',
+          binding_status: 'unverified',
+          created_at: '',
+        },
+      ]}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '部署到游玩实例' }));
+  await user.selectOptions(screen.getByLabelText('目标游玩实例'), 'a');
+  await user.click(screen.getByRole('button', { name: '预览实例部署' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '部署计划与目标不一致',
+  );
+  expect(
+    screen.queryByRole('button', { name: '确认部署到此实例' }),
+  ).not.toBeInTheDocument();
+  expect(api.startContentInstall).not.toHaveBeenCalled();
+});

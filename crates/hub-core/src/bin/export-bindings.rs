@@ -16,6 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     hub_core::ContentConfigProtectionPlan::export_all(&cfg)?;
     hub_core::ContentEntry::export_all(&cfg)?;
     hub_core::ContentInstallPlan::export_all(&cfg)?;
+    hub_core::InstanceContentInstallPlan::export_all(&cfg)?;
     hub_core::ContentInstallTask::export_all(&cfg)?;
     hub_core::ManagedInstallationCopyPlan::export_all(&cfg)?;
     hub_core::InstanceResourcePreview::export_all(&cfg)?;

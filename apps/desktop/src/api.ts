@@ -1,3 +1,4 @@
+import type { InstanceContentInstallPlan } from './bindings/InstanceContentInstallPlan';
 import type { InstallationRecognition } from './bindings/InstallationRecognition';
 import type { HubPreferences } from './bindings/HubPreferences';
 import type { PreferencesReset } from './bindings/PreferencesReset';
@@ -113,6 +114,10 @@ export interface HubApi {
     input: ContentConfigInput,
   ): Promise<ContentConfigPlan>;
   inspectContentConfig(instanceId: string): Promise<ContentConfigReport>;
+  prepareInstanceContentInstall(
+    entryId: string,
+    instanceId: string,
+  ): Promise<InstanceContentInstallPlan>;
   prepareContentInstall(
     entryId: string,
     parentDir: string,
@@ -245,6 +250,8 @@ export const api: HubApi = {
     desktopOnly('preview_content_config', { instanceId, input }),
   inspectContentConfig: (instanceId) =>
     desktopOnly('inspect_content_config', { instanceId }),
+  prepareInstanceContentInstall: (entryId, instanceId) =>
+    desktopOnly('prepare_instance_content_install', { entryId, instanceId }),
   prepareContentInstall: (entryId, parentDir) =>
     desktopOnly('prepare_content_install', { entryId, parentDir }),
   startContentInstall: (planId, digest, key, confirmed) =>

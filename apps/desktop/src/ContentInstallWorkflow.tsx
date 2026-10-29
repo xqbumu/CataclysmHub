@@ -1,3 +1,6 @@
+import type { PlayInstance } from './bindings/PlayInstance';
+import type { Installation } from './bindings/Installation';
+import type { InstanceContentInstallPlan } from './bindings/InstanceContentInstallPlan';
 import { useEffect, useRef, useState } from 'react';
 import type { HubApi } from './api';
 import { errorMessage } from './api';
@@ -10,16 +13,24 @@ export function ContentInstallButton({
   entryId,
   unavailable,
   onStarted,
+  instances = [],
+  installations = [],
 }: {
   api: HubApi;
   entryId: string;
   unavailable: boolean;
   onStarted: () => void;
+  instances?: PlayInstance[];
+  installations?: Installation[];
 }) {
   const [plan, setPlan] = useState<ContentInstallPlan | null>(null);
   const [busy, setBusy] = useState(false);
   const [ack, setAck] = useState(false);
   const [error, setError] = useState('');
+  const [choosingInstance, setChoosingInstance] = useState(false);
+  const [instanceId, setInstanceId] = useState('');
+  const [deployment, setDeployment] =
+    useState<InstanceContentInstallPlan | null>(null);
   const requestKey = useRef('');
   async function preview() {
     setBusy(true);
@@ -27,6 +38,7 @@ export function ContentInstallButton({
     try {
       const parent = await api.pickPath('directory');
       if (!parent) return;
+      setDeployment(null);
       setPlan(await api.prepareContentInstall(entryId, parent));
       requestKey.current = crypto.randomUUID();
       setAck(false);
@@ -44,15 +56,97 @@ export function ContentInstallButton({
       >
         安装到独立资源目录
       </button>
-      {error && <p role="alert">{error}</p>}
+      <button
+        disabled={busy || unavailable || !api.desktop || !instances.length}
+        onClick={() => {
+          setChoosingInstance(true);
+          setError('');
+        }}
+      >
+        部署到游玩实例
+      </button>
+      {error && !plan && !choosingInstance && <p role="alert">{error}</p>}
+      {choosingInstance && (
+        <Modal
+          title="选择资源部署目标"
+          onClose={() => {
+            if (!busy) setChoosingInstance(false);
+          }}
+        >
+          <label>
+            目标游玩实例
+            <select
+              disabled={busy}
+              value={instanceId}
+              onChange={(e) => setInstanceId(e.target.value)}
+            >
+              <option value="">选择实例及关联游戏</option>
+              {instances.map((instance) => {
+                const game = installations.find(
+                  (i) => i.id === instance.installation_id,
+                );
+                return (
+                  <option key={instance.id} value={instance.id}>
+                    {instance.name} · {game?.name ?? instance.installation_id} ·{' '}
+                    {game?.version ?? '版本未知'}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          <p>
+            复制到所选实例的 mods 或 sound
+            新目录；不修改游戏安装、已有资源或世界组合。部署后重新读取该实例配置，再选择模组或声音。
+          </p>
+          <p className="inline-note">
+            当前发布支持 macOS/Linux；其他系统由后端拒绝，尚未完成运行验收。
+          </p>
+          {error && <p role="alert">{error}</p>}
+          <button disabled={busy} onClick={() => setChoosingInstance(false)}>
+            取消
+          </button>
+          <button
+            disabled={busy || !instances.some((i) => i.id === instanceId)}
+            onClick={() => {
+              setBusy(true);
+              setError('');
+              void api
+                .prepareInstanceContentInstall(entryId, instanceId)
+                .then((result) => {
+                  if (
+                    result.instance_id !== instanceId ||
+                    result.plan.entry_id !== entryId
+                  )
+                    throw new Error('部署计划与目标不一致，请重新预览。');
+                  setDeployment(result);
+                  setPlan(result.plan);
+                  setChoosingInstance(false);
+                  setAck(false);
+                  requestKey.current = crypto.randomUUID();
+                })
+                .catch((e) => setError(errorMessage(e)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {busy ? '正在检查资源范围…' : '预览实例部署'}
+          </button>
+        </Modal>
+      )}
       {plan && (
         <Modal
-          title="确认资源包安装"
+          title={deployment ? '确认实例资源部署' : '确认资源包安装'}
           onClose={() => {
             if (!busy) setPlan(null);
           }}
         >
-          <p>此操作创建独立资源副本，不写入游戏、不修改世界、不自动启用。</p>
+          {deployment ? (
+            <p>
+              目标实例：{deployment.instance_name} · {deployment.instance_id}
+              。只部署资源文件，不修改游戏安装或世界组合，不自动启用。
+            </p>
+          ) : (
+            <p>此操作创建独立资源副本，不写入游戏、不修改世界、不自动启用。</p>
+          )}
           <p className="file-path">来源：{plan.source_root}</p>
           <p className="file-path">安装容器：{plan.destination}</p>
           <p className="file-path">资源目录：{plan.payload_root}</p>
@@ -107,7 +201,7 @@ export function ContentInstallButton({
                 .finally(() => setBusy(false));
             }}
           >
-            确认安装副本
+            {deployment ? '确认部署到此实例' : '确认安装副本'}
           </button>
         </Modal>
       )}
@@ -161,7 +255,7 @@ export function ContentInstallTasks({
         <article key={task.id} className="panel">
           <p>
             {task.state === 'succeeded'
-              ? '完成时副本校验通过 · 游戏兼容性未验证 · 未启用'
+              ? '完成时副本校验通过 · 游戏兼容性未验证 · 配置未修改'
               : task.state === 'running'
                 ? '复制及校验中'
                 : task.state === 'cancelling'
@@ -181,7 +275,7 @@ export function ContentInstallTasks({
           )}
           {task.state === 'succeeded' && (
             <p>
-              可以通过“登记本地包目录”选择此资源目录。登记仍不会启用资源；修改世界配置前先建立保护点。
+              独立资源库副本可通过“登记本地包目录”登记；若部署到实例，请重新读取该实例配置并选择资源。此任务不自动启用，修改配置前仍需保护副本。
             </p>
           )}
           {['running', 'cancelling'].includes(task.state) && (

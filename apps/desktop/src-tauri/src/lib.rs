@@ -298,6 +298,17 @@ async fn prepare_content_install(
         .await
 }
 #[tauri::command]
+async fn prepare_instance_content_install(
+    state: tauri::State<'_, AppState>,
+    entry_id: String,
+    instance_id: String,
+) -> Result<hub_core::InstanceContentInstallPlan, HubError> {
+    state
+        .hub
+        .prepare_instance_content_install(&entry_id, &instance_id)
+        .await
+}
+#[tauri::command]
 async fn start_content_install(
     state: tauri::State<'_, AppState>,
     plan_id: String,
@@ -904,6 +915,7 @@ pub fn run() {
             inspect_config_change,
             resolve_config_change,
             prepare_content_install,
+            prepare_instance_content_install,
             start_content_install,
             content_install_tasks,
             cancel_content_install,

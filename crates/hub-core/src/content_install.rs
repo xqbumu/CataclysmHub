@@ -37,6 +37,99 @@ pub struct ContentInstallPlan {
     pub expires_at: String,
     pub warnings: Vec<String>,
 }
+#[derive(Debug, Clone, Serialize, TS)]
+pub struct InstanceContentInstallPlan {
+    pub instance_id: String,
+    pub instance_name: String,
+    pub installation_id: String,
+    pub plan: ContentInstallPlan,
+}
+struct Deployment {
+    instance: crate::PlayInstance,
+    installation: crate::Installation,
+    definitions: Vec<crate::ContentDefinition>,
+    metadata_sha256: String,
+    kind: String,
+}
+fn role(kind: &str) -> &'static str {
+    if kind == "mod" { "mods" } else { "sound" }
+}
+fn check_deployment(d: &Deployment) -> Result<()> {
+    let root = Path::new(&d.instance.data_root);
+    let path = root.join(role(&d.kind));
+    match std::fs::symlink_metadata(&path) {
+        Ok(m) if !m.is_dir() || m.file_type().is_symlink() => return Err(changed()),
+        Ok(_) => (),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => (),
+        Err(e) => return Err(format::io_error(e)),
+    }
+    let discovery = crate::content_discovery::discover(root, &d.installation.working_dir);
+    if discovery.truncated
+        || discovery
+            .scopes
+            .iter()
+            .any(|s| !matches!(s.status.as_str(), "scanned" | "missing"))
+    {
+        return Err(HubError::new(
+            "CONTENT_DISCOVERY_INCOMPLETE",
+            "目标资源扫描不完整，不能排除重复 ID。",
+        ));
+    }
+    let mut ids = std::collections::HashSet::new();
+    for definition in &d.definitions {
+        if !ids.insert(&definition.content_id)
+            || discovery
+                .packages
+                .iter()
+                .filter(|p| p.kind == d.kind)
+                .flat_map(|p| &p.definitions)
+                .any(|item| item.content_id == definition.content_id)
+        {
+            return Err(HubError::new(
+                "CONTENT_ID_CONFLICT",
+                "目标实例或关联安装已有相同资源 ID；请先排查，不能叠加覆盖。",
+            ));
+        }
+    }
+    Ok(())
+}
+fn publish_deployment(p: &PreparedContentInstall, container: &Dir, d: &Deployment) -> Result<()> {
+    check_deployment(d)?;
+    same(&p.parent, Path::new(&p.plan.parent_dir))?;
+    let name = role(&d.kind);
+    match p.parent.create_dir(name) {
+        Ok(()) => (),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+        Err(e) => return Err(format::io_error(e)),
+    }
+    let target = p.parent.open_dir_nofollow(name).map_err(format::io_error)?;
+    same(&target, &Path::new(&p.plan.parent_dir).join(name))?;
+    let leaf = Path::new(&p.plan.payload_root)
+        .file_name()
+        .ok_or_else(changed)?;
+    rustix::fs::renameat_with(
+        container,
+        "data",
+        &target,
+        leaf,
+        rustix::fs::RenameFlags::NOREPLACE,
+    )
+    .map_err(|e| format::io_error(e.into()))?;
+    sync(&target)?;
+    Ok(())
+}
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+fn publish_deployment(
+    _p: &PreparedContentInstall,
+    _container: &Dir,
+    _d: &Deployment,
+) -> Result<()> {
+    Err(HubError::new(
+        "CONTENT_DEPLOY_PLATFORM_UNSUPPORTED",
+        "此平台的资源发布尚未验证。",
+    ))
+}
+
 #[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
 pub struct ContentInstallTask {
     pub id: String,
@@ -58,6 +151,7 @@ pub(crate) struct PreparedContentInstall {
     plan: ContentInstallPlan,
     source: Dir,
     parent: Dir,
+    deployment: Option<Deployment>,
 }
 fn changed() -> HubError {
     HubError::new(
@@ -176,18 +270,29 @@ fn execute<T>(
     same(&p.source, Path::new(&p.plan.source_root))?;
     same(&p.parent, Path::new(&p.plan.parent_dir))?;
     same(&container, Path::new(&p.plan.destination))?;
-    same(&target, Path::new(&p.plan.payload_root))?;
+    same(
+        &target,
+        if p.deployment.is_some() {
+            Path::new(&p.plan.destination).join("data")
+        } else {
+            PathBuf::from(&p.plan.payload_root)
+        }
+        .as_path(),
+    )?;
     // Serialize cancellation with the durable publication boundary.
     let _gate = before_publish()?;
     format::check_cancel(cancel)?;
     let bytes = serde_json::to_vec(&p.plan.files).map_err(|_| changed())?;
     write_new(&container, "content-manifest.json", &bytes)?;
-    write_new(&container, "content-verification.json", &serde_json::to_vec(&serde_json::json!({"schema_version":1,"plan_id":p.plan.id,"manifest_sha256":p.plan.manifest_sha256,"payload_root":"data","verified_at":now(),"game_compatibility":"unverified"})).map_err(|_| changed())?)?;
+    write_new(&container, "content-verification.json", &serde_json::to_vec(&serde_json::json!({"schema_version":1,"plan_id":p.plan.id,"manifest_sha256":p.plan.manifest_sha256,"payload_root":if p.deployment.is_some() { p.plan.payload_root.as_str() } else { "data" },"target_instance_id":p.deployment.as_ref().map(|d| &d.instance.id),"verified_at":now(),"game_compatibility":"unverified"})).map_err(|_| changed())?)?;
     for entry in p.plan.files.iter().rev().filter(|e| e.kind == "directory") {
         let (parent, name) = format::parent(&target, &entry.path)?;
         sync(&parent.open_dir_nofollow(name).map_err(format::io_error)?)?;
     }
     sync(&target)?;
+    if let Some(deployment) = &p.deployment {
+        publish_deployment(p, &container, deployment)?;
+    }
     sync(&container)?;
     container
         .remove_file("CONTENT_INSTALL_INCOMPLETE")
@@ -197,7 +302,12 @@ fn execute<T>(
     Ok(())
 }
 impl Hub {
-    async fn content_install_scope(&self, source: &Path, parent: &Path) -> Result<()> {
+    async fn content_install_scope(
+        &self,
+        source: &Path,
+        parent: &Path,
+        deployment: Option<&Deployment>,
+    ) -> Result<()> {
         self.check_resource_claims().await?;
         if crate::play_instances::overlaps(source, parent)? {
             return Err(HubError::new(
@@ -229,6 +339,7 @@ impl Hub {
         protected.extend(
             data.play_instances
                 .into_iter()
+                .filter(|i| !deployment.is_some_and(|d| d.instance.id == i.id))
                 .map(|i| PathBuf::from(i.data_root)),
         );
         protected.extend(
@@ -251,6 +362,69 @@ impl Hub {
         entry_id: &str,
         parent_dir: &str,
     ) -> Result<ContentInstallPlan> {
+        self.prepare_content_install_target(entry_id, parent_dir, None)
+            .await
+    }
+    pub async fn prepare_instance_content_install(
+        &self,
+        entry_id: &str,
+        instance_id: &str,
+    ) -> Result<InstanceContentInstallPlan> {
+        let instance = self.instance(instance_id).await?;
+        let plan = self
+            .prepare_content_install_target(entry_id, &instance.data_root, Some(instance_id))
+            .await?;
+        Ok(InstanceContentInstallPlan {
+            instance_id: instance.id,
+            instance_name: instance.name,
+            installation_id: instance.installation_id,
+            plan,
+        })
+    }
+    async fn deployment_context(
+        &self,
+        instance_id: &str,
+        entry: &crate::ContentEntry,
+    ) -> Result<Deployment> {
+        if !cfg!(any(target_os = "macos", target_os = "linux")) {
+            return Err(HubError::new(
+                "CONTENT_DEPLOY_PLATFORM_UNSUPPORTED",
+                "此平台的资源发布尚未验证。",
+            ));
+        }
+        let instance = self.instance(instance_id).await?;
+        let installation = self
+            .dashboard()
+            .await?
+            .installations
+            .into_iter()
+            .find(|i| i.id == instance.installation_id)
+            .ok_or_else(changed)?;
+        if installation.sha256 != instance.installation_sha256
+            || paths::digest(PathBuf::from(&installation.executable)).await? != installation.sha256
+        {
+            return Err(changed());
+        }
+        let context = Deployment {
+            instance,
+            installation,
+            definitions: entry.definitions.clone(),
+            metadata_sha256: entry.metadata_sha256.clone(),
+            kind: entry.kind.clone(),
+        };
+        tokio::task::spawn_blocking(move || {
+            check_deployment(&context)?;
+            Ok(context)
+        })
+        .await
+        .map_err(|_| changed())?
+    }
+    async fn prepare_content_install_target(
+        &self,
+        entry_id: &str,
+        parent_dir: &str,
+        instance_id: Option<&str>,
+    ) -> Result<ContentInstallPlan> {
         let _gate = self.mutation.lock().await;
         let entry = self
             .content_entries()
@@ -263,21 +437,42 @@ impl Hub {
             return Err(changed());
         }
         let parent_path = paths::canonical(parent_dir, true)?;
-        self.content_install_scope(&source_path, &parent_path)
+        let deployment = if let Some(id) = instance_id {
+            let context = self.deployment_context(id, &entry).await?;
+            if Path::new(&context.instance.data_root) != parent_path {
+                return Err(changed());
+            }
+            Some(context)
+        } else {
+            None
+        };
+        self.content_install_scope(&source_path, &parent_path, deployment.as_ref())
             .await?;
         let plan_id = id();
-        let destination = parent_path.join(format!("content-{plan_id}"));
+        let destination = parent_path.join(if deployment.is_some() {
+            format!(".hub-content-{plan_id}")
+        } else {
+            format!("content-{plan_id}")
+        });
         let prepared = tokio::task::spawn_blocking(move || {
             let source = Dir::open_ambient_dir(&source_path, cap_std::ambient_authority()).map_err(format::io_error)?;
             let parent = Dir::open_ambient_dir(&parent_path, cap_std::ambient_authority()).map_err(format::io_error)?;
             let files = scan(&source, &AtomicBool::new(false))?;
             let metadata = if entry.kind == "mod" { "modinfo.json" } else { "soundpack.txt" };
+            if deployment.is_some() && files.iter().any(|file| file.path.contains('/') && matches!(Path::new(&file.path).file_name().and_then(|n| n.to_str()), Some("modinfo.json" | "soundpack.txt"))) {
+                return Err(HubError::new("CONTENT_NESTED_PACKAGE_UNSUPPORTED", "一次只部署单个资源根；请先分别登记嵌套包。"));
+            }
             if !files.iter().any(|f| f.path == metadata && f.sha256.as_deref() == Some(&entry.metadata_sha256)) { return Err(changed()); }
             let total = files.iter().try_fold(0u64, |sum, f| sum.checked_add(f.size.parse().ok()?)).ok_or_else(changed)?;
             let manifest_sha256 = format::sha(&serde_json::to_vec(&files).map_err(|_| changed())?);
             let mut plan = ContentInstallPlan { id: plan_id, plan_digest: String::new(), entry_id: entry.id, source_root: entry.root, parent_dir: paths::text(&parent_path)?, destination: paths::text(&destination)?, payload_root: paths::text(&destination.join("data"))?, content_kind: entry.kind, manifest_sha256, files, total_bytes: total.to_string(), expires_at: (chrono::Utc::now()+chrono::Duration::minutes(10)).to_rfc3339(), warnings: vec!["复制到独立资源库目录，不写入游戏安装或世界，不自动启用。".into(), "包含整个包的普通文件和目录；链接、特殊文件和硬链接不支持。".into(), "完整文件清单 SHA-256 不证明来源真实性、版本兼容或声音可播放；不保留权限、时间戳及扩展属性。".into(), "同 ID 资源可并存；启用前仍需检查目标游戏的依赖、冲突与存档影响。".into(), "中断、失败或取消保留未完成目录，不自动删除或重放。".into()] };
+            if let Some(target) = &deployment {
+                plan.payload_root = paths::text(&parent_path.join(role(&plan.content_kind)).join(format!("hub-{}", plan.id)))?;
+                plan.warnings = vec!["仅部署到选定实例的资源目录，不修改安装或已有世界配置，不自动启用。".into(), "先在实例内暂存并校验，再发布到新目录；重复 ID 拒绝，不覆盖已有资源。".into(), "失败或中断保留暂存现场；发布后状态记录失败时需核对现场，不自动重复复制。".into(), "不改配置；若已有配置引用这些 ID，下次启动可能加载。游戏实际加载、模组兼容及声音播放仍需验收。".into()];
+                if target.instance.data_root != plan.parent_dir { return Err(changed()); }
+            }
             plan.plan_digest = format::sha(&serde_json::to_vec(&plan).map_err(|_| changed())?);
-            Ok::<_, HubError>(PreparedContentInstall { plan, source, parent })
+            Ok::<_, HubError>(PreparedContentInstall { plan, source, parent, deployment })
         }).await.map_err(|_| changed())??;
         let plan = prepared.plan.clone();
         let mut plans = self.content_install_plans.lock().await;
@@ -357,8 +552,28 @@ impl Hub {
         if plan.plan_digest != digest || plan.expires_at <= now() {
             return Err(changed());
         }
-        self.content_install_scope(Path::new(&plan.source_root), Path::new(&plan.parent_dir))
-            .await?;
+        if let Some(target) = &prepared.deployment {
+            let entry = self
+                .content_entries()
+                .await?
+                .into_iter()
+                .find(|e| e.id == plan.entry_id && e.last_error.is_none())
+                .ok_or_else(changed)?;
+            let current = self.deployment_context(&target.instance.id, &entry).await?;
+            if current.instance.data_root != target.instance.data_root
+                || current.instance.installation_sha256 != target.instance.installation_sha256
+                || current.installation.executable != target.installation.executable
+                || current.metadata_sha256 != target.metadata_sha256
+            {
+                return Err(changed());
+            }
+        }
+        self.content_install_scope(
+            Path::new(&plan.source_root),
+            Path::new(&plan.parent_dir),
+            prepared.deployment.as_ref(),
+        )
+        .await?;
         same(&prepared.source, Path::new(&plan.source_root))?;
         same(&prepared.parent, Path::new(&plan.parent_dir))?;
         let task_id = id();

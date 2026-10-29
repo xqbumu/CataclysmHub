@@ -1629,6 +1629,7 @@ dependencies = [
  "cap-std",
  "chrono",
  "fs2",
+ "rustix",
  "same-file",
  "serde",
  "serde_json",

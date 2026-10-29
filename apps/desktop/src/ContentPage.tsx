@@ -191,6 +191,8 @@ export default function ContentPage({
             <ContentInstallButton
               api={api}
               entryId={entry.id}
+              instances={data.play_instances}
+              installations={data.installations}
               unavailable={busy || !!entry.last_error}
               onStarted={() => setInstallRevision((r) => r + 1)}
             />

@@ -60,7 +60,9 @@ mod content;
 pub use content::{ContentDefinition, ContentEntry};
 
 mod content_install;
-pub use content_install::{ContentFile, ContentInstallPlan, ContentInstallTask};
+pub use content_install::{
+    ContentFile, ContentInstallPlan, ContentInstallTask, InstanceContentInstallPlan,
+};
 
 mod content_config;
 pub use content_config::{

@@ -67,6 +67,7 @@ function client(data: Dashboard = emptyDashboard): HubApi {
     configChanges: vi.fn(),
     inspectConfigChange: vi.fn(),
     resolveConfigChange: vi.fn(),
+    prepareInstanceContentInstall: vi.fn(),
     prepareContentInstall: vi.fn(),
     startContentInstall: vi.fn(),
     contentInstallTasks: vi.fn().mockResolvedValue([]),

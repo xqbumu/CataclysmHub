@@ -84,6 +84,7 @@ it('requires native scope selection and separate copy confirmation; preview canc
     configChanges: vi.fn(),
     inspectConfigChange: vi.fn(),
     resolveConfigChange: vi.fn(),
+    prepareInstanceContentInstall: vi.fn(),
     prepareContentInstall: vi.fn(),
     startContentInstall: vi.fn(),
     contentInstallTasks: vi.fn().mockResolvedValue([]),

@@ -349,3 +349,310 @@ async fn schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision() {
         );
     }
 }
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+impl Fixture {
+    async fn instance(&self, id: &str) -> PathBuf {
+        use sha2::{Digest, Sha256};
+        let game = self.temp.path().join("game");
+        std::fs::create_dir_all(&game).unwrap();
+        std::fs::write(game.join("game"), b"synthetic not executed").unwrap();
+        let game = std::fs::canonicalize(game).unwrap();
+        let hash = format!("{:x}", Sha256::digest(b"synthetic not executed"));
+        let root = self.temp.path().join(id);
+        std::fs::create_dir(&root).unwrap();
+        let root = std::fs::canonicalize(root).unwrap();
+        let pool = self.pool().await;
+        sqlx::query("INSERT OR IGNORE INTO installation VALUES('game','Game',?,?,?,NULL,NULL,'test','test','now')").bind(game.join("game").to_str().unwrap()).bind(game.to_str().unwrap()).bind(&hash).execute(&pool).await.unwrap();
+        sqlx::query("INSERT INTO play_instance VALUES(?,'game',?,?,?,'unverified','now')")
+            .bind(id)
+            .bind(hash)
+            .bind(id)
+            .bind(root.to_str().unwrap())
+            .execute(&pool)
+            .await
+            .unwrap();
+        pool.close().await;
+        root
+    }
+}
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn deployment_publishes_complete_soundpack_only_to_selected_instance_and_is_idempotent() {
+    let f = Fixture::new().await;
+    let root = f.instance("a").await;
+    let other = f.instance("b").await;
+    let deployment = f
+        .hub
+        .prepare_instance_content_install(&f.entry, "a")
+        .await
+        .unwrap();
+    let plan = &deployment.plan;
+    assert_eq!(deployment.instance_id, "a");
+    assert!(!root.join("sound").exists());
+    assert!(PathBuf::from(&plan.payload_root).starts_with(root.join("sound")));
+    let key = uuid::Uuid::new_v4().to_string();
+    assert_eq!(
+        f.hub
+            .start_content_install(&plan.id, &plan.plan_digest, &key, false)
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIRMATION_REQUIRED"
+    );
+    assert!(!PathBuf::from(&plan.destination).exists());
+    let task = f
+        .hub
+        .start_content_install(&plan.id, &plan.plan_digest, &key, true)
+        .await
+        .unwrap();
+    assert_eq!(f.wait(&task).await.state, "succeeded");
+    assert_eq!(
+        f.hub
+            .start_content_install(&plan.id, &plan.plan_digest, &key, true)
+            .await
+            .unwrap(),
+        task
+    );
+    let payload = PathBuf::from(&plan.payload_root);
+    assert_eq!(
+        std::fs::read(payload.join("soundpack.txt")).unwrap(),
+        std::fs::read(f.source.join("soundpack.txt")).unwrap()
+    );
+    assert_eq!(
+        std::fs::read(payload.join("audio/sample.ogg")).unwrap(),
+        b"synthetic audio bytes"
+    );
+    assert!(!PathBuf::from(&plan.destination).join("data").exists());
+    assert!(!other.join("sound").exists());
+    assert!(!root.join("config").exists());
+    let report = f.hub.inspect_content_config("a").await.unwrap();
+    assert!(
+        report
+            .discovery
+            .packages
+            .iter()
+            .any(|p| p.path == plan.payload_root && p.kind == "soundpack")
+    );
+    assert_eq!(
+        f.hub
+            .prepare_instance_content_install(&f.entry, "a")
+            .await
+            .unwrap_err()
+            .code,
+        "CONTENT_ID_CONFLICT"
+    );
+}
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn deployment_rechecks_duplicate_ids_and_refuses_active_sessions() {
+    let f = Fixture::new().await;
+    let root = f.instance("a").await;
+    let plan = f
+        .hub
+        .prepare_instance_content_install(&f.entry, "a")
+        .await
+        .unwrap()
+        .plan;
+    std::fs::create_dir_all(root.join("sound/existing")).unwrap();
+    std::fs::copy(
+        f.source.join("soundpack.txt"),
+        root.join("sound/existing/soundpack.txt"),
+    )
+    .unwrap();
+    assert_eq!(
+        f.hub
+            .start_content_install(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .unwrap_err()
+            .code,
+        "CONTENT_ID_CONFLICT"
+    );
+    assert!(!PathBuf::from(&plan.destination).exists());
+    std::fs::remove_dir_all(root.join("sound")).unwrap();
+    let pool = f.pool().await;
+    sqlx::query("INSERT INTO session(id,installation_id,state,started_at,play_instance_id) VALUES('active','game','running','now','a')").execute(&pool).await.unwrap();
+    assert!(
+        f.hub
+            .start_content_install(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .is_err()
+    );
+    assert!(!PathBuf::from(&plan.destination).exists());
+}
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn deployment_never_overwrites_existing_output_and_keeps_failed_staging_outside_discovery() {
+    let f = Fixture::new().await;
+    f.instance("a").await;
+    let plan = f
+        .hub
+        .prepare_instance_content_install(&f.entry, "a")
+        .await
+        .unwrap()
+        .plan;
+    std::fs::create_dir_all(&plan.payload_root).unwrap();
+    std::fs::write(PathBuf::from(&plan.payload_root).join("sentinel"), b"keep").unwrap();
+    let task = f
+        .hub
+        .start_content_install(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(f.wait(&task).await.state, "failed");
+    assert_eq!(
+        std::fs::read(PathBuf::from(&plan.payload_root).join("sentinel")).unwrap(),
+        b"keep"
+    );
+    assert!(
+        !PathBuf::from(&plan.payload_root)
+            .join("soundpack.txt")
+            .exists()
+    );
+    assert!(
+        PathBuf::from(&plan.destination)
+            .join("CONTENT_INSTALL_INCOMPLETE")
+            .exists()
+    );
+    assert!(
+        f.hub
+            .inspect_content_config("a")
+            .await
+            .unwrap()
+            .discovery
+            .packages
+            .is_empty()
+    );
+}
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn deployment_refuses_linked_role_and_replaced_program() {
+    let f = Fixture::new().await;
+    let root = f.instance("a").await;
+    std::os::unix::fs::symlink(&f.parent, root.join("sound")).unwrap();
+    assert!(
+        f.hub
+            .prepare_instance_content_install(&f.entry, "a")
+            .await
+            .is_err()
+    );
+    std::fs::remove_file(root.join("sound")).unwrap();
+    let plan = f
+        .hub
+        .prepare_instance_content_install(&f.entry, "a")
+        .await
+        .unwrap()
+        .plan;
+    std::fs::write(f.temp.path().join("game/game"), b"changed").unwrap();
+    assert!(
+        f.hub
+            .start_content_install(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true
+            )
+            .await
+            .is_err()
+    );
+    assert!(!PathBuf::from(&plan.destination).exists());
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn mod_deployment_preserves_worlds_and_default_configuration() {
+    let f = Fixture::new().await;
+    let root = f.instance("a").await;
+    let source = f.temp.path().join("mod");
+    std::fs::create_dir(&source).unwrap();
+    std::fs::write(
+        source.join("modinfo.json"),
+        br#"[{"type":"MOD_INFO","id":"extra","name":"Extra","dependencies":[]}]"#,
+    )
+    .unwrap();
+    std::fs::create_dir_all(root.join("save/world")).unwrap();
+    std::fs::write(root.join("save/world/mods.json"), b"[\"dda\"]").unwrap();
+    std::fs::create_dir(root.join("config")).unwrap();
+    std::fs::write(
+        root.join("config/user-default-mods.json"),
+        b"{\"dependencies\":[\"dda\"]}",
+    )
+    .unwrap();
+    let entry = f
+        .hub
+        .register_content(source.to_str().unwrap(), "mod")
+        .await
+        .unwrap();
+    let plan = f
+        .hub
+        .prepare_instance_content_install(&entry.id, "a")
+        .await
+        .unwrap()
+        .plan;
+    let task = f
+        .hub
+        .start_content_install(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(f.wait(&task).await.state, "succeeded");
+    assert!(PathBuf::from(&plan.payload_root).starts_with(root.join("mods")));
+    assert_eq!(
+        std::fs::read(root.join("save/world/mods.json")).unwrap(),
+        b"[\"dda\"]"
+    );
+    assert_eq!(
+        std::fs::read(root.join("config/user-default-mods.json")).unwrap(),
+        b"{\"dependencies\":[\"dda\"]}"
+    );
+    assert!(
+        f.hub
+            .inspect_content_config("a")
+            .await
+            .unwrap()
+            .discovery
+            .packages
+            .iter()
+            .any(|p| p.path == plan.payload_root && p.kind == "mod")
+    );
+}
+
+#[cfg(any(target_os = "macos", target_os = "linux"))]
+#[tokio::test]
+async fn deployment_rejects_nested_resource_roots_before_creating_staging() {
+    let f = Fixture::new().await;
+    let root = f.instance("a").await;
+    std::fs::create_dir(f.source.join("nested")).unwrap();
+    std::fs::copy(
+        f.source.join("soundpack.txt"),
+        f.source.join("nested/soundpack.txt"),
+    )
+    .unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_instance_content_install(&f.entry, "a")
+            .await
+            .unwrap_err()
+            .code,
+        "CONTENT_NESTED_PACKAGE_UNSUPPORTED"
+    );
+    assert_eq!(std::fs::read_dir(root).unwrap().count(), 0);
+}
