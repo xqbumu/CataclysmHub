@@ -1,3 +1,4 @@
+import TaskCenter from './TaskCenter';
 import WorkspaceTabs from './WorkspaceTabs';
 import { ConfigChangeHistory } from './ConfigChangePanel';
 import ContentPage from './ContentPage';
@@ -126,6 +127,7 @@ function NavItem({
 }
 
 export default function App({ api = nativeApi }: { api?: HubApi }) {
+  const [backupView, setBackupView] = useState('archives');
   const [gameView, setGameView] = useState('instances');
   const [page, setPage] = useState<Page>('overview');
   const [data, setData] = useState(emptyDashboard);
@@ -642,6 +644,8 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
               {page === 'backups' && (
                 <WorkspaceTabs
                   label="存档管理视图"
+                  value={backupView}
+                  onChange={setBackupView}
                   items={[
                     {
                       id: 'archives',
@@ -731,6 +735,20 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
               )}
               {page === 'activity' && (
                 <>
+                  <TaskCenter
+                    data={data}
+                    api={api}
+                    onOpen={(destination) => {
+                      if (destination === 'copies') {
+                        setGameView('copies');
+                        setPage('games');
+                      } else if (destination === 'content') setPage('content');
+                      else {
+                        setBackupView(destination);
+                        setPage('backups');
+                      }
+                    }}
+                  />
                   <ResourceClaimsPanel
                     claims={data.resource_claims}
                     onAcknowledge={setAcknowledging}

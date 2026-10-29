@@ -2247,3 +2247,26 @@ footer {
     white-space: nowrap;
   }
 }
+
+.task-center-filters {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(220px, 2fr);
+  gap: 16px;
+}
+.task-center-item {
+  padding: 20px 0;
+  border-top: 1px solid var(--line);
+}
+.task-center-item h3 {
+  margin: 0;
+}
+.task-center-item p,
+.task-center-item code {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .task-center-filters {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+}

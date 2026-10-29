@@ -273,3 +273,35 @@ describe('workspace and launch safety', () => {
     },
   );
 });
+
+it('opens the worlds subview from a scan task in the task center', async () => {
+  const service = client({
+    ...emptyDashboard,
+    workspace,
+    scan_tasks: [
+      {
+        id: 'scan-route',
+        request_key: 'scan-key',
+        workspace_id: workspace.id,
+        operation: 'world.scan',
+        state: 'failed',
+        phase: 'finished',
+        processed_entries: 0,
+        revision: 1,
+        error_code: 'READ_FAILED',
+        created_at: workspace.created_at,
+        finished_at: workspace.created_at,
+      },
+    ],
+  });
+  const user = userEvent.setup();
+  render(<App api={service} />);
+  await user.click(await screen.findByRole('button', { name: '任务与记录' }));
+  await user.click(screen.getByRole('button', { name: '打开世界扫描管理' }));
+  expect(screen.getByRole('tab', { name: '世界与角色' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  expect(service.scanWorlds).not.toHaveBeenCalled();
+  expect(service.launch).not.toHaveBeenCalled();
+});
