@@ -1,0 +1,15 @@
+{
+  "fixture_root": "/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-app-argv-review-2gdn51pk",
+  "kind": "synthetic argv receiver; no game or LaunchServices executed",
+  "launcher_source": "/private/tmp/cataclysm-hub-real-game-validation/0.I-1.app/Contents/MacOS/Cataclysm.sh",
+  "arguments": [
+    "--userdir",
+    "/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-app-argv-review-2gdn51pk/instance",
+    "--savedir",
+    "/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-app-argv-review-2gdn51pk/instance/save"
+  ],
+  "exit_code": 0,
+  "stdout": "argc=0\nHOME=/Users/bumu\n",
+  "stderr": "",
+  "launcher_sha256": "fa851b9b3bf24ba30af927b84dba0af3a5f107c8cfdc894e8e865be3c9a37a72"
+}
