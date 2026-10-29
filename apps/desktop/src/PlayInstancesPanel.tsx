@@ -11,11 +11,24 @@ export default function PlayInstancesPanel({
   api,
   data,
   onRefresh,
+  installationFilter = '',
+  onInstallationFilterChange,
 }: {
   api: HubApi;
   data: Dashboard;
   onRefresh: () => Promise<void>;
+  installationFilter?: string;
+  onInstallationFilterChange?: (id: string) => void;
 }) {
+  const [query, setQuery] = useState('');
+  const visibleInstances = data.play_instances.filter(
+    (item) =>
+      (!installationFilter || item.installation_id === installationFilter) &&
+      [item.name, item.id, item.data_root]
+        .join(' ')
+        .toLowerCase()
+        .includes(query.trim().toLowerCase()),
+  );
   const [installationId, setInstallationId] = useState('');
   const [name, setName] = useState('');
   const [root, setRoot] = useState('');
@@ -52,6 +65,39 @@ export default function PlayInstancesPanel({
       <p className="inline-note">
         目录绑定尚未验证。启动前须选择并确认参数方案；并发仅限实验候选。
       </p>
+      <div className="task-center-filters">
+        {onInstallationFilterChange && (
+          <label>
+            筛选安装版本
+            <select
+              value={installationFilter}
+              onChange={(e) => onInstallationFilterChange(e.target.value)}
+            >
+              <option value="">全部安装版本</option>
+              {data.installations.map((game) => (
+                <option key={game.id} value={game.id}>
+                  {game.name} · {game.version ?? '版本未知'}
+                </option>
+              ))}
+              {installationFilter &&
+                !data.installations.some(
+                  (game) => game.id === installationFilter,
+                ) && <option value={installationFilter}>安装记录不可用</option>}
+            </select>
+          </label>
+        )}
+        <label>
+          搜索游玩实例
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="实例名称、ID 或数据目录"
+          />
+        </label>
+      </div>
+      {data.play_instances.length > 0 && !visibleInstances.length && (
+        <p role="status">没有匹配的游玩实例，请调整版本或搜索条件。</p>
+      )}
       <details className="disclosure launch-settings">
         <summary>启动设置与实验方案</summary>
         <p className="warning">
@@ -117,15 +163,12 @@ export default function PlayInstancesPanel({
           尚无游玩实例。先导入安装版本，再登记独立数据目录。
         </div>
       )}
-      {data.play_instances.map((item) => (
+      {visibleInstances.map((item) => (
         <article key={item.id}>
           <h3>{item.name} · 绑定未验证</h3>
           <p>
-            {
-              data.installations.find(
-                (game) => game.id === item.installation_id,
-              )?.name
-            }
+            {data.installations.find((game) => game.id === item.installation_id)
+              ?.name ?? '关联安装记录不可用'}
           </p>
           <details className="inline-details">
             <summary>数据目录</summary>

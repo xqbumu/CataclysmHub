@@ -305,3 +305,105 @@ it('opens the worlds subview from a scan task in the task center', async () => {
   expect(service.scanWorlds).not.toHaveBeenCalled();
   expect(service.launch).not.toHaveBeenCalled();
 });
+
+it('searches installations and opens only the selected version instances without launching', async () => {
+  const otherGame = {
+    ...game,
+    id: 'other',
+    name: 'CDDA alternate',
+    version: '0.I',
+  };
+  const instance = {
+    id: 'instance-a',
+    installation_id: game.id,
+    installation_sha256: game.sha256,
+    name: 'World A',
+    data_root: '/a',
+    binding_status: 'unverified',
+    created_at: workspace.created_at,
+  };
+  const service = client({
+    ...emptyDashboard,
+    workspace,
+    installations: [game, otherGame],
+    play_instances: [
+      instance,
+      {
+        ...instance,
+        id: 'instance-b',
+        installation_id: otherGame.id,
+        name: 'World B',
+        data_root: '/b',
+      },
+    ],
+  });
+  const user = userEvent.setup();
+  render(<App api={service} />);
+  await user.click(await screen.findByRole('button', { name: /^游戏库/ }));
+  await user.click(screen.getByRole('tab', { name: /安装版本/ }));
+  await user.type(screen.getByLabelText('搜索安装版本'), '0.I');
+  expect(
+    screen.queryByRole('button', { name: '查看 本地 CDDA 关联详情' }),
+  ).not.toBeInTheDocument();
+  await user.click(
+    screen.getByRole('button', { name: '查看 CDDA alternate 关联详情' }),
+  );
+  await user.click(screen.getByRole('button', { name: '管理此版本的实例' }));
+  expect(screen.getByLabelText('筛选安装版本')).toHaveValue('other');
+  expect(
+    screen.getByRole('heading', { name: 'World B · 绑定未验证' }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('heading', { name: 'World A · 绑定未验证' }),
+  ).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText('筛选安装版本'), '');
+  await user.type(screen.getByLabelText('搜索游玩实例'), '/a');
+  expect(
+    screen.getByRole('heading', { name: 'World A · 绑定未验证' }),
+  ).toBeVisible();
+  expect(
+    screen.queryByRole('heading', { name: 'World B · 绑定未验证' }),
+  ).not.toBeInTheDocument();
+  expect(service.launch).not.toHaveBeenCalled();
+  expect(service.instanceLaunchPlan).not.toHaveBeenCalled();
+  expect(service.registerPlayInstance).not.toHaveBeenCalled();
+});
+
+it('does not hide a live session behind an earlier returned exit record', async () => {
+  const session = {
+    id: 'recent',
+    installation_id: game.id,
+    play_instance_id: null,
+    launch_profile_id: null,
+    instance_data_root: null,
+    state: 'exited_unverified',
+    pid: 1,
+    started_at: '2026-10-29T02:00:00Z',
+    finished_at: '2026-10-29T03:00:00Z',
+    exit_code: 0,
+  };
+  const service = client({
+    ...emptyDashboard,
+    workspace,
+    installations: [game],
+    sessions: [
+      session,
+      {
+        ...session,
+        id: 'older-live',
+        state: 'running',
+        started_at: '2026-10-29T01:00:00Z',
+        finished_at: null,
+      },
+    ],
+  });
+  const user = userEvent.setup();
+  render(<App api={service} />);
+  await user.click(await screen.findByRole('button', { name: /^游戏库/ }));
+  await user.click(screen.getByRole('tab', { name: /安装版本/ }));
+  const card = screen.getByRole('article');
+  expect(within(card).getByText('运行中')).toBeVisible();
+  expect(
+    within(card).getByRole('button', { name: /工作区忙碌或待确认/ }),
+  ).toBeDisabled();
+});

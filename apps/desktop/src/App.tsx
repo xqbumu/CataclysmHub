@@ -1,3 +1,4 @@
+import InstallationDetails from './InstallationDetails';
 import TaskCenter from './TaskCenter';
 import WorkspaceTabs from './WorkspaceTabs';
 import { ConfigChangeHistory } from './ConfigChangePanel';
@@ -127,6 +128,11 @@ function NavItem({
 }
 
 export default function App({ api = nativeApi }: { api?: HubApi }) {
+  const [installationDetailsId, setInstallationDetailsId] = useState<
+    string | null
+  >(null);
+  const [installationQuery, setInstallationQuery] = useState('');
+  const [instanceFilter, setInstanceFilter] = useState('');
   const [backupView, setBackupView] = useState('archives');
   const [gameView, setGameView] = useState('instances');
   const [page, setPage] = useState<Page>('overview');
@@ -289,10 +295,28 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
     </section>
   );
 
+  const detailedInstallation = data.installations.find(
+    (game) => game.id === installationDetailsId,
+  );
+  const filteredInstallations = data.installations.filter((game) =>
+    [game.name, game.id, game.version ?? '', game.branch ?? '', game.executable]
+      .join(' ')
+      .toLowerCase()
+      .includes(installationQuery.trim().toLowerCase()),
+  );
   const gameCards = (
     <div className="game-grid">
-      {data.installations.map((game) => {
-        const active = data.sessions.find((s) => s.installation_id === game.id);
+      {filteredInstallations.map((game) => {
+        const sessions = data.sessions.filter(
+          (s) => s.installation_id === game.id,
+        );
+        const active =
+          sessions.find((s) =>
+            ['running', 'starting', 'interrupted_unknown'].includes(s.state),
+          ) ??
+          [...sessions].sort((a, b) =>
+            b.started_at.localeCompare(a.started_at),
+          )[0];
         const blocked =
           data.resource_claims.length > 0 ||
           data.sessions.some((s) =>
@@ -338,6 +362,12 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                     : (statusNames[active.state] ?? active.state)}
                 </div>
               )}
+              <button
+                className="secondary full"
+                onClick={() => setInstallationDetailsId(game.id)}
+              >
+                查看 {game.name} 关联详情
+              </button>
               <button
                 className="primary full"
                 disabled={busy || blocked}
@@ -692,6 +722,8 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                         <PlayInstancesPanel
                           api={api}
                           data={data}
+                          installationFilter={instanceFilter}
+                          onInstallationFilterChange={setInstanceFilter}
                           onRefresh={refresh}
                         />
                       ) : (
@@ -707,7 +739,22 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       id: 'installations',
                       label: `安装版本 (${data.installations.length})`,
                       content: data.installations.length ? (
-                        gameCards
+                        <>
+                          <label>
+                            搜索安装版本
+                            <input
+                              value={installationQuery}
+                              onChange={(e) =>
+                                setInstallationQuery(e.target.value)
+                              }
+                              placeholder="名称、版本、分支或程序路径"
+                            />
+                          </label>
+                          {!filteredInstallations.length && (
+                            <p role="status">没有匹配的安装版本。</p>
+                          )}
+                          {gameCards}
+                        </>
                       ) : (
                         <EmptyLibrary
                           disabled={!workspace || busy || !api.desktop}
@@ -904,6 +951,18 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             </div>
           </form>
         </Modal>
+      )}
+      {detailedInstallation && (
+        <InstallationDetails
+          installation={detailedInstallation}
+          data={data}
+          onClose={() => setInstallationDetailsId(null)}
+          onInstances={() => {
+            setInstanceFilter(detailedInstallation.id);
+            setGameView('instances');
+            setInstallationDetailsId(null);
+          }}
+        />
       )}
       {launching && (
         <Modal
