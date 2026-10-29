@@ -1,0 +1,34 @@
+[
+  {
+    "name": "01-world-entered.png",
+    "sha256": "26c3858cfcf6b7e833cf368fdbbe4a5ccca084d9bfcd1df9be0871083162e6b1"
+  },
+  {
+    "name": "02-saved-world-menu.png",
+    "sha256": "765fdcd6e5f4d523fc378b6e1f7f1af5f93384f83aa69f5ec25ea324508e8776"
+  },
+  {
+    "name": "03-load-character.png",
+    "sha256": "d8a706a24b4e21015b7f6e46c4173592f903f4111f5f73337102b9fce3f21f08"
+  },
+  {
+    "name": "04-world-reloaded.png",
+    "sha256": "9f23da24d49ad7bc005bc4d2b261d48f399fb294670f2d18acb14f9b8595f3d0"
+  },
+  {
+    "name": "05-reloaded-character.png",
+    "sha256": "187e5e74e91f27e11596a26fbd6655cacaa23931d2ec57097f3aa41ac6ce0dbf"
+  },
+  {
+    "name": "06-final-hub.ax.txt",
+    "sha256": "7b7e49de21b9de79079560778fc7503aaae061e7710f9d29c96c97bd029c4879"
+  },
+  {
+    "name": "06-final-hub.png",
+    "sha256": "1e2c288c18efa5afab9b8a7e3b04d661916b2694392c5bcd48fcfe35f01a77ce"
+  },
+  {
+    "name": "result.json",
+    "sha256": "4d69c248e5d860017322f543d7ed0bdf61ed41cd458f12c774872480e276816d"
+  }
+]
