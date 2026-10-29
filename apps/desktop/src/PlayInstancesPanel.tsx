@@ -56,6 +56,13 @@ export default function PlayInstancesPanel({
     'cdda-0h-macos-concurrency-candidate-v1',
     'cdda-0i-1-macos-concurrency-candidate-v1',
   ].includes(profileId);
+  function activeSessionFor(instanceId: string) {
+    return data.sessions.find(
+      (session) =>
+        session.play_instance_id === instanceId &&
+        ['starting', 'running', 'interrupted_unknown'].includes(session.state),
+    );
+  }
   async function perform(action: () => Promise<void>) {
     setBusy(true);
     setError('');
@@ -125,11 +132,9 @@ export default function PlayInstancesPanel({
   return (
     <section className="panel instances-panel">
       <h2>游玩实例</h2>
-      <p>
-        一个安装可以登记多个实例。数据目录用于后续隔离存档、配置、缓存与日志。
-      </p>
+      <p>一个安装可以登记多个实例，分别管理存档、配置、缓存与日志。</p>
       <p className="inline-note">
-        目录绑定尚未验证。普通方案保持全局互斥；每个实例独立选择启动方案，并发仅限实验候选。
+        目录绑定尚未验证。普通方案保持全局互斥；已识别安装自动适配，并发仅限实验候选。
       </p>
       <div className="task-center-filters">
         {onInstallationFilterChange && (
@@ -291,6 +296,7 @@ export default function PlayInstancesPanel({
                 busy ||
                 !profileId ||
                 !profileSelected ||
+                !!activeSessionFor(launchTarget.id) ||
                 (data.resource_claims.length > 0 && !candidateProfile)
               }
               onClick={() =>
@@ -311,86 +317,104 @@ export default function PlayInstancesPanel({
           尚无游玩实例。先导入安装版本，再登记独立数据目录。
         </div>
       )}
-      {visibleInstances.map((item) => (
-        <article key={item.id}>
-          <h3>{item.name} · 绑定未验证</h3>
-          <p>
-            {data.installations.find((game) => game.id === item.installation_id)
-              ?.name ?? '关联安装记录不可用'}
-          </p>
-          <details className="inline-details">
-            <summary>数据目录</summary>
-            <PathActions api={api} path={item.data_root} />
-          </details>
-          {data.sessions
-            .filter((session) => session.play_instance_id === item.id)
-            .slice(0, 3)
-            .map((session) => (
-              <p key={session.id}>
-                实例会话：
-                {session.state === 'running'
-                  ? '运行中'
-                  : session.state === 'interrupted_unknown'
-                    ? '状态未知，请先确认关闭'
-                    : session.state === 'exited_unverified'
-                      ? '进程已退出，存档未验证'
-                      : session.state}{' '}
-                · PID {session.pid ?? '未知'} ·{' '}
-                {new Date(session.started_at).toLocaleString('zh-CN')}
+      {visibleInstances.map((item) => {
+        const activeSession = activeSessionFor(item.id);
+        const launchLabel = activeSession
+          ? activeSession.state === 'starting'
+            ? '启动中'
+            : activeSession.state === 'running'
+              ? '运行中'
+              : '待确认关闭'
+          : '启动';
+        return (
+          <article key={item.id}>
+            <h3>{item.name} · 绑定未验证</h3>
+            <p>
+              {data.installations.find(
+                (game) => game.id === item.installation_id,
+              )?.name ?? '关联安装记录不可用'}
+            </p>
+            <details className="inline-details">
+              <summary>数据目录</summary>
+              <PathActions api={api} path={item.data_root} />
+            </details>
+            {data.sessions
+              .filter((session) => session.play_instance_id === item.id)
+              .slice(0, 3)
+              .map((session) => (
+                <p key={session.id}>
+                  实例会话：
+                  {session.state === 'starting'
+                    ? '启动中'
+                    : session.state === 'running'
+                      ? '运行中'
+                      : session.state === 'interrupted_unknown'
+                        ? '状态未知，请先确认关闭'
+                        : session.state === 'exited_unverified'
+                          ? '进程已退出，存档未验证'
+                          : session.state}{' '}
+                  · PID {session.pid ?? '未知'} ·{' '}
+                  {new Date(session.started_at).toLocaleString('zh-CN')}
+                </p>
+              ))}
+            {activeSession?.state === 'interrupted_unknown' && (
+              <p className="inline-note">
+                请先确认游戏已关闭，再到“任务与记录”页面处理状态未知的会话。
               </p>
-            ))}
-          <div className="instance-actions">
-            <button
-              className="primary"
-              aria-label={`启动 ${item.name}`}
-              disabled={busy || !api.desktop}
-              onClick={() =>
-                void perform(async () => {
-                  await startInstance(item);
-                })
-              }
-            >
-              启动
-            </button>
-            <button
-              disabled={busy || !api.desktop}
-              aria-label={`启动设置 ${item.name}`}
-              onClick={() => void perform(() => openSettings(item))}
-            >
-              启动设置
-            </button>
-            <button
-              aria-label={`配置 ${item.name}`}
-              disabled={busy || !api.desktop}
-              onClick={() =>
-                void perform(async () => {
-                  setContentReport(null);
-                  setContentReport(await api.inspectContentConfig(item.id));
-                })
-              }
-            >
-              配置
-            </button>
-          </div>
-          <details className="inline-details">
-            <summary>资源冲突诊断</summary>
-            <button
-              className="secondary"
-              disabled={busy || !api.desktop}
-              onClick={() =>
-                void perform(async () => {
-                  setResourcePreview(null);
-                  setResourcePreview(
-                    await api.previewInstanceResources(item.id),
-                  );
-                })
-              }
-            >
-              检查 {item.name} 资源冲突
-            </button>
-          </details>
-        </article>
-      ))}
+            )}
+            <div className="instance-actions">
+              <button
+                className="primary"
+                aria-label={`${launchLabel} ${item.name}`}
+                disabled={busy || !api.desktop || !!activeSession}
+                onClick={() =>
+                  void perform(async () => {
+                    await startInstance(item);
+                  })
+                }
+              >
+                {launchLabel}
+              </button>
+              <button
+                disabled={busy || !api.desktop}
+                aria-label={`启动设置 ${item.name}`}
+                onClick={() => void perform(() => openSettings(item))}
+              >
+                启动设置
+              </button>
+              <button
+                aria-label={`配置 ${item.name}`}
+                disabled={busy || !api.desktop}
+                onClick={() =>
+                  void perform(async () => {
+                    setContentReport(null);
+                    setContentReport(await api.inspectContentConfig(item.id));
+                  })
+                }
+              >
+                配置
+              </button>
+            </div>
+            <details className="inline-details">
+              <summary>资源冲突诊断</summary>
+              <button
+                className="secondary"
+                disabled={busy || !api.desktop}
+                onClick={() =>
+                  void perform(async () => {
+                    setResourcePreview(null);
+                    setResourcePreview(
+                      await api.previewInstanceResources(item.id),
+                    );
+                  })
+                }
+              >
+                检查 {item.name} 资源冲突
+              </button>
+            </details>
+          </article>
+        );
+      })}
       {error && !plan && !launchTarget && <p role="alert">{error}</p>}
       {contentReport && (
         <ContentConfigDialog

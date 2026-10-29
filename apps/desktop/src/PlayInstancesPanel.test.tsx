@@ -687,3 +687,79 @@ it('keeps a saved custom profile until the user explicitly chooses automatic ada
   ).toBeEnabled();
   expect(instanceLaunchPlan).not.toHaveBeenCalled();
 });
+
+it.each([
+  ['starting', '启动中'],
+  ['running', '运行中'],
+  ['interrupted_unknown', '待确认关闭'],
+  ['exited_unverified', '启动'],
+  ['resolved_unknown', '启动'],
+])(
+  'reflects a %s session in instance launch controls',
+  async (state, label) => {
+    const user = userEvent.setup();
+    const launch = vi.fn();
+    const instanceLaunchPlan = vi.fn();
+    render(
+      <PlayInstancesPanel
+        api={{
+          ...api,
+          desktop: true,
+          launch,
+          instanceLaunchPlan,
+          preferences: vi
+            .fn()
+            .mockResolvedValue({ revision: 0, instance_profiles: {} }),
+        }}
+        data={{
+          ...emptyDashboard,
+          play_instances: ['a', 'b'].map((id) => ({
+            id,
+            name: id.toUpperCase(),
+            installation_id: 'g',
+            installation_sha256: 'hash',
+            data_root: '/' + id,
+            binding_status: 'unverified',
+            created_at: '',
+          })),
+          sessions: [
+            {
+              id: 'session',
+              play_instance_id: 'a',
+              installation_id: 'g',
+              launch_profile_id: null,
+              instance_data_root: '/a',
+              state,
+              pid: 42,
+              started_at: '2026-10-29T00:00:00Z',
+              finished_at: null,
+              exit_code: null,
+            },
+          ],
+        }}
+        onRefresh={vi.fn()}
+      />,
+    );
+    const button = screen.getByRole('button', { name: label + ' A' });
+    const blocked = label !== '启动';
+    if (blocked) expect(button).toBeDisabled();
+    else expect(button).toBeEnabled();
+    if (blocked) await user.click(button);
+    expect(launch).not.toHaveBeenCalled();
+    expect(instanceLaunchPlan).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '启动 B' })).toBeEnabled();
+    if (state === 'interrupted_unknown') {
+      expect(screen.getByText(/再到“任务与记录”页面/)).toBeInTheDocument();
+    }
+    await user.click(screen.getByRole('button', { name: '启动设置 A' }));
+    await user.click(await screen.findByText('高级启动方案（旧版与实验选项）'));
+    await user.selectOptions(
+      screen.getByLabelText('试运行参数方案'),
+      'cdda-0h-source-trial-v1',
+    );
+    await user.click(screen.getByRole('checkbox'));
+    const preview = screen.getByRole('button', { name: '预览 A 试运行' });
+    if (blocked) expect(preview).toBeDisabled();
+    else expect(preview).toBeEnabled();
+  },
+);
