@@ -4,6 +4,31 @@
 
 当前已提供 Tauri 2 + React 桌面开发预览：工作区配置、游戏导入与启动、进程监测、只读存档扫描、整个存档根目录的独立完整备份与回读校验，以及 SQLite 操作记录。桌面已接入新目录恢复预览、确认、任务、取消与审计，另提供无需数据库的独立恢复命令行工具；Git 历史与覆盖恢复仍在开发中。
 
+## Taskfile 开发入口
+
+安装 Task 3 后，在仓库执行 `task --list` 查看任务。原 npm / Cargo 命令仍可直接使用。
+
+| 命令 | 用途 |
+|---|---|
+| `task deps` | `npm ci` 并获取锁定的 Rust 依赖 |
+| `task dev` / `task dev:web` | 桌面开发 / 浏览器预览 |
+| `task check` | 顺序执行前端、全特性 Rust 和 Python 检查 |
+| `task check:frontend` / `task check:rust` / `task check:python` | 单独检查 |
+| `task bindings` | 更新前端 DTO |
+| `task build:frontend` | 前端生产构建 |
+| `task build:debug` | macOS 普通 Debug 应用：`target/debug/bundle/macos/` |
+| `task build:release` | macOS 普通 Release 应用：`target/release/bundle/macos/` |
+| `task build:experimental` | macOS 并发候选 Debug 应用：`target/experimental/debug/bundle/macos/` |
+| `task install:macos` | 先构建普通 Release，再安装到 `~/Applications` |
+| `task install:macos:debug` | 先构建普通 Debug，再安装 |
+| `task install:macos:experimental` | 显式构建并安装并发候选 Debug |
+
+安装目录可通过 `task install:macos INSTALL_DIR="/Applications"` 指定；需要对该目录有写权限，任务不使用 sudo。每次安装都会先构建对应变体，不会把上次残留的实验包误作普通包。普通与实验构建仍共用前端输出目录，请勿并行执行构建或安装任务。
+
+安装脚本检查应用标识和入口，发现任何名为 `cataclysm-hub` 的运行进程时拒绝替换；不会强杀、自动启动应用或迁移元数据。新包在目标目录内暂存，复制失败不动旧包；旧包以 `Cataclysm Hub.previous-<随机标识>.app` 保留，发布失败尝试恢复旧路径。安装期间请保持应用关闭；进程检查不提供对外部启动的原子锁，也不替代签名/公证认证。
+
+实验构建仅启用固定 H/I QA 候选，不代表任意游戏版本可并发或真实验收已通过。需要隔离 QA 元数据时使用 Debug 构建及 `CATACLYSM_HUB_DATA_DIR`；Release 忽略该变量。实验包与普通包使用相同应用标识，安装实验包会替换同目录下普通包，旧包仍保留；可将 `INSTALL_DIR` 指向单独测试目录。
+
 ## 本地开发
 
 需要 Node.js 24、npm 11、Rust 1.99.1 及对应平台的 Tauri 系统依赖。macOS 需要 Xcode；当前实际验证以本机 macOS Apple Silicon 为准。

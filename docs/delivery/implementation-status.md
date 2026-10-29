@@ -317,3 +317,11 @@ Dashboard 沿用现有刷新；资源安装单独轮询、失败提示及重试�
 验证：`npm run check` 通过（14 个测试文件、98 项测试）；回归覆盖精确 ID 关联、未知版本、摘要差异、未知会话、版本搜索与实例定位、只读跳转不启动，以及活动会话不被退出记录遮蔽。本轮只改前端，没有新的文件写入／迁移接口；未执行真实游戏加载或原生 UI 人工验收。
 
 macOS Apple Silicon debug 应用打包通过；未重新运行 Rust 测试（本轮没有 Rust 改动）。
+
+## 2026-10-29：Taskfile 构建与 macOS 安装入口
+
+新增 Task 3 入口统一依赖获取、桌面／浏览器开发、前端／全特性 Rust／Python 检查、DTO、普通 Debug／Release 和候选并发 Debug 构建。实验应用输出独立放在 target/experimental；三个安装任务分别先构建对应变体，默认安装至 ~/Applications，INSTALL_DIR 可覆盖。构建共享前端输出，不应并行运行。
+
+macOS 安装脚本先检查应用标识、入口及运行进程，暂存复制后保留旧应用并替换；复制失败保留原路径，发布失败尝试恢复旧包。不会强杀、启动应用、使用 sudo 或迁移用户数据。不提供对外部启动的原子互斥，也不替代签名与公证。安装测试纳入现有 CI，Taskfile 纳入前端格式检查。
+
+验证：本机 Task 3.54.0 列表与任务 dry-run 通过；task build:debug 实际打包通过；task check 完整通过（前端 98 项、Rust 全特性与 Clippy、Python 验收工具 16 项及安装回归 12 项）。真实 Debug 包在带空格的临时目录完成首次安装和替换，旧包保留、入口摘要一致、暂存清理通过。未写入 ~/Applications 或 /Applications，未实际执行 Release／实验变体编译或安装。

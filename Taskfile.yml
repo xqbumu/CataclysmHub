@@ -1,0 +1,112 @@
+version: '3'
+
+vars:
+  INSTALL_DIR: '{{.HOME}}/Applications'
+
+tasks:
+  default:
+    desc: 列出开发任务
+    cmds:
+      - task --list
+
+  deps:
+    desc: 安装锁定的前端依赖并获取 Rust 依赖
+    cmds:
+      - npm ci
+      - cargo fetch --locked
+
+  dev:
+    desc: 启动 Tauri 桌面开发环境（普通特性）
+    cmds:
+      - npm run desktop -- dev
+
+  dev:web:
+    desc: 启动浏览器界面预览
+    cmds:
+      - npm run dev
+
+  check:
+    desc: 顺序运行前端、Rust 和 Python 检查
+    cmds:
+      - task: check:frontend
+      - task: check:rust
+      - task: check:python
+
+  check:frontend:
+    desc: 前端格式、类型、测试与生产构建
+    cmds:
+      - npm run check
+
+  check:rust:
+    desc: Rust 格式、全特性静态检查与测试（含实验候选回归）
+    cmds:
+      - cargo fmt --all -- --check
+      - cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - cargo test --workspace --all-features --locked
+
+  check:python:
+    desc: 验收工具与安装脚本回归
+    cmds:
+      - python3 -m unittest discover -s scripts/acceptance -p 'test_*.py'
+      - python3 -m unittest discover -s scripts/development -p 'test_*.py'
+
+  bindings:
+    desc: 从 Rust DTO 重新生成前端类型
+    cmds:
+      - npm run bindings
+
+  build:frontend:
+    desc: 构建前端静态资源
+    cmds:
+      - npm run build
+
+  build:debug:
+    desc: 打包 macOS 普通 Debug 应用（不启用并发实验）
+    platforms: [darwin]
+    env:
+      CARGO_TARGET_DIR: '{{.ROOT_DIR}}/target'
+    cmds:
+      - npm run desktop -- build --debug --bundles app -- --locked
+
+  build:release:
+    desc: 打包 macOS 普通 Release 应用（不代表签名公证通过）
+    platforms: [darwin]
+    env:
+      CARGO_TARGET_DIR: '{{.ROOT_DIR}}/target'
+    cmds:
+      - npm run desktop -- build --bundles app -- --locked
+
+  build:experimental:
+    desc: 打包 macOS 并发候选 Debug 应用至独立 target/experimental
+    platforms: [darwin]
+    env:
+      CARGO_TARGET_DIR: '{{.ROOT_DIR}}/target/experimental'
+    cmds:
+      - npm run desktop -- build --debug --bundles app --features candidate-concurrency -- --locked
+
+  install:macos:
+    desc: 先构建普通 Release 再安装；默认 ~/Applications，旧包保留
+    platforms: [darwin]
+    env:
+      HUB_INSTALL_DIR: '{{.INSTALL_DIR}}'
+    cmds:
+      - task: build:release
+      - python3 scripts/development/install_macos.py --source "target/release/bundle/macos/Cataclysm Hub.app" --destination "$HUB_INSTALL_DIR"
+
+  install:macos:debug:
+    desc: 先构建普通 Debug 再安装（支持隔离 QA 元数据）
+    platforms: [darwin]
+    env:
+      HUB_INSTALL_DIR: '{{.INSTALL_DIR}}'
+    cmds:
+      - task: build:debug
+      - python3 scripts/development/install_macos.py --source "target/debug/bundle/macos/Cataclysm Hub.app" --destination "$HUB_INSTALL_DIR"
+
+  install:macos:experimental:
+    desc: 显式构建并安装并发候选 Debug 应用；仅限固定 QA 组合
+    platforms: [darwin]
+    env:
+      HUB_INSTALL_DIR: '{{.INSTALL_DIR}}'
+    cmds:
+      - task: build:experimental
+      - python3 scripts/development/install_macos.py --source "target/experimental/debug/bundle/macos/Cataclysm Hub.app" --destination "$HUB_INSTALL_DIR"
