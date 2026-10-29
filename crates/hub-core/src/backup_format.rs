@@ -301,6 +301,43 @@ pub(crate) fn inspect_archive(
     cancel: &AtomicBool,
     destination: Option<&Dir>,
 ) -> Result<(Manifest, BackupVerification)> {
+    inspect_archive_inner(root, expected_archive, cancel, destination, None)
+}
+pub(crate) fn read_verified_config(
+    root: &Dir,
+    expected_archive: &str,
+    path: &str,
+) -> Result<(Manifest, BackupVerification, Vec<u8>)> {
+    if !matches!(
+        path,
+        "config/options.json" | "config/user-default-mods.json"
+    ) {
+        return Err(invalid());
+    }
+    let mut bytes = Vec::new();
+    let (manifest, verification) = inspect_archive_inner(
+        root,
+        Some(expected_archive),
+        &AtomicBool::new(false),
+        None,
+        Some((path, &mut bytes)),
+    )?;
+    if !manifest
+        .entries
+        .iter()
+        .any(|e| e.relative_path == path && e.file_type == "file")
+    {
+        return Err(invalid());
+    }
+    Ok((manifest, verification, bytes))
+}
+fn inspect_archive_inner(
+    root: &Dir,
+    expected_archive: Option<&str>,
+    cancel: &AtomicBool,
+    destination: Option<&Dir>,
+    mut capture: Option<(&str, &mut Vec<u8>)>,
+) -> Result<(Manifest, BackupVerification)> {
     let receipt = match root.symlink_metadata("receipt.json") {
         Ok(_) => {
             let bytes = bounded_read(open_file(root, "receipt.json")?, 64 * 1024)?;
@@ -434,6 +471,14 @@ pub(crate) fn inspect_archive(
                 #[cfg(test)]
                 crate::restore_faults::checkpoint("after_payload_file");
                 result
+            } else if let Some((wanted, output)) =
+                capture.as_mut().filter(|(wanted, _)| *wanted == relative)
+            {
+                let _ = wanted;
+                if size > 1024 * 1024 {
+                    return Err(invalid());
+                }
+                transfer_hashed(&mut entry, *output, size, cancel)?
             } else {
                 hash_reader(&mut entry, size, cancel)?
             };

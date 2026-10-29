@@ -351,7 +351,7 @@ async fn schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot() 
             .fetch_one(&pool)
             .await
             .unwrap(),
-        13
+        14
     );
     let snapshot = std::fs::read_dir(&data)
         .unwrap()
@@ -1003,4 +1003,210 @@ async fn changing_backup_workspace_invalidates_prepared_config_application() {
         std::fs::read(f.path("a/config/options.json")).unwrap(),
         original
     );
+}
+
+#[tokio::test]
+async fn rollback_restores_exact_original_bytes_in_a_separate_idempotent_record() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    let task = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &task.id).await.state, "applied");
+    let rollback = f.hub.prepare_config_rollback(&task.id).await.unwrap();
+    assert_eq!(rollback.rollback_of.as_deref(), Some(task.id.as_str()));
+    assert_eq!(rollback.proposed_json.as_bytes(), original);
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        plan.proposed_json.as_bytes()
+    );
+    let key = uuid::Uuid::new_v4().to_string();
+    assert!(
+        f.hub
+            .apply_config_change(&rollback.id, &rollback.plan_digest, &key, false)
+            .await
+            .is_err()
+    );
+    let started = f
+        .hub
+        .apply_config_change(&rollback.id, &rollback.plan_digest, &key, true)
+        .await
+        .unwrap();
+    let result = config_wait(&f.hub, &started.id).await;
+    assert_eq!(result.state, "applied");
+    assert_eq!(result.rollback_of.as_deref(), Some(task.id.as_str()));
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+    assert_eq!(
+        f.hub
+            .apply_config_change(&rollback.id, &rollback.plan_digest, &key, true)
+            .await
+            .unwrap()
+            .id,
+        result.id
+    );
+    assert!(f.hub.prepare_config_rollback(&task.id).await.is_err());
+    assert!(f.hub.prepare_config_rollback(&started.id).await.is_err());
+    assert_eq!(
+        std::fs::read(f.path("a/save/world.dat")).unwrap(),
+        b"instance A world"
+    );
+}
+#[tokio::test]
+async fn rollback_refuses_later_edits_and_tampered_archives() {
+    for tamper_archive in [false, true] {
+        let f = Fixture::new().await;
+        let (plan, _) = config_ready(&f).await;
+        let task = f
+            .hub
+            .apply_config_change(
+                &plan.id,
+                &plan.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true,
+            )
+            .await
+            .unwrap();
+        assert_eq!(config_wait(&f.hub, &task.id).await.state, "applied");
+        let rollback = f.hub.prepare_config_rollback(&task.id).await.unwrap();
+        let expected = if tamper_archive {
+            std::fs::write(
+                f.path("backups")
+                    .join(&plan.backup_id)
+                    .join("archive.tar.zst"),
+                b"broken",
+            )
+            .unwrap();
+            plan.proposed_json.as_bytes().to_vec()
+        } else {
+            let bytes = b"later user edit".to_vec();
+            std::fs::write(f.path("a/config/options.json"), &bytes).unwrap();
+            bytes
+        };
+        assert!(f.hub.prepare_config_rollback(&task.id).await.is_err());
+        let started = f
+            .hub
+            .apply_config_change(
+                &rollback.id,
+                &rollback.plan_digest,
+                &uuid::Uuid::new_v4().to_string(),
+                true,
+            )
+            .await
+            .unwrap();
+        assert_eq!(
+            config_wait(&f.hub, &started.id).await.state,
+            "recovery_required"
+        );
+        assert_eq!(
+            std::fs::read(f.path("a/config/options.json")).unwrap(),
+            expected
+        );
+        assert!(!f.hub.dashboard().await.unwrap().resource_claims.is_empty());
+    }
+}
+#[tokio::test]
+async fn rollback_terminal_failure_is_reconciled_without_repeating_file_io() {
+    let f = Fixture::new().await;
+    let (plan, original) = config_ready(&f).await;
+    let task = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &task.id).await.state, "applied");
+    let rollback = f.hub.prepare_config_rollback(&task.id).await.unwrap();
+    let pool = f.pool().await;
+    sqlx::query("CREATE TRIGGER reject_rollback_result BEFORE INSERT ON operation_log WHEN NEW.status='applied' BEGIN SELECT RAISE(ABORT,'unavailable'); END").execute(&pool).await.unwrap();
+    let started = f
+        .hub
+        .apply_config_change(
+            &rollback.id,
+            &rollback.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    for _ in 0..500 {
+        if std::fs::read(f.path("a/config/options.json")).unwrap() == original {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    let observation = f.hub.inspect_config_change(&started.id).await.unwrap();
+    assert_eq!(observation.matches, "proposed");
+    assert_eq!(observation.change.state, "applying");
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+    let mtime = std::fs::metadata(f.path("a/config/options.json"))
+        .unwrap()
+        .modified()
+        .unwrap();
+    assert_eq!(
+        f.hub
+            .resolve_config_change(&started.id, &observation.current_sha256, true)
+            .await
+            .unwrap()
+            .change
+            .state,
+        "resolved_proposed"
+    );
+    assert_eq!(
+        std::fs::metadata(f.path("a/config/options.json"))
+            .unwrap()
+            .modified()
+            .unwrap(),
+        mtime
+    );
+}
+#[tokio::test]
+async fn schema_thirteen_upgrade_keeps_existing_config_history_and_snapshots_database() {
+    let f = Fixture::new().await;
+    let (plan, _) = config_ready(&f).await;
+    let started = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &started.id).await.state, "applied");
+    let metadata = f.path("metadata");
+    let pool = f.pool().await;
+    sqlx::raw_sql("ALTER TABLE config_change DROP COLUMN rollback_of; PRAGMA user_version=13;")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    drop(f.hub);
+    let reopened = Hub::open(&metadata).await.unwrap();
+    let rows = reopened.config_changes().await.unwrap();
+    assert_eq!(rows[0].id, started.id);
+    assert!(rows[0].rollback_of.is_none());
+    assert!(std::fs::read_dir(&metadata).unwrap().any(|e| {
+        e.unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with("metadata-v13-")
+    }));
 }

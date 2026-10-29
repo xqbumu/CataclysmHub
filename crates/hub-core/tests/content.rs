@@ -172,7 +172,7 @@ async fn schema10_upgrade_backs_up_metadata_and_failed_migration_preserves_versi
                 .fetch_one(&pool)
                 .await
                 .unwrap(),
-            if fail { 10 } else { 13 }
+            if fail { 10 } else { 14 }
         );
         assert!(std::fs::read_dir(&data).unwrap().any(|p| {
             p.unwrap()

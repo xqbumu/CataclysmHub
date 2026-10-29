@@ -15,6 +15,8 @@ use std::{
 use ts_rs::TS;
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct ConfigChangePlan {
+    #[ts(optional = nullable)]
+    pub rollback_of: Option<String>,
     pub id: String,
     pub plan_digest: String,
     pub instance_id: String,
@@ -28,6 +30,8 @@ pub struct ConfigChangePlan {
 }
 #[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
 pub struct ConfigChange {
+    #[ts(optional = nullable)]
+    pub rollback_of: Option<String>,
     pub id: String,
     pub instance_id: String,
     pub backup_id: String,
@@ -46,7 +50,7 @@ pub struct ConfigChangeObservation {
     pub current_sha256: String,
     pub matches: String,
 }
-const COLUMNS: &str = "id,instance_id,backup_id,data_root,path,before_sha256,after_sha256,state,error_code,created_at,finished_at";
+const COLUMNS: &str = "rollback_of,id,instance_id,backup_id,data_root,path,before_sha256,after_sha256,state,error_code,created_at,finished_at";
 pub(crate) struct PreparedConfigChange {
     plan: ConfigChangePlan,
     root: Dir,
@@ -59,6 +63,7 @@ pub(crate) struct PreparedConfigChange {
     permissions: Permissions,
     working_dir: String,
     resources_sha256: String,
+    archive_file_sha256: String,
 }
 fn stale() -> HubError {
     HubError::new(
@@ -121,7 +126,7 @@ fn verify(p: &PreparedConfigChange) -> Result<()> {
         || !manifest.entries.iter().any(|e| {
             e.relative_path == p.plan.path
                 && e.file_type == "file"
-                && e.sha256.as_deref() == Some(&p.plan.before_sha256)
+                && e.sha256.as_deref() == Some(&p.archive_file_sha256)
         })
     {
         return Err(stale());
@@ -237,7 +242,8 @@ impl Hub {
         }
         let resources_sha256 = resources_digest(&configuration.report.discovery)?;
         let file = configuration.files.into_iter().next().ok_or_else(stale)?;
-        let mut plan = ConfigChangePlan {
+        let plan = ConfigChangePlan {
+            rollback_of: None,
             id: id(),
             plan_digest: String::new(),
             instance_id: instance.id,
@@ -248,6 +254,28 @@ impl Hub {
             after_sha256: file.proposed_sha256,
             proposed_json: file.proposed_json,
             expires_at: (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339(),
+        };
+        self.prepare_publication(
+            plan,
+            record,
+            workspace.backup_dir,
+            installation.working_dir,
+            resources_sha256,
+        )
+        .await
+    }
+    async fn prepare_publication(
+        &self,
+        mut plan: ConfigChangePlan,
+        record: BackupRecord,
+        backup_root: String,
+        working_dir: String,
+        resources_sha256: String,
+    ) -> Result<ConfigChangePlan> {
+        let archive_file_sha256 = if plan.rollback_of.is_some() {
+            plan.after_sha256.clone()
+        } else {
+            plan.before_sha256.clone()
         };
         plan.plan_digest =
             format::sha(&serde_json::to_vec(&(&plan, &resources_sha256)).map_err(|_| stale())?);
@@ -261,7 +289,7 @@ impl Hub {
         if format::sha(&bytes) != plan.before_sha256 {
             return Err(stale());
         }
-        let base = Dir::open_ambient_dir(&workspace.backup_dir, cap_std::ambient_authority())
+        let base = Dir::open_ambient_dir(&backup_root, cap_std::ambient_authority())
             .map_err(format::io_error)?;
         let archive = base
             .open_dir_nofollow(&record.relative_dir)
@@ -272,12 +300,13 @@ impl Hub {
             config,
             base,
             archive,
-            backup_root: workspace.backup_dir,
+            backup_root,
             record,
             file_identity,
             permissions,
-            working_dir: installation.working_dir,
+            working_dir,
             resources_sha256,
+            archive_file_sha256,
         };
         let prepared = tokio::task::spawn_blocking(move || {
             verify(&prepared)?;
@@ -295,6 +324,91 @@ impl Hub {
         }
         plans.insert(plan.id.clone(), prepared);
         Ok(plan)
+    }
+    pub async fn prepare_config_rollback(&self, change_id: &str) -> Result<ConfigChangePlan> {
+        let _gate = self.mutation.lock().await;
+        self.check_resource_claims().await?;
+        let prior = self.config_change(change_id).await?;
+        if prior.rollback_of.is_some()
+            || !matches!(prior.state.as_str(), "applied" | "resolved_proposed")
+        {
+            return Err(HubError::new(
+                "CONFIG_ROLLBACK_UNAVAILABLE",
+                "仅可回滚已应用或已明确保留拟应用版本的原始变更；中断记录须先核对处理。",
+            ));
+        }
+        let instance = self.instance(&prior.instance_id).await?;
+        let installation = self.installation(&instance.installation_id).await?;
+        self.instance_identity(
+            &instance,
+            &installation.working_dir,
+            &installation.executable,
+        )
+        .await?;
+        if instance.data_root != prior.data_root {
+            return Err(stale());
+        }
+        let workspace = self.dashboard().await?.workspace.ok_or_else(stale)?;
+        let record: BackupRecord =
+            sqlx::query_as("SELECT * FROM backup_archive WHERE id=? AND workspace_id=?")
+                .bind(&prior.backup_id)
+                .bind(&workspace.id)
+                .fetch_optional(&self.pool)
+                .await
+                .map_err(HubError::db)?
+                .ok_or_else(stale)?;
+        if record.play_instance_id.as_deref() != Some(&prior.instance_id)
+            || record.source_root.as_deref() != Some(&prior.data_root)
+            || record.relative_dir != record.id
+            || uuid::Uuid::parse_str(&record.id).is_err()
+        {
+            return Err(stale());
+        }
+        let backup_root = workspace.backup_dir.clone();
+        let relative = record.relative_dir.clone();
+        let expected = record.archive_sha256.clone();
+        let path = prior.path.clone();
+        let bytes = tokio::task::spawn_blocking(move || {
+            let base = Dir::open_ambient_dir(&backup_root, cap_std::ambient_authority())
+                .map_err(format::io_error)?;
+            same(&base, Path::new(&backup_root))?;
+            let archive = base
+                .open_dir_nofollow(&relative)
+                .map_err(format::io_error)?;
+            let (_, _, bytes) = format::read_verified_config(&archive, &expected, &path)?;
+            same(&archive, &Path::new(&backup_root).join(&relative))?;
+            Ok::<_, HubError>(bytes)
+        })
+        .await
+        .map_err(|_| stale())??;
+        if format::sha(&bytes) != prior.before_sha256 {
+            return Err(stale());
+        }
+        let resources = crate::content_discovery::discover(
+            Path::new(&prior.data_root),
+            &installation.working_dir,
+        );
+        let plan = ConfigChangePlan {
+            rollback_of: Some(prior.id),
+            id: id(),
+            plan_digest: String::new(),
+            instance_id: prior.instance_id,
+            backup_id: prior.backup_id,
+            data_root: prior.data_root,
+            path: prior.path,
+            before_sha256: prior.after_sha256,
+            after_sha256: prior.before_sha256,
+            proposed_json: String::from_utf8(bytes).map_err(|_| stale())?,
+            expires_at: (chrono::Utc::now() + chrono::Duration::minutes(10)).to_rfc3339(),
+        };
+        self.prepare_publication(
+            plan,
+            record,
+            workspace.backup_dir,
+            installation.working_dir,
+            resources_digest(&resources)?,
+        )
+        .await
     }
     pub async fn config_changes(&self) -> Result<Vec<ConfigChange>> {
         sqlx::query_as(&format!(
@@ -364,7 +478,7 @@ impl Hub {
         }
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
         let inserted = sqlx::query(
-            "INSERT INTO config_change VALUES (?,?,?,?,?,?,?,?,?,'applying',NULL,?,NULL)",
+            "INSERT INTO config_change (id,request_key,request_digest,instance_id,backup_id,data_root,path,before_sha256,after_sha256,state,error_code,created_at,finished_at,rollback_of) VALUES (?,?,?,?,?,?,?,?,?,'applying',NULL,?,NULL,?)",
         )
         .bind(&p.plan.id)
         .bind(key)
@@ -376,6 +490,7 @@ impl Hub {
         .bind(&p.plan.before_sha256)
         .bind(&p.plan.after_sha256)
         .bind(now())
+        .bind(&p.plan.rollback_of)
         .execute(&mut *tx)
         .await
         .map_err(HubError::db)?;

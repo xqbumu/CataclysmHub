@@ -68,6 +68,7 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  prepareConfigRollback(changeId: string): Promise<ConfigChangePlan>;
   prepareConfigChange(
     instanceId: string,
     input: ContentConfigInput,
@@ -183,6 +184,8 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  prepareConfigRollback: (changeId) =>
+    desktopOnly('prepare_config_rollback', { changeId }),
   prepareConfigChange: (instanceId, input, backupId) =>
     desktopOnly('prepare_config_change', { instanceId, input, backupId }),
   applyConfigChange: (planId, digest, requestKey) =>

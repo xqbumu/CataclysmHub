@@ -114,6 +114,13 @@ async fn cancel_content_install(
     state.hub.cancel_content_install(&id).await
 }
 #[tauri::command]
+async fn prepare_config_rollback(
+    state: tauri::State<'_, AppState>,
+    change_id: String,
+) -> Result<hub_core::ConfigChangePlan, HubError> {
+    state.hub.prepare_config_rollback(&change_id).await
+}
+#[tauri::command]
 async fn prepare_config_change(
     state: tauri::State<'_, AppState>,
     instance_id: String,
@@ -501,6 +508,7 @@ pub fn run() {
             preview_content_config,
             prepare_content_config_protection,
             prepare_config_change,
+            prepare_config_rollback,
             apply_config_change,
             config_changes,
             inspect_config_change,

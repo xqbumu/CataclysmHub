@@ -79,6 +79,7 @@ it('requires native scope selection and separate copy confirmation; preview canc
     previewContentConfig: vi.fn(),
     prepareContentConfigProtection: vi.fn(),
     prepareConfigChange: vi.fn(),
+    prepareConfigRollback: vi.fn(),
     applyConfigChange: vi.fn(),
     configChanges: vi.fn(),
     inspectConfigChange: vi.fn(),

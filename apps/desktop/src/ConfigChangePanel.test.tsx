@@ -52,6 +52,7 @@ it('requires a selected backup, refreshed plan and explicit file application con
       api={{
         dashboard,
         prepareConfigChange,
+        prepareConfigRollback: vi.fn(),
         applyConfigChange,
         configChanges: vi.fn(),
         inspectConfigChange: vi.fn(),
@@ -111,7 +112,13 @@ it('requires read-only inspection before explicitly resolving an interrupted pub
   });
   render(
     <ConfigChangeHistory
-      api={{ configChanges, inspectConfigChange, resolveConfigChange }}
+      api={{
+        configChanges,
+        inspectConfigChange,
+        resolveConfigChange,
+        prepareConfigRollback: vi.fn(),
+        applyConfigChange: vi.fn(),
+      }}
     />,
   );
   expect(configChanges).not.toHaveBeenCalled();
@@ -138,6 +145,8 @@ it('keeps protection when the current file matches neither expected version', as
   render(
     <ConfigChangeHistory
       api={{
+        prepareConfigRollback: vi.fn(),
+        applyConfigChange: vi.fn(),
         configChanges: vi.fn().mockResolvedValue([record]),
         inspectConfigChange: vi.fn().mockResolvedValue({
           change: record,
@@ -155,4 +164,111 @@ it('keeps protection when the current file matches neither expected version', as
     screen.queryByRole('button', { name: '确认保留当前配置并解除中断保护' }),
   ).not.toBeInTheDocument();
   expect(resolveConfigChange).not.toHaveBeenCalled();
+});
+
+it('previews rollback without writing and requires a separate original-byte confirmation', async () => {
+  const user = userEvent.setup();
+  const original = { ...record, state: 'applied' };
+  const rollback = {
+    ...plan,
+    id: 'rollback',
+    rollback_of: original.id,
+    before_sha256: 'after',
+    after_sha256: 'before',
+    proposed_json: '{ "original": true }',
+  };
+  const configChanges = vi.fn().mockResolvedValue([original]);
+  const prepareConfigRollback = vi.fn().mockResolvedValue(rollback);
+  const applyConfigChange = vi.fn().mockResolvedValue({
+    ...record,
+    id: 'rollback',
+    rollback_of: original.id,
+    state: 'applying',
+  });
+  render(
+    <ConfigChangeHistory
+      api={{
+        configChanges,
+        prepareConfigRollback,
+        applyConfigChange,
+        inspectConfigChange: vi.fn(),
+        resolveConfigChange: vi.fn(),
+      }}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '读取配置应用记录' }));
+  await user.click(screen.getByRole('button', { name: '预览原字节回滚 plan' }));
+  expect(prepareConfigRollback).toHaveBeenCalledExactlyOnceWith('plan');
+  expect(applyConfigChange).not.toHaveBeenCalled();
+  expect(screen.getByLabelText('原字节回滚确认')).toHaveTextContent(
+    '恢复后摘要：before',
+  );
+  expect(
+    screen.getByRole('button', { name: '确认原地回滚单文件' }),
+  ).toBeDisabled();
+  await user.click(screen.getByLabelText('我确认恢复上述原配置字节'));
+  await user.click(screen.getByRole('button', { name: '确认原地回滚单文件' }));
+  expect(applyConfigChange).toHaveBeenCalledExactlyOnceWith(
+    'rollback',
+    'digest',
+    expect.any(String),
+  );
+  expect(screen.queryByLabelText('原字节回滚确认')).not.toBeInTheDocument();
+});
+
+it('does not offer rollback of unresolved records or another rollback', async () => {
+  const user = userEvent.setup();
+  const prepareConfigRollback = vi.fn();
+  render(
+    <ConfigChangeHistory
+      api={{
+        configChanges: vi.fn().mockResolvedValue([
+          record,
+          {
+            ...record,
+            id: 'rollback',
+            state: 'applied',
+            rollback_of: record.id,
+          },
+        ]),
+        prepareConfigRollback,
+        applyConfigChange: vi.fn(),
+        inspectConfigChange: vi.fn(),
+        resolveConfigChange: vi.fn(),
+      }}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '读取配置应用记录' }));
+  expect(
+    screen.queryByRole('button', { name: /预览原字节回滚/ }),
+  ).not.toBeInTheDocument();
+  expect(screen.getByText('回滚来源操作：plan')).toBeInTheDocument();
+  expect(prepareConfigRollback).not.toHaveBeenCalled();
+});
+
+it('labels interrupted rollback observations relative to the rollback direction', async () => {
+  const user = userEvent.setup();
+  const rollbackRecord = { ...record, id: 'rollback', rollback_of: 'plan' };
+  render(
+    <ConfigChangeHistory
+      api={{
+        configChanges: vi.fn().mockResolvedValue([rollbackRecord]),
+        prepareConfigRollback: vi.fn(),
+        applyConfigChange: vi.fn(),
+        inspectConfigChange: vi.fn().mockResolvedValue({
+          change: rollbackRecord,
+          current_sha256: 'after',
+          matches: 'original',
+        }),
+        resolveConfigChange: vi.fn(),
+      }}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '读取配置应用记录' }));
+  await user.click(
+    screen.getByRole('button', { name: '核对当前配置 rollback' }),
+  );
+  expect(screen.getByLabelText('配置中断核对')).toHaveTextContent(
+    '与本次回滚前的配置一致',
+  );
 });

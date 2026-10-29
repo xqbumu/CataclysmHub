@@ -8,6 +8,7 @@ export type ConfigChangeApi = Pick<
   HubApi,
   | 'dashboard'
   | 'prepareConfigChange'
+  | 'prepareConfigRollback'
   | 'applyConfigChange'
   | 'configChanges'
   | 'inspectConfigChange'
@@ -15,20 +16,27 @@ export type ConfigChangeApi = Pick<
 >;
 const states: Record<string, string> = {
   applying: '应用执行中或结果待记录',
-  applied: '单文件已应用',
+  applied: '单文件变更已完成',
   recovery_required: '中断或失败，保护仍生效',
-  resolved_original: '已确认保留原配置',
-  resolved_proposed: '已确认保留拟应用配置',
+  resolved_original: '已确认保留本次变更前配置',
+  resolved_proposed: '已确认保留本次变更后配置',
 };
 export function ConfigChangeHistory({
   api,
 }: {
   api: Pick<
     ConfigChangeApi,
-    'configChanges' | 'inspectConfigChange' | 'resolveConfigChange'
+    | 'configChanges'
+    | 'inspectConfigChange'
+    | 'resolveConfigChange'
+    | 'prepareConfigRollback'
+    | 'applyConfigChange'
   >;
 }) {
   const [records, setRecords] = useState<ConfigChange[]>([]);
+  const [rollback, setRollback] = useState<ConfigChangePlan | null>(null);
+  const [rollbackConfirmed, setRollbackConfirmed] = useState(false);
+  const rollbackKey = useRef('');
   const [observation, setObservation] =
     useState<ConfigChangeObservation | null>(null);
   const [busy, setBusy] = useState(false);
@@ -53,6 +61,7 @@ export function ConfigChangeHistory({
           void run(async () => {
             setRecords(await api.configChanges());
             setObservation(null);
+            setRollback(null);
           })
         }
       >
@@ -65,7 +74,26 @@ export function ConfigChangeHistory({
             {states[record.state] ?? record.state}
           </p>
           <p>记录：{record.id}</p>
+          {record.rollback_of && <p>回滚来源操作：{record.rollback_of}</p>}
           {record.error_code && <p>{record.error_code}</p>}
+          {!record.rollback_of &&
+            ['applied', 'resolved_proposed'].includes(record.state) && (
+              <button
+                disabled={busy}
+                onClick={() =>
+                  void run(async () => {
+                    setRollback(null);
+                    setRollbackConfirmed(false);
+                    setObservation(null);
+                    const next = await api.prepareConfigRollback(record.id);
+                    rollbackKey.current = crypto.randomUUID();
+                    setRollback(next);
+                  })
+                }
+              >
+                预览原字节回滚 {record.id}
+              </button>
+            )}
           <button
             disabled={busy}
             onClick={() =>
@@ -79,14 +107,63 @@ export function ConfigChangeHistory({
           </button>
         </article>
       ))}
+      {rollback && (
+        <div aria-label="原字节回滚确认">
+          <p>
+            目标：{rollback.data_root}/{rollback.path}
+          </p>
+          <p>
+            原操作：{rollback.rollback_of} · 保护备份：{rollback.backup_id}
+          </p>
+          <p>当前摘要：{rollback.before_sha256}</p>
+          <p>恢复后摘要：{rollback.after_sha256}</p>
+          <details>
+            <summary>将恢复的原始配置</summary>
+            <pre>{rollback.proposed_json}</pre>
+          </details>
+          <p>
+            仅恢复这个文件在保护归档中的原始字节，不修改存档。当前内容若已变化会拒绝执行；原权限、ACL
+            等元数据不属于字节回滚承诺。中断时保留保护，不自动重放。
+          </p>
+          <label>
+            <input
+              type="checkbox"
+              checked={rollbackConfirmed}
+              disabled={busy}
+              onChange={(e) => setRollbackConfirmed(e.target.checked)}
+            />
+            我确认恢复上述原配置字节
+          </label>
+          <button
+            disabled={busy || !rollbackConfirmed}
+            onClick={() =>
+              void run(async () => {
+                await api.applyConfigChange(
+                  rollback.id,
+                  rollback.plan_digest,
+                  rollbackKey.current,
+                );
+                setRollback(null);
+                setRecords(await api.configChanges());
+              })
+            }
+          >
+            确认原地回滚单文件
+          </button>
+        </div>
+      )}
       {observation && (
         <div aria-label="配置中断核对">
           <p>
             当前文件：
             {observation.matches === 'original'
-              ? '与原配置一致'
+              ? observation.change.rollback_of
+                ? '与本次回滚前的配置一致'
+                : '与原配置一致'
               : observation.matches === 'proposed'
-                ? '与拟应用配置一致'
+                ? observation.change.rollback_of
+                  ? '与备份原字节一致'
+                  : '与拟应用配置一致'
                 : '与原配置和拟应用配置均不同，不能解除保护'}
           </p>
           <code>{observation.current_sha256}</code>
