@@ -3,6 +3,7 @@ import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import InstanceResourcesDialog from './InstanceResourcesDialog';
 import type { InstanceResourcePreview } from './bindings/InstanceResourcePreview';
 import Modal from './Modal';
+import type { PlayInstance } from './bindings/PlayInstance';
 import type { LaunchPlan } from './api';
 import { useState } from 'react';
 import { type Dashboard, type HubApi, errorMessage } from './api';
@@ -31,6 +32,7 @@ export default function PlayInstancesPanel({
   );
   const [installationId, setInstallationId] = useState('');
   const [name, setName] = useState('');
+  const [directoryMode, setDirectoryMode] = useState('managed');
   const [root, setRoot] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -39,8 +41,10 @@ export default function PlayInstancesPanel({
   const [resourcePreview, setResourcePreview] =
     useState<InstanceResourcePreview | null>(null);
   const [plan, setPlan] = useState<LaunchPlan | null>(null);
+  const [launchTarget, setLaunchTarget] = useState<PlayInstance | null>(null);
+  const [profileSaved, setProfileSaved] = useState(false);
   const [profileSelected, setProfileSelected] = useState(false);
-  const [profileId, setProfileId] = useState('cdda-0h-source-trial-v1');
+  const [profileId, setProfileId] = useState('');
   const candidateProfile = [
     'cdda-0h-macos-concurrency-candidate-v1',
     'cdda-0i-1-macos-concurrency-candidate-v1',
@@ -63,7 +67,7 @@ export default function PlayInstancesPanel({
         一个安装可以登记多个实例。数据目录用于后续隔离存档、配置、缓存与日志。
       </p>
       <p className="inline-note">
-        目录绑定尚未验证。启动前须选择并确认参数方案；并发仅限实验候选。
+        目录绑定尚未验证。普通方案保持全局互斥；每个实例独立选择启动方案，并发仅限实验候选。
       </p>
       <div className="task-center-filters">
         {onInstallationFilterChange && (
@@ -98,65 +102,108 @@ export default function PlayInstancesPanel({
       {data.play_instances.length > 0 && !visibleInstances.length && (
         <p role="status">没有匹配的游玩实例，请调整版本或搜索条件。</p>
       )}
-      <details className="disclosure launch-settings">
-        <summary>启动设置与实验方案</summary>
-        <p className="warning">
-          原有安装启动不使用实例目录。普通方案保持全局互斥；固定 QA
-          并发候选尚未完成正式验收。实例备份不含安装与共享缓存。
-        </p>
-        <label>
-          <input
-            type="checkbox"
-            checked={profileSelected}
-            disabled={busy}
-            onChange={(event) => setProfileSelected(event.target.checked)}
-          />
-          使用所选源码参数方案试运行（本地程序版本未验证）
-        </label>
-        <label>
-          试运行参数方案
-          <select
-            value={profileId}
-            disabled={busy}
-            onChange={(event) => {
-              setProfileId(event.target.value);
-              setProfileSelected(false);
-            }}
-          >
-            <option value="cdda-0h-macos-concurrency-candidate-v1">
-              CDDA H · 固定 QA 并发候选（实验构建限定）
-            </option>
-            <option value="cdda-0i-1-macos-concurrency-candidate-v1">
-              CDDA I · 固定 QA 并发候选（实验构建限定）
-            </option>
-            <option value="cdda-0h-source-trial-v1">
-              CDDA 0.H 源码参数（通用）
-            </option>
-            <option value="cdda-0h-release-macos-native-trial-v1">
-              CDDA 0.H-RELEASE · macOS 原生本体入口
-            </option>
-            <option value="cdda-0i-1-macos-native-trial-v1">
-              CDDA 0.I-1 · macOS 原生本体入口
-            </option>
-            <option value="cdda-0h-release-macos-trial-v2">
-              CDDA 0.H-RELEASE · macOS · 独立 HOME 与临时目录
-            </option>
-            <option value="cdda-0i-1-macos-trial-v2">
-              CDDA 0.I-1 · macOS · 独立 HOME 与临时目录
-            </option>
-            <option value="cdda-0h-release-macos-trial-v1">
-              CDDA 0.H-RELEASE · macOS SDL2 发布包
-            </option>
-            <option value="cdda-0i-1-macos-trial-v1">
-              CDDA 0.I-1 · macOS SDL2 发布包
-            </option>
-          </select>
-        </label>
-      </details>
-      {!profileSelected && data.play_instances.length > 0 && (
-        <p className="inline-note">
-          试运行前，请展开“启动设置与实验方案”选择参数并勾选确认。配置读取不受此限制。
-        </p>
+      {launchTarget && !plan && (
+        <Modal
+          title={launchTarget.name + ' · 启动设置'}
+          onClose={() => {
+            if (!busy) setLaunchTarget(null);
+          }}
+        >
+          <p className="file-path">
+            目标实例：{launchTarget.name} · {launchTarget.data_root}
+          </p>
+          <p className="warning">
+            请按此实例关联的游戏版本选择方案。普通方案保持全局互斥；固定 QA
+            并发候选尚未完成正式验收。实例备份不含安装与共享缓存。
+          </p>
+          <label>
+            试运行参数方案
+            <select
+              value={profileId}
+              disabled={busy}
+              onChange={(event) => {
+                setProfileId(event.target.value);
+                setProfileSelected(false);
+                setProfileSaved(false);
+              }}
+            >
+              <option value="">请选择与此安装匹配的启动方案</option>
+              <option value="cdda-0h-macos-concurrency-candidate-v1">
+                CDDA H · 固定 QA 并发候选（实验构建限定）
+              </option>
+              <option value="cdda-0i-1-macos-concurrency-candidate-v1">
+                CDDA I · 固定 QA 并发候选（实验构建限定）
+              </option>
+              <option value="cdda-0h-source-trial-v1">
+                CDDA 0.H 源码参数（通用）
+              </option>
+              <option value="cdda-0h-release-macos-native-trial-v1">
+                CDDA 0.H-RELEASE · macOS 原生本体入口
+              </option>
+              <option value="cdda-0i-1-macos-native-trial-v1">
+                CDDA 0.I-1 · macOS 原生本体入口
+              </option>
+              <option value="cdda-0h-release-macos-trial-v2">
+                CDDA 0.H-RELEASE · macOS · 独立 HOME 与临时目录
+              </option>
+              <option value="cdda-0i-1-macos-trial-v2">
+                CDDA 0.I-1 · macOS · 独立 HOME 与临时目录
+              </option>
+              <option value="cdda-0h-release-macos-trial-v1">
+                CDDA 0.H-RELEASE · macOS SDL2 发布包
+              </option>
+              <option value="cdda-0i-1-macos-trial-v1">
+                CDDA 0.I-1 · macOS SDL2 发布包
+              </option>
+            </select>
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={profileSelected}
+              disabled={busy || !profileId}
+              onChange={(event) => setProfileSelected(event.target.checked)}
+            />
+            使用所选源码参数方案试运行（本地程序版本未验证）
+          </label>
+          {error && <p role="alert">{error}</p>}
+          {profileSaved && (
+            <p role="status">
+              此实例的启动方案已保存；不代表版本或目录绑定已验证。
+            </p>
+          )}
+          <div className="modal-actions">
+            <button
+              disabled={busy || !profileId}
+              onClick={() =>
+                void perform(async () => {
+                  await api.saveInstanceProfile(launchTarget.id, profileId);
+                  setProfileSaved(true);
+                })
+              }
+            >
+              保存此实例启动方案
+            </button>
+            <button
+              className="primary"
+              disabled={
+                busy ||
+                !profileId ||
+                !profileSelected ||
+                (data.resource_claims.length > 0 && !candidateProfile)
+              }
+              onClick={() =>
+                void perform(async () => {
+                  setPlan(
+                    await api.instanceLaunchPlan(launchTarget.id, profileId),
+                  );
+                })
+              }
+            >
+              预览 {launchTarget.name} 试运行
+            </button>
+          </div>
+        </Modal>
       )}
       {!data.play_instances.length && (
         <div className="empty-inline">
@@ -191,50 +238,63 @@ export default function PlayInstancesPanel({
                 {new Date(session.started_at).toLocaleString('zh-CN')}
               </p>
             ))}
-          <button
-            className="secondary"
-            disabled={
-              busy ||
-              !api.desktop ||
-              !profileSelected ||
-              (data.resource_claims.length > 0 && !candidateProfile)
-            }
-            onClick={() =>
-              void perform(async () => {
-                setPlan(await api.instanceLaunchPlan(item.id, profileId));
-              })
-            }
-          >
-            预览 {item.name} 试运行
-          </button>
-          <button
-            className="secondary"
-            disabled={busy || !api.desktop}
-            onClick={() =>
-              void perform(async () => {
-                setResourcePreview(null);
-                setResourcePreview(await api.previewInstanceResources(item.id));
-              })
-            }
-          >
-            检查 {item.name} 资源冲突
-          </button>
-          <button
-            disabled={busy || !api.desktop}
-            onClick={() =>
-              void perform(async () => {
-                setContentReport(null);
-                setContentReport(await api.inspectContentConfig(item.id));
-              })
-            }
-          >
-            读取 {item.name} 模组与声音引用
-          </button>
+          <div className="instance-actions">
+            <button
+              className="primary"
+              aria-label={`启动 ${item.name}`}
+              disabled={busy || !api.desktop}
+              onClick={() =>
+                void perform(async () => {
+                  const preferences = await api.preferences();
+                  setLaunchTarget(item);
+                  setProfileId(preferences.instance_profiles[item.id] ?? '');
+                  setProfileSelected(false);
+                  setProfileSaved(false);
+                  setPlan(null);
+                })
+              }
+            >
+              启动
+            </button>
+            <button
+              aria-label={`配置 ${item.name}`}
+              disabled={busy || !api.desktop}
+              onClick={() =>
+                void perform(async () => {
+                  setContentReport(null);
+                  setContentReport(await api.inspectContentConfig(item.id));
+                })
+              }
+            >
+              配置
+            </button>
+          </div>
+          <details className="inline-details">
+            <summary>资源冲突诊断</summary>
+            <button
+              className="secondary"
+              disabled={busy || !api.desktop}
+              onClick={() =>
+                void perform(async () => {
+                  setResourcePreview(null);
+                  setResourcePreview(
+                    await api.previewInstanceResources(item.id),
+                  );
+                })
+              }
+            >
+              检查 {item.name} 资源冲突
+            </button>
+          </details>
         </article>
       ))}
-      {error && !plan && <p role="alert">{error}</p>}
+      {error && !plan && !launchTarget && <p role="alert">{error}</p>}
       {contentReport && (
         <ContentConfigDialog
+          title={
+            (data.play_instances.find((i) => i.id === contentReport.instance_id)
+              ?.name ?? contentReport.instance_id) + ' · 模组与声音'
+          }
           changeApi={api}
           protectionApi={api}
           api={api}
@@ -292,6 +352,7 @@ export default function PlayInstancesPanel({
                 void perform(async () => {
                   await api.launch(plan.id);
                   setPlan(null);
+                  setLaunchTarget(null);
                   await onRefresh();
                 })
               }
@@ -310,11 +371,14 @@ export default function PlayInstancesPanel({
           onSubmit={(event) => {
             event.preventDefault();
             void perform(async () => {
-              await api.registerPlayInstance({
-                installation_id: installationId,
-                name,
-                data_root: root,
-              });
+              if (directoryMode === 'managed')
+                await api.registerManagedInstance(installationId, name);
+              else
+                await api.registerPlayInstance({
+                  installation_id: installationId,
+                  name,
+                  data_root: root,
+                });
               setName('');
               setRoot('');
               await onRefresh();
@@ -345,27 +409,52 @@ export default function PlayInstancesPanel({
               onChange={(e) => setName(e.target.value)}
             />
           </label>
-          <p>
-            选择现有空目录，须与安装、工作区和其他实例分离。登记不会迁移文件。
-          </p>
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={busy || !api.desktop}
-            onClick={() =>
-              void perform(async () => {
-                const selected = await api.pickPath('directory');
-                if (selected) setRoot(selected);
-              })
-            }
-          >
-            选择实例空目录
-          </button>
-          <p className="mono">{root || '尚未选择'}</p>
+          <label>
+            实例目录方式
+            <select
+              value={directoryMode}
+              disabled={busy}
+              onChange={(e) => setDirectoryMode(e.target.value)}
+            >
+              <option value="managed">系统推荐目录（自动创建独立目录）</option>
+              <option value="custom">选择自定义空目录</option>
+            </select>
+          </label>
+          {directoryMode === 'managed' && (
+            <p>
+              在系统应用数据区的 instances
+              下创建唯一目录，与其他实例和安装分离；不会迁移现有存档。
+            </p>
+          )}
+          {directoryMode === 'custom' && (
+            <>
+              <p>
+                选择现有空目录，须与安装、工作区和其他实例分离。登记不会迁移文件。
+              </p>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={busy || !api.desktop}
+                onClick={() =>
+                  void perform(async () => {
+                    const selected = await api.pickPath('directory');
+                    if (selected) setRoot(selected);
+                  })
+                }
+              >
+                选择实例空目录
+              </button>
+              <p className="mono">{root || '尚未选择'}</p>
+            </>
+          )}
           <button
             className="primary-button"
             disabled={
-              busy || !api.desktop || !installationId || !name.trim() || !root
+              busy ||
+              !api.desktop ||
+              !installationId ||
+              !name.trim() ||
+              (directoryMode === 'custom' && !root)
             }
           >
             登记实例

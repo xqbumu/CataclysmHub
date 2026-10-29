@@ -33,7 +33,7 @@ pub struct Workspace {
     pub content_dir: String,
     pub created_at: String,
 }
-#[derive(Debug, Clone, Deserialize, TS)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[serde(deny_unknown_fields)]
 pub struct WorkspaceInput {
     pub save_dir: String,

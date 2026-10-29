@@ -4,6 +4,18 @@ import { expect, it, vi } from 'vitest';
 import PlayInstancesPanel from './PlayInstancesPanel';
 import { api, emptyDashboard } from './api';
 
+async function openLaunch(
+  user: ReturnType<typeof userEvent.setup>,
+  name: string,
+) {
+  await user.click(screen.getByRole('button', { name: '启动 ' + name }));
+  await screen.findByLabelText('试运行参数方案');
+  await user.selectOptions(
+    screen.getByLabelText('试运行参数方案'),
+    'cdda-0h-source-trial-v1',
+  );
+}
+
 it('requires a native selection and keeps binding uncertainty explicit', async () => {
   const user = userEvent.setup();
   const registerPlayInstance = vi.fn().mockResolvedValue({});
@@ -40,6 +52,7 @@ it('requires a native selection and keeps binding uncertainty explicit', async (
   expect(screen.getByRole('button', { name: '登记实例' })).toBeDisabled();
   await user.selectOptions(screen.getByLabelText('关联安装'), 'game');
   await user.type(screen.getByLabelText('实例名称'), '独立世界');
+  await user.selectOptions(screen.getByLabelText('实例目录方式'), 'custom');
   await user.click(screen.getByRole('button', { name: '选择实例空目录' }));
   await user.click(screen.getByRole('button', { name: '登记实例' }));
   expect(registerPlayInstance).toHaveBeenCalledWith({
@@ -89,9 +102,9 @@ it('requires choosing a trial profile and a separate confirmation before launch'
       onRefresh={vi.fn().mockResolvedValue(undefined)}
     />,
   );
+  await openLaunch(user, '独立实例');
   const preview = screen.getByRole('button', { name: '预览 独立实例 试运行' });
   expect(preview).toBeDisabled();
-  await user.click(screen.getByText('启动设置与实验方案'));
   await user.click(screen.getByRole('checkbox'));
   await user.click(preview);
   expect(instanceLaunchPlan).toHaveBeenCalledWith(
@@ -104,7 +117,9 @@ it('requires choosing a trial profile and a separate confirmation before launch'
   ).toBeInTheDocument();
   await user.click(screen.getByRole('button', { name: '取消' }));
   expect(launch).not.toHaveBeenCalled();
-  await user.click(preview);
+  await user.click(
+    screen.getByRole('button', { name: '预览 独立实例 试运行' }),
+  );
   await user.click(screen.getByRole('button', { name: '确认单实例试运行' }));
   expect(launch).toHaveBeenCalledWith('plan');
 });
@@ -142,7 +157,7 @@ it('changing a version profile clears acknowledgement and forwards the selected 
       onRefresh={vi.fn()}
     />,
   );
-  await user.click(screen.getByText('启动设置与实验方案'));
+  await openLaunch(user, '测试');
   await user.click(screen.getByRole('checkbox'));
   await user.selectOptions(
     screen.getByLabelText('试运行参数方案'),
@@ -217,9 +232,8 @@ it('can inspect conflicts while launch is blocked without choosing a profile or 
       onRefresh={vi.fn()}
     />,
   );
-  expect(
-    screen.getByRole('button', { name: '预览 独立实例 试运行' }),
-  ).toBeDisabled();
+  expect(screen.getByRole('button', { name: '启动 独立实例' })).toBeEnabled();
+  await user.click(screen.getByText('资源冲突诊断'));
   await user.click(
     screen.getByRole('button', { name: '检查 独立实例 资源冲突' }),
   );
@@ -289,7 +303,7 @@ it('lets an explicit candidate request backend admission while other claims exis
       onRefresh={vi.fn()}
     />,
   );
-  await user.click(screen.getByText('启动设置与实验方案'));
+  await openLaunch(user, 'Candidate');
   await user.click(screen.getByRole('checkbox'));
   expect(
     screen.getByRole('button', { name: '预览 Candidate 试运行' }),
@@ -310,4 +324,67 @@ it('lets an explicit candidate request backend admission while other claims exis
     'cdda-0i-1-macos-concurrency-candidate-v1',
   );
   expect(await screen.findByRole('alert')).toBeInTheDocument();
+});
+
+it('keeps saved launch profiles and acknowledgement scoped to one instance', async () => {
+  const user = userEvent.setup();
+  const saveInstanceProfile = vi.fn().mockResolvedValue({
+    revision: 2,
+    instance_profiles: {
+      a: 'cdda-0h-source-trial-v1',
+      b: 'cdda-0h-source-trial-v1',
+    },
+  });
+  const instanceLaunchPlan = vi.fn();
+  const base = {
+    id: 'a',
+    name: 'A',
+    installation_id: 'game',
+    installation_sha256: 'hash',
+    data_root: '/a',
+    binding_status: 'unverified',
+    created_at: '',
+  };
+  render(
+    <PlayInstancesPanel
+      api={{
+        ...api,
+        desktop: true,
+        preferences: vi.fn().mockResolvedValue({
+          revision: 1,
+          instance_profiles: { a: 'cdda-0h-source-trial-v1' },
+        }),
+        saveInstanceProfile,
+        instanceLaunchPlan,
+      }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          base,
+          { ...base, id: 'b', name: 'B', data_root: '/b' },
+        ],
+      }}
+      onRefresh={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '启动 A' }));
+  expect(await screen.findByLabelText('试运行参数方案')).toHaveValue(
+    'cdda-0h-source-trial-v1',
+  );
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(screen.getByRole('button', { name: '关闭对话框' }));
+  await user.click(screen.getByRole('button', { name: '启动 B' }));
+  expect(await screen.findByLabelText('试运行参数方案')).toHaveValue('');
+  expect(screen.getByRole('checkbox')).not.toBeChecked();
+  expect(screen.getByRole('button', { name: '预览 B 试运行' })).toBeDisabled();
+  await user.selectOptions(
+    screen.getByLabelText('试运行参数方案'),
+    'cdda-0h-source-trial-v1',
+  );
+  await user.click(screen.getByRole('button', { name: '保存此实例启动方案' }));
+  expect(saveInstanceProfile).toHaveBeenCalledWith(
+    'b',
+    'cdda-0h-source-trial-v1',
+  );
+  expect(instanceLaunchPlan).not.toHaveBeenCalled();
 });

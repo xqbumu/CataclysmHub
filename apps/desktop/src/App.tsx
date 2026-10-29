@@ -1,3 +1,4 @@
+import HubSettings from './HubSettings';
 import InstallationDetails from './InstallationDetails';
 import TaskCenter from './TaskCenter';
 import WorkspaceTabs from './WorkspaceTabs';
@@ -55,9 +56,13 @@ const pages: Record<Page, string> = {
   settings: '设置',
 };
 const pathFields: [keyof WorkspaceInput, string, string][] = [
-  ['save_dir', '存档根目录', '选择游戏现有的存档目录，只读发现，不修改原文件'],
+  [
+    'save_dir',
+    '存档根目录',
+    '使用推荐目录或选择现有存档根；只读发现，不迁移文件',
+  ],
   ['backup_dir', '独立备份目录', '选择与存档分离的目录，可使用外置磁盘'],
-  ['content_dir', '资源目录', '用于管理 mods、音效、图块集与字体'],
+  ['content_dir', '资源目录', '共享模组与声音包来源；登记不等于对实例启用'],
 ];
 const statusNames: Record<string, string> = {
   starting: '正在启动',
@@ -132,6 +137,8 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
     string | null
   >(null);
   const [installationQuery, setInstallationQuery] = useState('');
+  const [settingsRevision, setSettingsRevision] = useState(0);
+  const [defaultPaths, setDefaultPaths] = useState<WorkspaceInput | null>(null);
   const [instanceFilter, setInstanceFilter] = useState('');
   const [backupView, setBackupView] = useState('archives');
   const [gameView, setGameView] = useState('instances');
@@ -193,6 +200,25 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
       setBusy(false);
     }
   }
+  useEffect(() => {
+    let alive = true;
+    if (api.desktop)
+      void api
+        .workspaceDefaults()
+        .then((defaults) => {
+          if (!alive || !defaults) return;
+          setDefaultPaths(defaults);
+          setPaths((old) =>
+            Object.values(old).every((value) => !value) ? defaults : old,
+          );
+        })
+        .catch((err) => {
+          if (alive) setError(errorMessage(err));
+        });
+    return () => {
+      alive = false;
+    };
+  }, [api]);
   const workspace = data.workspace;
   const running = data.sessions.filter(
     (s) => s.state === 'running' || s.state === 'starting',
@@ -227,8 +253,29 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
         <span className="step-label">{workspace ? '已配置' : '01 / 02'}</span>
       </div>
       <p className="muted">
-        将存档、备份与资源分开管理。此设置不会移动文件，也不会修改游戏配置。
+        系统推荐目录用于 Hub
+        托管数据，也可选择已有目录。保存时仅创建所需的推荐目录，不移动已有文件。
       </p>
+      {!workspace && defaultPaths && (
+        <button
+          className="secondary"
+          disabled={busy}
+          onClick={() => setPaths(defaultPaths)}
+        >
+          恢复系统推荐目录
+        </button>
+      )}
+      {workspace && defaultPaths && (
+        <details className="disclosure">
+          <summary>系统推荐目录（已有工作区保持原位置）</summary>
+          <p className="file-path">存档：{defaultPaths.save_dir}</p>
+          <p className="file-path">备份：{defaultPaths.backup_dir}</p>
+          <p className="file-path">资源：{defaultPaths.content_dir}</p>
+          <p>
+            可重建缓存与临时文件不作为存档或备份位置。备份仍可选择外置磁盘。
+          </p>
+        </details>
+      )}
       <form
         onSubmit={(event) => {
           event.preventDefault();
@@ -504,7 +551,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                     : page === 'backups'
                       ? '查看世界、创建保护副本，或恢复到新目录。'
                       : page === 'content'
-                        ? '管理本地资源包；实例配置从游戏库进入。'
+                        ? '按安装与实例配置模组和声音，来源资源单独管理。'
                         : page === 'activity'
                           ? '集中处理资源占用、配置恢复与操作记录。'
                           : '查看本机数据位置与工作区配置。'}
@@ -707,8 +754,29 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                   ]}
                 />
               )}
-              {page === 'content' && <ContentPage api={api} />}
-              {page === 'settings' && setup}
+              {page === 'content' && <ContentPage api={api} data={data} />}
+              {page === 'settings' && (
+                <div className="settings-layout">
+                  {setup}
+                  <HubSettings
+                    api={api}
+                    onReset={() => {
+                      setSettingsRevision((r) => r + 1);
+                      setGameView('instances');
+                      setBackupView('archives');
+                      setInstanceFilter('');
+                      setInstallationQuery('');
+                      setPaths(
+                        defaultPaths ?? {
+                          save_dir: '',
+                          backup_dir: '',
+                          content_dir: '',
+                        },
+                      );
+                    }}
+                  />
+                </div>
+              )}
               {page === 'games' && (
                 <WorkspaceTabs
                   label="游戏库视图"
@@ -720,6 +788,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       label: '游玩实例',
                       content: workspace ? (
                         <PlayInstancesPanel
+                          key={settingsRevision}
                           api={api}
                           data={data}
                           installationFilter={instanceFilter}

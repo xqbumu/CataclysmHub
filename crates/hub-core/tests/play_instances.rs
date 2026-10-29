@@ -186,7 +186,7 @@ async fn schema_six_upgrade_keeps_a_snapshot_and_records() {
     let pool = sqlx::SqlitePool::connect(&format!("sqlite://{}", db.display()))
         .await
         .unwrap();
-    sqlx::raw_sql("DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN launch_profile_id; ALTER TABLE session DROP COLUMN instance_data_root; DROP TABLE play_instance; PRAGMA user_version=6;")
+    sqlx::raw_sql("DROP TABLE hub_preferences; DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; ALTER TABLE session DROP COLUMN play_instance_id; ALTER TABLE session DROP COLUMN launch_profile_id; ALTER TABLE session DROP COLUMN instance_data_root; DROP TABLE play_instance; PRAGMA user_version=6;")
         .execute(&pool)
         .await
         .unwrap();
@@ -424,4 +424,41 @@ async fn legacy_instance_inside_bundle_is_blocked_before_launch_or_backup() {
     );
     assert!(hub.dashboard().await.unwrap().sessions.is_empty());
     assert_eq!(std::fs::read_dir(sibling).unwrap().count(), 0);
+}
+
+#[tokio::test]
+async fn managed_instances_use_unique_directories_and_refuse_protected_ancestors_before_creation() {
+    let (temp, hub, installation) = setup().await;
+    let managed = temp.path().join("system.workspace");
+    let a = hub
+        .register_managed_instance(&managed, installation.clone(), "A".into())
+        .await
+        .unwrap();
+    let b = hub
+        .register_managed_instance(&managed, installation.clone(), "B".into())
+        .await
+        .unwrap();
+    assert_ne!(a.data_root, b.data_root);
+    assert!(
+        std::path::Path::new(&a.data_root)
+            .starts_with(std::fs::canonicalize(managed.join("instances")).unwrap())
+    );
+    let inside_game = temp.path().join("game/system.workspace");
+    assert_eq!(
+        hub.register_managed_instance(&inside_game, installation.clone(), "Bad".into())
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_SCOPE_OVERLAP"
+    );
+    assert!(!inside_game.exists());
+    let inside_instance = std::path::Path::new(&a.data_root).join("nested");
+    assert_eq!(
+        hub.register_managed_instance(&inside_instance, installation, "Bad".into())
+            .await
+            .unwrap_err()
+            .code,
+        "INSTANCE_SCOPE_OVERLAP"
+    );
+    assert!(!inside_instance.exists());
 }

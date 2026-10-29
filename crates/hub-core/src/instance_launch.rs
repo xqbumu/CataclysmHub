@@ -68,7 +68,7 @@ fn check_role(path: &Path) -> Result<()> {
     }
 }
 
-fn validate_profile(profile: &str) -> Result<()> {
+pub(crate) fn validate_profile(profile: &str) -> Result<()> {
     crate::candidate_launch::ensure_enabled(profile)?;
     let profile = crate::candidate_launch::base_profile(profile);
     if ![

@@ -48,6 +48,9 @@ it('registers a chosen package type without installing or enabling it', async ()
   const api = client();
   const user = userEvent.setup();
   render(<ContentPage api={api} />);
+  await userEvent
+    .setup()
+    .click(screen.getByRole('tab', { name: '资源来源库' }));
   await waitFor(() => expect(api.contentEntries).toHaveBeenCalledOnce());
   await user.selectOptions(screen.getByLabelText('资源类型'), 'soundpack');
   await user.click(screen.getByRole('button', { name: '登记本地包目录' }));
@@ -61,6 +64,9 @@ it('shows duplicate IDs and unresolved catalog dependencies and requires confirm
   const api = client([entry, { ...entry, id: 'two', root: '/mods/other' }]);
   const user = userEvent.setup();
   render(<ContentPage api={api} />);
+  await userEvent
+    .setup()
+    .click(screen.getByRole('tab', { name: '资源来源库' }));
   expect(await screen.findAllByText(/重复 ID/)).toHaveLength(2);
   expect(screen.getAllByText(/未在资源库找到：dda/)).toHaveLength(2);
   await user.click(screen.getAllByRole('button', { name: '移除登记' })[0]);
@@ -78,6 +84,9 @@ it('labels failed refresh data as historical and supports picker cancellation', 
   const api = client([{ ...entry, last_error: 'PATH_INVALID' }]);
   vi.mocked(api.pickPath).mockResolvedValue(null);
   render(<ContentPage api={api} />);
+  await userEvent
+    .setup()
+    .click(screen.getByRole('tab', { name: '资源来源库' }));
   const user = userEvent.setup();
   expect(await screen.findByRole('alert')).toHaveTextContent('历史元数据');
   await user.click(screen.getByRole('button', { name: '登记本地包目录' }));
@@ -97,6 +106,9 @@ it('combines resource search with type filtering without changing registrations'
   const api = client([entry, sound]);
   const user = userEvent.setup();
   render(<ContentPage api={api} />);
+  await userEvent
+    .setup()
+    .click(screen.getByRole('tab', { name: '资源来源库' }));
   expect(
     await screen.findByRole('heading', { name: '模组 · Example' }),
   ).toBeVisible();

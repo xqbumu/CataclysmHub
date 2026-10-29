@@ -53,8 +53,115 @@ impl Hub {
             .await
             .map_err(HubError::db)
     }
+    /// Only the trusted desktop layer supplies this platform-derived managed root.
+    pub async fn register_managed_instance(
+        &self,
+        managed_root: &Path,
+        installation_id: String,
+        name: String,
+    ) -> Result<PlayInstance> {
+        use cap_fs_ext::DirExt;
+        use cap_std::fs::Dir;
+        let _guard = self.mutation.lock().await;
+        self.check_resource_claims().await?;
+        if name.chars().any(char::is_control)
+            || name.trim().is_empty()
+            || name.trim().chars().count() > 100
+        {
+            return Err(HubError::new(
+                "NAME_INVALID",
+                "实例名称须为 1～100 个可显示字符。",
+            ));
+        }
+        let installation = self.installation(&installation_id).await?;
+        if paths::digest(PathBuf::from(&installation.executable)).await? != installation.sha256 {
+            return Err(HubError::new(
+                "SOURCE_CHANGED",
+                "游戏程序已变化，请重新检查安装。",
+            ));
+        }
+        let data = self.dashboard().await?;
+        let workspace = data
+            .workspace
+            .ok_or(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"))?;
+        let mut protected = vec![
+            self.data_dir.clone(),
+            PathBuf::from(workspace.save_dir),
+            PathBuf::from(workspace.backup_dir),
+            PathBuf::from(workspace.content_dir),
+        ];
+        protected.extend(
+            data.installations
+                .iter()
+                .map(|i| paths::installation_scope(&i.working_dir)),
+        );
+        protected.extend(
+            data.play_instances
+                .iter()
+                .map(|i| PathBuf::from(&i.data_root)),
+        );
+        let parent = managed_root
+            .parent()
+            .ok_or(HubError::new("PATH_INVALID", "系统目录没有父目录。"))?;
+        let leaf = managed_root
+            .file_name()
+            .ok_or(HubError::new("PATH_INVALID", "系统目录没有名称。"))?;
+        let target = managed_root.join("instances").join(id());
+        // Before any mkdir, reject if the nearest existing ancestor is inside a
+        // registered source. Comparing directory identities also catches aliases.
+        let mut ancestor = target.as_path();
+        while !ancestor
+            .try_exists()
+            .map_err(|_| HubError::new("PATH_INVALID", "系统目录不可访问。"))?
+        {
+            ancestor = ancestor
+                .parent()
+                .ok_or(HubError::new("PATH_INVALID", "系统目录不可访问。"))?;
+        }
+        for protected in protected {
+            for existing in ancestor.ancestors() {
+                if same_file::is_same_file(existing, &protected)
+                    .map_err(|_| HubError::new("PATH_INVALID", "受保护目录不可访问。"))?
+                {
+                    return Err(HubError::new(
+                        "INSTANCE_SCOPE_OVERLAP",
+                        "推荐实例目录位于已有受保护数据内，请选择自定义目录。",
+                    ));
+                }
+            }
+        }
+        let err = |_| HubError::new("DEFAULT_DIRECTORY_FAILED", "无法创建系统推荐实例目录。");
+        let parent = Dir::open_ambient_dir(parent, cap_std::ambient_authority()).map_err(err)?;
+        match parent.create_dir(leaf) {
+            Ok(()) => (),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+            Err(e) => return Err(err(e)),
+        }
+        let root = parent.open_dir_nofollow(leaf).map_err(err)?;
+        match root.create_dir("instances") {
+            Ok(()) => (),
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+            Err(e) => return Err(err(e)),
+        }
+        let instances = root.open_dir_nofollow("instances").map_err(err)?;
+        instances
+            .create_dir(target.file_name().unwrap())
+            .map_err(err)?;
+        self.register_play_instance_locked(PlayInstanceInput {
+            installation_id,
+            name,
+            data_root: paths::text(&target)?,
+        })
+        .await
+    }
     pub async fn register_play_instance(&self, input: PlayInstanceInput) -> Result<PlayInstance> {
         let _guard = self.mutation.lock().await;
+        self.register_play_instance_locked(input).await
+    }
+    async fn register_play_instance_locked(
+        &self,
+        input: PlayInstanceInput,
+    ) -> Result<PlayInstance> {
         self.check_resource_claims().await?;
         if input.name.chars().any(char::is_control)
             || input.name.trim().is_empty()

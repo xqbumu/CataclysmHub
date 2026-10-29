@@ -1,3 +1,5 @@
+import type { HubPreferences } from './bindings/HubPreferences';
+import type { PreferencesReset } from './bindings/PreferencesReset';
 import type { ConfigChangePlan } from './bindings/ConfigChangePlan';
 import type { ConfigChange } from './bindings/ConfigChange';
 import type { ConfigChangeObservation } from './bindings/ConfigChangeObservation';
@@ -68,6 +70,21 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  registerManagedInstance(
+    installationId: string,
+    name: string,
+  ): Promise<PlayInstance>;
+  workspaceDefaults(): Promise<WorkspaceInput | null>;
+  preferences(): Promise<HubPreferences>;
+  saveInstanceProfile(
+    instanceId: string,
+    profile: string,
+  ): Promise<HubPreferences>;
+  resetPreferences(
+    revision: number,
+    confirmed: boolean,
+  ): Promise<PreferencesReset>;
+
   prepareConfigRollback(changeId: string): Promise<ConfigChangePlan>;
   prepareConfigChange(
     instanceId: string,
@@ -184,6 +201,19 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  registerManagedInstance: (installationId, name) =>
+    desktopOnly('register_managed_instance', { installationId, name }),
+  workspaceDefaults: () =>
+    isTauri() ? desktopOnly('workspace_defaults') : Promise.resolve(null),
+  preferences: () =>
+    isTauri()
+      ? desktopOnly('hub_preferences')
+      : Promise.resolve({ revision: 0, instance_profiles: {} }),
+  saveInstanceProfile: (instanceId, profile) =>
+    desktopOnly('save_instance_profile', { instanceId, profile }),
+  resetPreferences: (revision, confirmed) =>
+    desktopOnly('reset_hub_preferences', { revision, confirmed }),
+
   prepareConfigRollback: (changeId) =>
     desktopOnly('prepare_config_rollback', { changeId }),
   prepareConfigChange: (instanceId, input, backupId) =>

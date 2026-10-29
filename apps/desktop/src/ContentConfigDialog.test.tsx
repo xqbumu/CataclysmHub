@@ -111,9 +111,7 @@ it('opens read-only inspection for an instance without creating a launch plan', 
       onRefresh={vi.fn()}
     />,
   );
-  await user.click(
-    screen.getByRole('button', { name: '读取 A 模组与声音引用' }),
-  );
+  await user.click(screen.getByRole('button', { name: '配置 A' }));
   expect(inspectContentConfig).toHaveBeenCalledWith('p');
   expect(instanceLaunchPlan).not.toHaveBeenCalled();
   expect(await screen.findByRole('dialog')).toBeInTheDocument();

@@ -43,7 +43,9 @@ export default function ContentConfigDialog({
   api,
   protectionApi,
   changeApi,
+  title,
 }: {
+  title?: string;
   report: ContentConfigReport;
   api?: Pick<HubApi, 'previewContentConfig'>;
   protectionApi?: ProtectionApi;
@@ -51,7 +53,7 @@ export default function ContentConfigDialog({
   onClose: () => void;
 }) {
   return (
-    <Modal title="模组与声音配置引用" onClose={onClose} wide>
+    <Modal title={title ?? '模组与声音配置引用'} onClose={onClose} wide>
       <p className="inline-note">
         配置读取不代表游戏实际加载。已有世界与新世界默认组合分别管理。
       </p>

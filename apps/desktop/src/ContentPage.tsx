@@ -1,3 +1,6 @@
+import WorkspaceTabs from './WorkspaceTabs';
+import InstanceContentPanel from './InstanceContentPanel';
+import { emptyDashboard, type Dashboard } from './api';
 import {
   ContentInstallButton,
   ContentInstallTasks,
@@ -8,7 +11,13 @@ import { errorMessage } from './api';
 import type { ContentEntry } from './bindings/ContentEntry';
 import Modal from './Modal';
 
-export default function ContentPage({ api }: { api: HubApi }) {
+export default function ContentPage({
+  api,
+  data = emptyDashboard,
+}: {
+  api: HubApi;
+  data?: Dashboard;
+}) {
   const [entries, setEntries] = useState<ContentEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -66,9 +75,9 @@ export default function ContentPage({ api }: { api: HubApi }) {
             .includes(query.toLowerCase()),
         )),
   );
-  return (
+  const library = (
     <section className="panel">
-      <h2>模组与声音包资源库</h2>
+      <h2>共享资源来源库</h2>
       <p>
         登记本地包目录并读取元数据，登记不复制或启用资源；安装副本需另行预览确认。模组组合属于世界配置；声音包需在游戏设置中选择。所有游戏版本的兼容性均未验证。
       </p>
@@ -238,5 +247,18 @@ export default function ContentPage({ api }: { api: HubApi }) {
         </Modal>
       )}
     </section>
+  );
+  return (
+    <WorkspaceTabs
+      label="模组与声音视图"
+      items={[
+        {
+          id: 'instance',
+          label: '实例配置',
+          content: <InstanceContentPanel api={api} data={data} />,
+        },
+        { id: 'library', label: '资源来源库', content: library },
+      ]}
+    />
   );
 }

@@ -34,6 +34,13 @@ const task: RestoreTask = {
 };
 function client() {
   return {
+    registerManagedInstance: vi.fn(),
+    workspaceDefaults: vi.fn().mockResolvedValue(null),
+    preferences: vi
+      .fn()
+      .mockResolvedValue({ revision: 0, instance_profiles: {} }),
+    saveInstanceProfile: vi.fn(),
+    resetPreferences: vi.fn(),
     desktop: true,
     inspectContentConfig: vi.fn(),
     previewContentConfig: vi.fn(),

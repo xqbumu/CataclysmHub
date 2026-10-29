@@ -78,3 +78,6 @@ pub use content_config_protection::ContentConfigProtectionPlan;
 
 mod config_change;
 pub use config_change::{ConfigChange, ConfigChangeObservation, ConfigChangePlan};
+
+mod preferences;
+pub use preferences::{HubPreferences, PreferencesReset};

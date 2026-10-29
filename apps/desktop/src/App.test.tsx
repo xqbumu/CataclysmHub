@@ -47,6 +47,13 @@ const plan: LaunchPlan = {
 };
 function client(data: Dashboard = emptyDashboard): HubApi {
   return {
+    registerManagedInstance: vi.fn(),
+    workspaceDefaults: vi.fn().mockResolvedValue(null),
+    preferences: vi
+      .fn()
+      .mockResolvedValue({ revision: 0, instance_profiles: {} }),
+    saveInstanceProfile: vi.fn(),
+    resetPreferences: vi.fn(),
     desktop: true,
     inspectContentConfig: vi.fn(),
     previewContentConfig: vi.fn(),
@@ -241,7 +248,12 @@ describe('workspace and launch safety', () => {
       const user = userEvent.setup();
       render(<App api={api} />);
       await user.click(await screen.findByRole('button', { name: /^游戏库/ }));
-      await user.click(screen.getByText('启动设置与实验方案'));
+      await user.click(screen.getByRole('button', { name: '启动 测试实例' }));
+      await screen.findByLabelText('试运行参数方案');
+      await user.selectOptions(
+        screen.getByLabelText('试运行参数方案'),
+        'cdda-0h-source-trial-v1',
+      );
       const ack = screen.getByRole('checkbox', {
         name: /使用所选源码参数方案/,
       });
@@ -406,4 +418,25 @@ it('does not hide a live session behind an earlier returned exit record', async 
   expect(
     within(card).getByRole('button', { name: /工作区忙碌或待确认/ }),
   ).toBeDisabled();
+});
+
+it('offers platform defaults without requiring three directory picker operations', async () => {
+  const service = client();
+  const defaults = {
+    save_dir: '/system/app.workspace/saves',
+    backup_dir: '/system/app.workspace/backups',
+    content_dir: '/system/app.workspace/content',
+  };
+  vi.mocked(service.workspaceDefaults).mockResolvedValue(defaults);
+  vi.mocked(service.initialize).mockResolvedValue({
+    ...workspace,
+    ...defaults,
+  });
+  const user = userEvent.setup();
+  render(<App api={service} />);
+  await screen.findByRole('button', { name: '恢复系统推荐目录' });
+  expect(screen.getByLabelText('存档根目录')).toHaveValue(defaults.save_dir);
+  await user.click(screen.getByRole('button', { name: /保存工作区/ }));
+  expect(service.initialize).toHaveBeenCalledWith(defaults);
+  expect(service.pickPath).not.toHaveBeenCalled();
 });

@@ -2270,3 +2270,72 @@ footer {
     gap: 0;
   }
 }
+
+/* Shared single-line control metrics; composite path fields use the same grid. */
+:root {
+  --control-height: 40px;
+  --control-radius: 8px;
+  --control-padding-x: 12px;
+}
+input:not([type='checkbox']):not([type='radio']),
+select {
+  box-sizing: border-box;
+  height: var(--control-height);
+  min-height: var(--control-height);
+  padding: 0 var(--control-padding-x);
+  font-size: 14px;
+  line-height: 1.4;
+  border-radius: var(--control-radius);
+  min-width: 0;
+}
+button {
+  min-height: var(--control-height);
+}
+textarea {
+  font-size: 14px;
+  min-height: 100px;
+}
+.path-input {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) 84px;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.path-input > input {
+  width: 100%;
+  padding: 0 var(--control-padding-x);
+  border: 1px solid var(--line);
+  background: #111a15;
+  font-size: 14px;
+  margin: 0;
+}
+.path-input > button {
+  height: var(--control-height);
+  padding: 0 var(--control-padding-x);
+  font-size: 14px;
+  border-radius: var(--control-radius);
+  margin: 0;
+}
+.path-field > label {
+  font-size: 14px;
+}
+.path-field > small {
+  font-size: 12px;
+}
+.instance-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+.instance-actions > button {
+  min-width: 100px;
+  margin: 0;
+}
+.settings-layout {
+  display: grid;
+  gap: 24px;
+}

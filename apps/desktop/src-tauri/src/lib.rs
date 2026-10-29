@@ -13,6 +13,7 @@ use tauri_plugin_dialog::DialogExt;
 struct AppState {
     hub: Arc<Hub>,
     selected: Mutex<HashSet<PathBuf>>,
+    managed_root: PathBuf,
 }
 fn selection_error() -> HubError {
     HubError::new("PATH_NOT_SELECTED", "请通过本机文件选择器重新选择路径。")
@@ -28,6 +29,88 @@ fn authorized(state: &AppState, path: &str) -> Result<(), HubError> {
         return Err(selection_error());
     }
     Ok(())
+}
+fn default_workspace(state: &AppState) -> Result<WorkspaceInput, HubError> {
+    let text = |name: &str| {
+        state
+            .managed_root
+            .join(name)
+            .to_str()
+            .map(str::to_owned)
+            .ok_or_else(|| HubError::new("PATH_UNSUPPORTED", "系统目录无法表示为 UTF-8。"))
+    };
+    Ok(WorkspaceInput {
+        save_dir: text("saves")?,
+        backup_dir: text("backups")?,
+        content_dir: text("content")?,
+    })
+}
+fn prepare_default_directory(state: &AppState, name: &str) -> Result<(), HubError> {
+    use cap_fs_ext::DirExt;
+    let err = |_| {
+        HubError::new(
+            "DEFAULT_DIRECTORY_FAILED",
+            "无法创建系统推荐目录，请检查权限或使用自定义目录。",
+        )
+    };
+    let parent = state.managed_root.parent().ok_or_else(selection_error)?;
+    std::fs::create_dir_all(parent).map_err(err)?;
+    let parent =
+        cap_std::fs::Dir::open_ambient_dir(parent, cap_std::ambient_authority()).map_err(err)?;
+    let leaf = state.managed_root.file_name().ok_or_else(selection_error)?;
+    match parent.create_dir(leaf) {
+        Ok(()) => (),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+        Err(e) => return Err(err(e)),
+    }
+    let root = parent.open_dir_nofollow(leaf).map_err(err)?;
+    match root.create_dir(name) {
+        Ok(()) => (),
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+        Err(e) => return Err(err(e)),
+    }
+    root.open_dir_nofollow(name).map_err(err)?;
+    Ok(())
+}
+#[tauri::command]
+async fn register_managed_instance(
+    state: tauri::State<'_, AppState>,
+    installation_id: String,
+    name: String,
+) -> Result<hub_core::PlayInstance, HubError> {
+    state
+        .hub
+        .register_managed_instance(&state.managed_root, installation_id, name)
+        .await
+}
+#[tauri::command]
+async fn workspace_defaults(state: tauri::State<'_, AppState>) -> Result<WorkspaceInput, HubError> {
+    default_workspace(&state)
+}
+#[tauri::command]
+async fn hub_preferences(
+    state: tauri::State<'_, AppState>,
+) -> Result<hub_core::HubPreferences, HubError> {
+    state.hub.preferences().await
+}
+#[tauri::command]
+async fn save_instance_profile(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+    profile: String,
+) -> Result<hub_core::HubPreferences, HubError> {
+    state
+        .hub
+        .save_instance_profile(&instance_id, &profile)
+        .await
+}
+#[tauri::command]
+async fn reset_hub_preferences(
+    state: tauri::State<'_, AppState>,
+    revision: i64,
+    confirmed: bool,
+) -> Result<hub_core::PreferencesReset, HubError> {
+    state.hub.reset_preferences(revision, confirmed).await
 }
 #[tauri::command]
 async fn pick_path(
@@ -276,8 +359,34 @@ async fn initialize_workspace(
     state: tauri::State<'_, AppState>,
     input: WorkspaceInput,
 ) -> Result<Workspace, HubError> {
-    for path in [&input.save_dir, &input.backup_dir, &input.content_dir] {
-        authorized(&state, path)?;
+    initialize_workspace_impl(&state, input).await
+}
+async fn initialize_workspace_impl(
+    state: &AppState,
+    input: WorkspaceInput,
+) -> Result<Workspace, HubError> {
+    if state.hub.dashboard().await?.workspace.is_some() {
+        return Err(HubError::new(
+            "WORKSPACE_EXISTS",
+            "工作区已配置，不会覆盖现有路径。",
+        ));
+    }
+    let defaults = default_workspace(state)?;
+    let selections = [
+        (&input.save_dir, &defaults.save_dir, "saves"),
+        (&input.backup_dir, &defaults.backup_dir, "backups"),
+        (&input.content_dir, &defaults.content_dir, "content"),
+    ];
+    // Validate all custom authorizations before creating any managed directory.
+    for (path, default, _) in selections {
+        if path != default {
+            authorized(state, path)?;
+        }
+    }
+    for (path, default, name) in selections {
+        if path == default {
+            prepare_default_directory(state, name)?;
+        }
     }
     state.hub.initialize(input).await
 }
@@ -497,13 +606,34 @@ pub fn run() {
                     return Err(Box::new(error));
                 }
             };
+            let local = app.path().app_local_data_dir()?;
+            #[cfg(debug_assertions)]
+            let local = if std::env::var_os("CATACLYSM_HUB_DATA_DIR").is_some() {
+                dir.clone()
+            } else {
+                local
+            };
+            if !local.is_absolute() {
+                return Err("应用数据目录必须是绝对路径".into());
+            }
+            let namespace = local
+                .file_name()
+                .ok_or("应用数据目录缺少名称")?
+                .to_string_lossy();
+            let managed_root = local.with_file_name(format!("{namespace}.workspace"));
             app.manage(AppState {
                 hub,
                 selected: Mutex::new(HashSet::new()),
+                managed_root,
             });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            register_managed_instance,
+            workspace_defaults,
+            hub_preferences,
+            save_instance_profile,
+            reset_hub_preferences,
             inspect_content_config,
             preview_content_config,
             prepare_content_config_protection,
@@ -558,5 +688,84 @@ pub fn run() {
         eprintln!("APPLICATION_START_FAILED");
         let _ = error;
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod directory_tests {
+    use super::*;
+    async fn fixture() -> (tempfile::TempDir, AppState) {
+        let temp = tempfile::tempdir().unwrap();
+        let hub = Hub::open(&temp.path().join("metadata")).await.unwrap();
+        let state = AppState {
+            hub,
+            selected: Mutex::new(HashSet::new()),
+            managed_root: temp.path().join("app.workspace"),
+        };
+        (temp, state)
+    }
+    #[tokio::test]
+    async fn defaults_are_read_only_until_saved_and_existing_workspace_is_preserved() {
+        let (_temp, state) = fixture().await;
+        let defaults = default_workspace(&state).unwrap();
+        assert!(!state.managed_root.exists());
+        let workspace = initialize_workspace_impl(&state, defaults.clone())
+            .await
+            .unwrap();
+        assert!(PathBuf::from(&workspace.save_dir).is_dir());
+        assert!(PathBuf::from(&workspace.backup_dir).is_dir());
+        assert!(PathBuf::from(&workspace.content_dir).is_dir());
+        assert_eq!(
+            initialize_workspace_impl(&state, defaults)
+                .await
+                .unwrap_err()
+                .code,
+            "WORKSPACE_EXISTS"
+        );
+        assert_eq!(
+            state.hub.dashboard().await.unwrap().workspace.unwrap().id,
+            workspace.id
+        );
+    }
+    #[tokio::test]
+    async fn arbitrary_paths_still_require_picker_authorization_before_creating_defaults() {
+        let (temp, state) = fixture().await;
+        let mut input = default_workspace(&state).unwrap();
+        let custom = temp.path().join("custom");
+        std::fs::create_dir(&custom).unwrap();
+        input.save_dir = custom.display().to_string();
+        assert_eq!(
+            initialize_workspace_impl(&state, input.clone())
+                .await
+                .unwrap_err()
+                .code,
+            "PATH_NOT_SELECTED"
+        );
+        assert!(!state.managed_root.exists());
+        state
+            .selected
+            .lock()
+            .unwrap()
+            .insert(std::fs::canonicalize(custom).unwrap());
+        assert!(initialize_workspace_impl(&state, input).await.is_ok());
+    }
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn managed_directories_do_not_follow_external_symlinks() {
+        let (temp, state) = fixture().await;
+        std::fs::create_dir(&state.managed_root).unwrap();
+        let outside = temp.path().join("outside");
+        std::fs::create_dir(&outside).unwrap();
+        std::os::unix::fs::symlink(&outside, state.managed_root.join("saves")).unwrap();
+        let input = default_workspace(&state).unwrap();
+        assert_eq!(
+            initialize_workspace_impl(&state, input)
+                .await
+                .unwrap_err()
+                .code,
+            "DEFAULT_DIRECTORY_FAILED"
+        );
+        assert_eq!(std::fs::read_dir(outside).unwrap().count(), 0);
+        assert!(state.hub.dashboard().await.unwrap().workspace.is_none());
     }
 }
