@@ -1,0 +1,106 @@
+Window: "Cataclysm Hub", App: Cataclysm Hub.
+0 standard window Cataclysm Hub, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: Cataclysm Hub, URL: tauri://localhost
+			3 container
+				4 link CATACLYSM HUB / 生存者工作台, Value: tauri://localhost#
+				5 text 本地工作区 LOCAL
+				6 container 主导航
+					7 text 工作台
+					8 button 总览
+					9 button 游戏库 2
+					10 button 存档与备份
+					11 text 管理
+					12 button 模组与声音
+					13 button 任务与记录
+					14 button 设置
+				15 text 本地优先 你的世界，留在你的设备上。 v0.1.0 开发预览
+			16 container
+				17 text 工作台 游戏库 离线可用
+				18 button 刷新状态
+			19 container
+				20 heading 游戏库, Value: 1
+					21 text 游戏库
+				22 text 实例用于游玩，安装版本用于管理游戏程序。
+				23 button 导入游戏
+				24 tab group (selectable) 游戏库视图
+					25 tab (selected) 游玩实例
+					26 tab (selectable) 安装版本 (2)
+					27 tab (selectable) 获取游戏
+					28 tab (selectable) 安装复制
+				29 container 游玩实例
+					30 heading 游玩实例, Value: 2
+						31 text 游玩实例
+					32 text 一个安装可以登记多个实例。数据目录用于后续隔离存档、配置、缓存与日志。
+					33 text 目录绑定尚未验证。普通方案保持全局互斥；每个实例独立选择启动方案，并发仅限实验候选。
+					34 container
+						35 text 筛选安装版本
+						36 pop up button (collapsed) 筛选安装版本, Value: 全部安装版本, Secondary Actions: Expand
+					37 container
+						38 text 搜索游玩实例
+						39 text field (settable) 搜索游玩实例, Placeholder: 实例名称、ID 或数据目录
+					40 container 自动适配确认验收 · 绑定未验证
+						41 heading 自动适配确认验收 · 绑定未验证, Value: 3
+							42 text 自动适配确认验收 · 绑定未验证
+						43 text CDDA H · 实际验收
+						44 summary 数据目录, Value: off
+							45 text 数据目录
+						46 button 启动 自动适配确认验收
+						47 button 启动设置 自动适配确认验收
+						48 button 配置 自动适配确认验收
+						49 summary 资源冲突诊断, Value: off
+							50 text 资源冲突诊断
+					51 container H 存档验收 · 绑定未验证
+						52 heading H 存档验收 · 绑定未验证, Value: 3
+							53 text H 存档验收 · 绑定未验证
+						54 text CDDA H · 实际验收
+						55 summary 数据目录, Value: off
+							56 text 数据目录
+						57 text 实例会话：进程已退出，存档未验证 · PID 79343 · 2026/10/29 13:56:29
+						58 text 实例会话：进程已退出，存档未验证 · PID 77762 · 2026/10/29 13:54:31
+						59 button 启动 H 存档验收
+						60 button 启动设置 H 存档验收
+						61 button 配置 H 存档验收
+						62 summary 资源冲突诊断, Value: off
+							63 text 资源冲突诊断
+					64 container 启动流程验收 · 绑定未验证
+						65 heading 启动流程验收 · 绑定未验证, Value: 3
+							66 text 启动流程验收 · 绑定未验证
+						67 text CDDA I · 实际验收
+						68 summary 数据目录, Value: off
+							69 text 数据目录
+						70 text 实例会话：进程已退出，存档未验证 · PID 70185 · 2026/10/29 13:46:50
+						71 text 实例会话：进程已退出，存档未验证 · PID 68068 · 2026/10/29 13:43:36
+						72 text 实例会话：进程已退出，存档未验证 · PID 31721 · 2026/10/29 13:19:33
+						73 button 启动 启动流程验收
+						74 button 启动设置 启动流程验收
+						75 button 配置 启动流程验收
+						76 summary 资源冲突诊断, Value: off
+							77 text 资源冲突诊断
+					78 container (expanded) Secondary Actions: Collapse
+						79 summary 登记新实例, Value: on
+							80 text 登记新实例
+						81 container
+							82 text 关联安装
+							83 pop up button (collapsed) 关联安装, Value: CDDA H · 实际验收, Secondary Actions: Expand
+							84 text 实例名称
+							85 text field (settable) 实例名称
+							86 text 实例目录方式
+							87 pop up button (collapsed) 实例目录方式, Value: 系统推荐目录（自动创建独立目录）, Secondary Actions: Expand
+							88 text 在系统应用数据区的 instances 下创建唯一目录，与其他实例和安装分离；不会迁移现有存档。
+							89 button (disabled) 登记实例
+				90 text 本地数据 · 显式操作 · 可追溯记录 CATACLYSM HUB / DEVELOPMENT PREVIEW
+		91 scroll bar (settable, float) 0.1677187
+	92 close button
+	93 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	94 minimize button
+	95 text Cataclysm Hub
+96 menu bar
+	97 Cataclysm Hub
+	98 File
+	99 Edit
+	100 View
+	101 Window
+	102 Help
+
+The focused UI element is 29 container 游玩实例

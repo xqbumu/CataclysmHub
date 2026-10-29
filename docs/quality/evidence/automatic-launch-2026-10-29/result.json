@@ -1,0 +1,17 @@
+{
+  "base_commit": "118cc58",
+  "fixture_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb",
+  "instance_id": "1de398cd-3b57-4b09-abf4-c9d03619ebd1",
+  "instance_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/metadata.workspace/instances/5d1a698c-4823-498a-bf81-83dca023e737",
+  "observations": {
+    "recognized_first_start_reached_confirmation": true,
+    "version_picker_required": false,
+    "cancel_returned_to_list": true,
+    "session_count_before": 6,
+    "session_count_after": 6,
+    "new_instance_profile_saved": false,
+    "instance_entries_after_preview": []
+  },
+  "build_sha256": "1c0c2e0daa7fac8e5e6a79f11ab4ff57be2aeb006d726c1666308cab8edadeee",
+  "scope": "native UI confirmation/cancel only; no real game or LaunchServices launch this round"
+}

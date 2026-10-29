@@ -517,15 +517,14 @@ it.each([false, true])(
         onRefresh={vi.fn()}
       />,
     );
-    await user.click(
-      screen.getByRole('button', { name: saved ? '启动设置 A' : '启动 A' }),
-    );
+    await user.click(screen.getByRole('button', { name: '启动设置 A' }));
     expect(await screen.findByRole('status')).toHaveTextContent(
       '识别版本：CDDA 0.I-1',
     );
-    expect(screen.getByLabelText('游戏版本')).toHaveValue(
-      'cdda-0i-1-macos-native-trial-v1',
-    );
+    expect(screen.queryByLabelText('游戏版本')).not.toBeInTheDocument();
+    expect(
+      screen.getByText('启动适配：自动。无需手动选择游戏版本或参数方案。'),
+    ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '预览 A 试运行' })).toBeEnabled();
     expect(launch).not.toHaveBeenCalled();
     expect(instanceLaunchPlan).not.toHaveBeenCalled();
@@ -570,5 +569,121 @@ it('does not prefill a recommendation belonging to another installation', async 
   expect(
     await screen.findByText('安装记录与实例不一致，请重新核对安装。'),
   ).toBeInTheDocument();
-  expect(screen.getByLabelText('游戏版本')).toHaveValue('');
+  expect(screen.queryByLabelText('游戏版本')).not.toBeInTheDocument();
+});
+
+it('opens a first recognized launch directly at confirmation and never launches on cancel', async () => {
+  const user = userEvent.setup();
+  const instanceLaunchPlan = vi.fn().mockResolvedValue({
+    id: 'automatic',
+    environment: {},
+    executable: '/Game.app/Contents/MacOS/game',
+    working_dir: '/Game.app/Contents/Resources',
+    instance_data_root: '/instance',
+    save_dir: '/instance/save',
+    args: [],
+    executable_sha256: 'hash',
+    warnings: ['详细适配警告'],
+  });
+  const launch = vi.fn();
+  const saveInstanceProfile = vi.fn();
+  render(
+    <PlayInstancesPanel
+      api={{
+        ...api,
+        desktop: true,
+        preferences: vi
+          .fn()
+          .mockResolvedValue({ revision: 0, instance_profiles: {} }),
+        inspectInstallationRecognition: vi.fn().mockResolvedValue({
+          installation_id: 'g',
+          executable_sha256: 'hash',
+          version: '0.I-1',
+          recommended_profile: 'cdda-0i-1-macos-native-trial-v1',
+          evidence: '匹配',
+        }),
+        instanceLaunchPlan,
+        launch,
+        saveInstanceProfile,
+      }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'i',
+            installation_id: 'g',
+            installation_sha256: 'hash',
+            name: '自动实例',
+            data_root: '/instance',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+      }}
+      onRefresh={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '启动 自动实例' }));
+  expect(await screen.findByRole('button', { name: '确认启动' })).toBeEnabled();
+  expect(screen.queryByLabelText('游戏版本')).not.toBeInTheDocument();
+  expect(screen.queryByLabelText('试运行参数方案')).not.toBeInTheDocument();
+  expect(instanceLaunchPlan).toHaveBeenCalledWith(
+    'i',
+    'cdda-0i-1-macos-native-trial-v1',
+  );
+  expect(launch).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: '取消' }));
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  expect(saveInstanceProfile).not.toHaveBeenCalled();
+  expect(launch).not.toHaveBeenCalled();
+});
+
+it('keeps a saved custom profile until the user explicitly chooses automatic adaptation', async () => {
+  const user = userEvent.setup();
+  const instanceLaunchPlan = vi.fn();
+  render(
+    <PlayInstancesPanel
+      api={{
+        ...api,
+        desktop: true,
+        preferences: vi.fn().mockResolvedValue({
+          revision: 1,
+          instance_profiles: { i: 'cdda-0h-source-trial-v1' },
+        }),
+        inspectInstallationRecognition: vi.fn().mockResolvedValue({
+          installation_id: 'g',
+          executable_sha256: 'hash',
+          version: '0.I-1',
+          recommended_profile: 'cdda-0i-1-macos-native-trial-v1',
+          evidence: '匹配',
+        }),
+        instanceLaunchPlan,
+      }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'i',
+            installation_id: 'g',
+            installation_sha256: 'hash',
+            name: '保留设置',
+            data_root: '/i',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+      }}
+      onRefresh={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '启动设置 保留设置' }));
+  expect(
+    await screen.findByRole('button', { name: '使用自动适配' }),
+  ).toBeEnabled();
+  expect(instanceLaunchPlan).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: '使用自动适配' }));
+  expect(
+    screen.getByRole('button', { name: '预览 保留设置 试运行' }),
+  ).toBeEnabled();
+  expect(instanceLaunchPlan).not.toHaveBeenCalled();
 });

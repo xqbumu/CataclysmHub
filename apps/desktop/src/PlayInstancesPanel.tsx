@@ -44,12 +44,14 @@ export default function PlayInstancesPanel({
     useState<InstanceResourcePreview | null>(null);
   const [plan, setPlan] = useState<LaunchPlan | null>(null);
   const [launchTarget, setLaunchTarget] = useState<PlayInstance | null>(null);
+  const [automaticPreview, setAutomaticPreview] = useState(false);
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileSelected, setProfileSelected] = useState(false);
   const [profileId, setProfileId] = useState('');
   const [recognition, setRecognition] =
     useState<InstallationRecognition | null>(null);
   const [recognitionError, setRecognitionError] = useState('');
+  const recommendedProfile = recognition?.recommended_profile;
   const candidateProfile = [
     'cdda-0h-macos-concurrency-candidate-v1',
     'cdda-0i-1-macos-concurrency-candidate-v1',
@@ -65,9 +67,10 @@ export default function PlayInstancesPanel({
       setBusy(false);
     }
   }
-  async function openSettings(item: PlayInstance) {
+  async function openSettings(item: PlayInstance, previewRecommended = false) {
     const preferences = await api.preferences();
     setLaunchTarget(item);
+    setAutomaticPreview(false);
     setProfileId(preferences.instance_profiles[item.id] ?? '');
     setProfileSelected(false);
     setProfileSaved(false);
@@ -94,6 +97,14 @@ export default function PlayInstancesPanel({
         ) {
           if (!saved) setProfileId(result.recommended_profile);
           setProfileSelected(true);
+          if (previewRecommended) {
+            const prepared = await api.instanceLaunchPlan(
+              item.id,
+              result.recommended_profile,
+            );
+            setAutomaticPreview(true);
+            setPlan(prepared);
+          }
         }
       } catch (err) {
         setRecognitionError(errorMessage(err));
@@ -104,7 +115,7 @@ export default function PlayInstancesPanel({
     const preferences = await api.preferences();
     const saved = preferences.instance_profiles[item.id];
     if (!saved || saved.includes('concurrency-candidate')) {
-      await openSettings(item);
+      await openSettings(item, !saved);
       return;
     }
     const prepared = await api.instanceLaunchPlan(item.id, saved);
@@ -164,7 +175,7 @@ export default function PlayInstancesPanel({
             目标实例：{launchTarget.name} · {launchTarget.data_root}
           </p>
           <p className="warning">
-            请确认此实例的游戏版本。首次启动后会记住设置，后续可直接启动。存档目录绑定仍需在游戏中验收。
+            已识别的安装会自动选择适配方式。首次确认后记住设置，后续直接启动；实际存档目录仍需在游戏中验收。
           </p>
           {recognition && (
             <p role="status">
@@ -177,41 +188,32 @@ export default function PlayInstancesPanel({
           {recognitionError && (
             <p className="inline-note">{recognitionError}</p>
           )}
-          <label>
-            游戏版本
-            <select
-              aria-label="游戏版本"
-              value={
-                profileId.includes('native-trial') ||
-                profileId === recognition?.recommended_profile
-                  ? profileId
-                  : ''
-              }
-              disabled={busy}
-              onChange={(e) => {
-                setProfileId(e.target.value);
-                setProfileSelected(!!e.target.value);
-                setProfileSaved(false);
-              }}
-            >
-              <option value="">选择已确认的游戏版本</option>
-              {recognition?.recommended_profile &&
-                !recognition.recommended_profile.includes('native-trial') && (
-                  <option value={recognition.recommended_profile}>
-                    CDDA {recognition.version} · 当前安装推荐
-                  </option>
-                )}
-              <option value="cdda-0h-release-macos-native-trial-v1">
-                CDDA 0.H · macOS 应用
-              </option>
-              <option value="cdda-0i-1-macos-native-trial-v1">
-                CDDA 0.I-1 · macOS 应用
-              </option>
-            </select>
-          </label>
-          <p className="inline-note">
-            首次确认后记住此实例的设置。其他版本或系统请先核对启动适配；不能根据安装名称自动推断。
-          </p>
+          {recognition?.recommended_profile ? (
+            profileId === recognition.recommended_profile ? (
+              <p>启动适配：自动。无需手动选择游戏版本或参数方案。</p>
+            ) : (
+              <p>
+                此实例保留了手动启动设置。
+                <button
+                  disabled={busy}
+                  onClick={() => {
+                    if (!recommendedProfile) return;
+                    setProfileId(recommendedProfile);
+                    setProfileSelected(true);
+                    setProfileSaved(false);
+                  }}
+                >
+                  使用自动适配
+                </button>
+              </p>
+            )
+          ) : (
+            !busy && (
+              <p>
+                此安装尚无自动适配，请先核对版本；需要手动试运行时展开高级设置。
+              </p>
+            )
+          )}
           <details className="disclosure">
             <summary>高级启动方案（旧版与实验选项）</summary>
             <label>
@@ -264,14 +266,6 @@ export default function PlayInstancesPanel({
               />
               使用所选源码参数方案试运行（本地程序版本未验证）
             </label>
-          </details>
-          {error && <p role="alert">{error}</p>}
-          {profileSaved && (
-            <p role="status">
-              此实例的启动方案已保存；不代表版本或目录绑定已验证。
-            </p>
-          )}
-          <div className="modal-actions">
             <button
               disabled={busy || !profileId}
               onClick={() =>
@@ -283,6 +277,14 @@ export default function PlayInstancesPanel({
             >
               保存此实例启动方案
             </button>
+          </details>
+          {error && <p role="alert">{error}</p>}
+          {profileSaved && (
+            <p role="status">
+              此实例的启动方案已保存；不代表版本或目录绑定已验证。
+            </p>
+          )}
+          <div className="modal-actions">
             <button
               className="primary"
               disabled={
@@ -413,7 +415,10 @@ export default function PlayInstancesPanel({
         <Modal
           title="启动游戏"
           onClose={() => {
-            if (!busy) setPlan(null);
+            if (!busy) {
+              setPlan(null);
+              if (automaticPreview) setLaunchTarget(null);
+            }
           }}
         >
           <p>实例：{launchTarget?.name}</p>
@@ -436,18 +441,29 @@ export default function PlayInstancesPanel({
               <dt>程序 SHA-256</dt>
               <dd>{plan.executable_sha256}</dd>
             </dl>
+            <ul className="plan-warnings">
+              {plan.warnings.map((warning) => (
+                <li key={warning}>{warning}</li>
+              ))}
+            </ul>
           </details>
-          <ul className="plan-warnings">
-            {plan.warnings.map((warning) => (
-              <li key={warning}>{warning}</li>
-            ))}
-          </ul>
+          <p className="inline-note">
+            将向游戏传入此实例的存档与配置目录，请在游戏中核对；进程退出不代表存档稳定。
+          </p>
+          {candidateProfile && (
+            <p className="warning">
+              实验并发仅限固定 QA 样本，仍需后端检查完整安装和实例范围。
+            </p>
+          )}
           {error && <p role="alert">{error}</p>}
           <div className="modal-actions">
             <button
               className="secondary"
               disabled={busy}
-              onClick={() => setPlan(null)}
+              onClick={() => {
+                setPlan(null);
+                if (automaticPreview) setLaunchTarget(null);
+              }}
             >
               取消
             </button>

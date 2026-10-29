@@ -1,0 +1,22 @@
+[
+  {
+    "name": "01-confirmation.png",
+    "sha256": "6e90c39489f4cfdd75e2b12004af868aed1086eb9aeb7cac61789aa048267b15"
+  },
+  {
+    "name": "02-cancelled.ax.txt",
+    "sha256": "d16243850f6a78606de707cfc5e7f954085f80a183bdf8268b3833ea9005f8db"
+  },
+  {
+    "name": "03-auto-settings.ax.txt",
+    "sha256": "662e551de422df123a31896cb562b7dd46924a68b575408e50cabb3d9a429026"
+  },
+  {
+    "name": "03-auto-settings.png",
+    "sha256": "a6b90bc297743ca4cf838b91ee7f044915eceb5996a7c5d7212f9373ccdee9f8"
+  },
+  {
+    "name": "result.json",
+    "sha256": "4c37e01190e01e6befe7100379d26a89615985453d152d66a40569b2ed5dee61"
+  }
+]

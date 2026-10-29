@@ -1,0 +1,32 @@
+Window: "Cataclysm Hub", App: Cataclysm Hub.
+0 standard window Cataclysm Hub, Secondary Actions: Raise
+	1 scroll area
+		2 HTML content Description: Cataclysm Hub, URL: tauri://localhost
+			3 container 自动适配确认验收 · 启动设置
+				4 heading 自动适配确认验收 · 启动设置, Value: 2
+					5 text 自动适配确认验收 · 启动设置
+				6 button 关闭对话框
+				7 text 目标实例：
+				8 text 自动适配确认验收
+				9 text  · 
+				10 text /private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/metadata.workspace/instances/5d1a698c-4823-498a-bf81-83dca023e737
+				11 text 已识别的安装会自动选择适配方式。首次确认后记住设置，后续直接启动；实际存档目录仍需在游戏中验收。
+				12 text 识别版本：CDDA 0.H-RELEASE。程序内容匹配已记录的 CDDA 发布样本；不代表目录绑定或模组兼容已验收。
+				13 text 启动适配：自动。无需手动选择游戏版本或参数方案。
+				14 summary 高级启动方案（旧版与实验选项）, Value: off
+					15 text 高级启动方案（旧版与实验选项）
+				16 button 预览 自动适配确认验收 试运行
+		17 scroll bar (settable, float) 0.1677187
+	18 close button
+	19 full screen button Help: this button also has an action to zoom the window, Secondary Actions: zoom the window
+	20 minimize button
+	21 text Cataclysm Hub
+22 menu bar
+	23 Cataclysm Hub
+	24 File
+	25 Edit
+	26 View
+	27 Window
+	28 Help
+
+The focused UI element is 6 button 关闭对话框
