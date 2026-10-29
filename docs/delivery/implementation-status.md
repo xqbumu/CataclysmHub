@@ -419,3 +419,9 @@ H QA 包经 Hub 导入并正确识别，独立实例完成首次启动、Monette
 当前 macOS/Linux 有发布实现，Windows 及其他系统后端明确拒绝；Linux 运行尚未验收。`task check` 通过：前端 131 项；Rust 全特性检查/测试及 Python 16+12 项通过。资源安装 14 项回归含新增 6 项部署场景，前端新增 2 项目标绑定与错配拒绝。最终路径身份及状态文案调整另作增量回归。没有操作真实玩家实例或执行游戏。[部署契约](../design/instance-content-deployment.md)、[自动检查证据](../quality/evidence/instance-content-deployment-2026-10-29/automated.json)。真实游戏发现/加载、实际声音播放及 Windows 发布仍待验收。
 
 最终增量回归：资源安装 14 项、前端资源安装交互 5 项通过；普通 Debug 应用打包成功。未安装替换用户应用，未进行本轮原生界面人工验收。
+
+## 2026-10-29 全仓审查修复
+
+修复平台发布函数条件编译、ZIP 构造前预算预检、缓存核验取消及下载写盘线程隔离四项问题。全套检查通过（前端 131、Rust 292、Python 28）；真实声音包链路另作复验。本机验证不等于 Windows 原生构建通过，继续依赖既有 Windows CI。[修复与验证边界](../quality/review-remediation-2026-10-29.md)。
+
+真实 CC-Sounds 复验通过（11141644 字节，上游 SHA-256 匹配、同回执复用、797 项解压）；普通 Debug 打包通过，未替换或启动用户应用。

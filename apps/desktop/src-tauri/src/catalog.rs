@@ -147,6 +147,21 @@ pub struct Transfer {
     pub received: u64,
     pub total: u64,
 }
+struct TransferReset<'a>(&'a std::sync::Mutex<Option<Transfer>>);
+impl Drop for TransferReset<'_> {
+    fn drop(&mut self) {
+        if let Ok(mut progress) = self.0.lock() {
+            *progress = None;
+        }
+    }
+}
+fn check_cancel(cancel: &tokio::sync::watch::Receiver<bool>) -> Result<(), String> {
+    if *cancel.borrow() {
+        Err("下载已取消".into())
+    } else {
+        Ok(())
+    }
+}
 pub struct Store {
     progress: std::sync::Mutex<Option<Transfer>>,
     cancel: tokio::sync::watch::Sender<bool>,
@@ -487,8 +502,17 @@ impl Store {
             .cloned()
             .ok_or("版本附件已变化，请重新选择")?;
         validate_asset(&asset, &source.repo)?;
+        self.cancel.send_replace(false);
+        let mut cancelled = self.cancel.subscribe();
+        *self.progress.lock().map_err(failure)? = Some(Transfer {
+            name: asset.name.clone(),
+            received: 0,
+            total: asset.size,
+        });
+        let _reset = TransferReset(&self.progress);
         // Treat receipts as hints: verify the actual capability-relative file before reuse.
         for receipt in state.downloads.iter().rev() {
+            check_cancel(&cancelled)?;
             if receipt.source == source_id
                 && receipt.repo == source.repo
                 && receipt.tag == tag
@@ -499,13 +523,15 @@ impl Store {
                 let parent = parent.try_clone().map_err(failure)?;
                 let receipt = receipt.clone();
                 let expected = asset.clone();
+                let cache_cancel = cancelled.clone();
                 if let Ok(mut cached) = tokio::task::spawn_blocking(move || {
-                    verified_file(&parent, &receipt, Some(&expected))?;
+                    verified_file_inner(&parent, &receipt, Some(&expected), Some(&cache_cancel))?;
                     Ok::<_, String>(receipt)
                 })
                 .await
                 .map_err(failure)?
                 {
+                    check_cancel(&cancelled)?;
                     cached.path = root
                         .join(&cached.id)
                         .join(&cached.name)
@@ -515,34 +541,39 @@ impl Store {
                 }
             }
         }
+        check_cancel(&cancelled)?;
         let id = uuid::Uuid::new_v4().to_string();
         parent.create_dir(&id).map_err(failure)?;
         let dir = parent.open_dir_nofollow(&id).map_err(failure)?;
-        self.cancel.send_replace(false);
-        let mut cancelled = self.cancel.subscribe();
-        *self.progress.lock().map_err(failure)? = Some(Transfer {
-            name: asset.name.clone(),
-            received: 0,
-            total: asset.size,
-        });
         let operation = async {
-            let mut response = self
-                .client
-                .get(&asset.url)
-                .send()
-                .await
-                .map_err(failure)?
-                .error_for_status()
-                .map_err(failure)?;
-            let mut file = dir
-                .open_with(
-                    "download.partial",
-                    OpenOptions::new().write(true).create_new(true),
-                )
-                .map_err(failure)?;
+            check_cancel(&cancelled)?;
+            let request = self.client.get(&asset.url).send();
+            let mut response = tokio::select! {
+                result = request => result.map_err(failure)?.error_for_status().map_err(failure)?,
+                _ = cancelled.changed() => return Err("下载已取消".into()),
+            };
+            let output = dir.try_clone().map_err(failure)?;
+            let mut file = tokio::task::spawn_blocking(move || {
+                output
+                    .open_with(
+                        "download.partial",
+                        OpenOptions::new().write(true).create_new(true),
+                    )
+                    .map_err(failure)
+            })
+            .await
+            .map_err(failure)??;
             let mut hash = Sha256::new();
             let mut size = 0_u64;
-            while let Some(chunk) = response.chunk().await.map_err(failure)? {
+            loop {
+                check_cancel(&cancelled)?;
+                let chunk = tokio::select! {
+                    result = response.chunk() => result.map_err(failure)?,
+                    _ = cancelled.changed() => return Err("下载已取消".into()),
+                };
+                let Some(chunk) = chunk else {
+                    break;
+                };
                 size += chunk.len() as u64;
                 if let Some(progress) = self.progress.lock().map_err(failure)?.as_mut() {
                     progress.received = size;
@@ -550,17 +581,31 @@ impl Store {
                 if (asset.size > 0 && size > asset.size) || size > 2 * 1024 * 1024 * 1024 {
                     return Err("下载大小与目录记录不符或超过 2 GiB".into());
                 }
-                file.write_all(&chunk).map_err(failure)?;
-                hash.update(&chunk);
+                (file, hash) = tokio::task::spawn_blocking(move || {
+                    file.write_all(&chunk).map_err(failure)?;
+                    hash.update(&chunk);
+                    Ok::<_, String>((file, hash))
+                })
+                .await
+                .map_err(failure)??;
             }
             if size == 0 || (asset.size > 0 && size != asset.size) {
                 return Err("下载不完整：长度不匹配".into());
             }
             let sha256 = format!("{:x}", hash.finalize());
             verify_digest(&asset, &sha256)?;
-            file.sync_all().map_err(failure)?;
-            dir.rename("download.partial", &dir, &asset.name)
-                .map_err(failure)?;
+            let output = dir.try_clone().map_err(failure)?;
+            let name = asset.name.clone();
+            let publish_cancel = cancelled.clone();
+            tokio::task::spawn_blocking(move || {
+                file.sync_all().map_err(failure)?;
+                check_cancel(&publish_cancel)?;
+                output
+                    .rename("download.partial", &output, name)
+                    .map_err(failure)
+            })
+            .await
+            .map_err(failure)??;
             let download = Download {
                 repo: source.repo.clone(),
                 url: asset.url.clone(),
@@ -577,8 +622,7 @@ impl Store {
             };
             Ok(download)
         };
-        let result = tokio::select! { result=operation => result, _=cancelled.changed()=>Err("下载已取消".into()) };
-        *self.progress.lock().map_err(failure)? = None;
+        let result = operation.await;
         let mut download = match result {
             Ok(d) => d,
             Err(e) => {
@@ -602,6 +646,14 @@ pub(crate) fn verified_file(
     parent: &Dir,
     receipt: &Download,
     asset: Option<&Asset>,
+) -> Result<std::fs::File, String> {
+    verified_file_inner(parent, receipt, asset, None)
+}
+fn verified_file_inner(
+    parent: &Dir,
+    receipt: &Download,
+    asset: Option<&Asset>,
+    cancel: Option<&tokio::sync::watch::Receiver<bool>>,
 ) -> Result<std::fs::File, String> {
     use std::io::{Seek, SeekFrom};
     uuid::Uuid::parse_str(&receipt.id).map_err(failure)?;
@@ -637,6 +689,9 @@ pub(crate) fn verified_file(
     let mut buffer = [0; 64 * 1024];
     let mut size = 0;
     loop {
+        if let Some(cancel) = cancel {
+            check_cancel(cancel)?;
+        }
         let n = file.read(&mut buffer).map_err(failure)?;
         if n == 0 {
             break;
@@ -1138,5 +1193,101 @@ mod tests {
             "SOUND_CACHE_ACCEPTANCE {}",
             serde_json::json!({"name":first.name,"archive_bytes":first.size,"archive_sha256":first.sha256,"upstream_verified":first.upstream_verified,"same_receipt_reused":first.id==reused.id,"extracted_entries":extracted.entries,"extracted_bytes":extracted.bytes,"software_executed":false})
         );
+    }
+    #[test]
+    fn cache_cancel_lifecycle_preserves_bytes_and_clears_progress() {
+        let temp = tempfile::tempdir().unwrap();
+        let (store, parent, asset, receipt) = cache_fixture(&temp, "dda");
+        *store.progress.lock().unwrap() = Some(Transfer {
+            name: asset.name.clone(),
+            received: 0,
+            total: asset.size,
+        });
+        let reset = TransferReset(&store.progress);
+        let cancelled = store.cancel.subscribe();
+        store.cancel();
+        assert_eq!(
+            verified_file_inner(&parent, &receipt, Some(&asset), Some(&cancelled)).unwrap_err(),
+            "下载已取消"
+        );
+        assert!(check_cancel(&cancelled).is_err());
+        assert_eq!(
+            parent
+                .open_dir(&receipt.id)
+                .unwrap()
+                .read(&receipt.name)
+                .unwrap(),
+            b"data"
+        );
+        drop(reset);
+        assert!(store.progress().is_none());
+    }
+    #[test]
+    fn cancelling_queued_cache_verification_never_falls_back_to_network() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .max_blocking_threads(1)
+            .enable_all()
+            .build()
+            .unwrap();
+        let temp = tempfile::tempdir().unwrap();
+        let (store, parent, asset, receipt) = cache_fixture(&temp, "dda");
+        // A bad cache would normally trigger a download; cancellation must prevent that.
+        parent
+            .open_dir(&receipt.id)
+            .unwrap()
+            .write(&receipt.name, b"evil")
+            .unwrap();
+        let store = std::sync::Arc::new(store);
+        runtime.block_on(async {
+            let mut state = store.state.lock().await;
+            state.downloads.push(receipt.clone());
+            state.listings.insert(
+                "dda".into(),
+                Listing {
+                    attempted: true,
+                    releases: vec![Release {
+                        tag: "v".into(),
+                        prerelease: false,
+                        published: String::new(),
+                        assets: vec![asset],
+                    }],
+                    ..Default::default()
+                },
+            );
+        });
+        let (started_tx, started_rx) = std::sync::mpsc::channel();
+        let (release_tx, release_rx) = std::sync::mpsc::channel();
+        let blocker = runtime.spawn_blocking(move || {
+            started_tx.send(()).unwrap();
+            let _ = release_rx.recv_timeout(Duration::from_secs(5));
+        });
+        started_rx.recv_timeout(Duration::from_secs(5)).unwrap();
+        runtime.block_on(async {
+            let worker_store = store.clone();
+            let root = temp.path().to_owned();
+            let task =
+                tokio::spawn(
+                    async move { worker_store.download("dda", "v", 7, &parent, &root).await },
+                );
+            tokio::time::timeout(Duration::from_secs(1), async {
+                while store.progress().is_none() {
+                    tokio::task::yield_now().await;
+                }
+            })
+            .await
+            .unwrap();
+            store.cancel();
+            release_tx.send(()).unwrap();
+            blocker.await.unwrap();
+            let result = tokio::time::timeout(Duration::from_secs(1), task)
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(matches!(result, Err(error) if error == "下载已取消"));
+            assert!(store.progress().is_none());
+            assert_eq!(store.view().await.catalog.downloads.len(), 1);
+        });
+        assert_eq!(std::fs::read_dir(temp.path()).unwrap().count(), 1);
     }
 }

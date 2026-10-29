@@ -172,8 +172,84 @@ pub fn extract(file: std::fs::File, name: &str, target: &Dir) -> Result<(usize, 
     }
     Ok((writer.count, writer.bytes))
 }
-fn unzip(file: impl Read + Seek, writer: &mut Writer<'_>) -> Result<(), String> {
-    let mut zip = zip::ZipArchive::new(file).map_err(err)?;
+// Reject oversized/ZIP64 directories before the ZIP library allocates its index.
+fn zip_preflight(file: &mut (impl Read + Seek)) -> Result<(), String> {
+    use std::io::SeekFrom;
+    let length = file.seek(SeekFrom::End(0)).map_err(err)?;
+    let tail_len = length.min(65557) as usize;
+    file.seek(SeekFrom::End(-(tail_len as i64))).map_err(err)?;
+    let mut tail = vec![0; tail_len];
+    file.read_exact(&mut tail).map_err(err)?;
+    let offset = (0..tail_len.saturating_sub(21))
+        .rev()
+        .find(|&i| {
+            tail[i..].starts_with(b"PK\x05\x06")
+                && i + 22 + u16::from_le_bytes([tail[i + 20], tail[i + 21]]) as usize == tail_len
+        })
+        .ok_or("ZIP 结束记录无效")?;
+    if (offset >= 20 && &tail[offset - 20..offset - 16] == b"PK\x06\x07")
+        || tail[offset + 4..].windows(4).any(|w| w == b"PK\x05\x06")
+    {
+        return Err("ZIP64 或歧义结束记录不受支持".into());
+    }
+    let h = &tail[offset..];
+    let u16_at = |n| u16::from_le_bytes([h[n], h[n + 1]]);
+    let u32_at = |n| u32::from_le_bytes([h[n], h[n + 1], h[n + 2], h[n + 3]]) as u64;
+    let count = u16_at(10) as usize;
+    let size = u32_at(12);
+    let start = u32_at(16);
+    if u16_at(4) != 0
+        || u16_at(6) != 0
+        || u16_at(8) as usize != count
+        || count == 65535
+        || size == u32::MAX as u64
+        || start == u32::MAX as u64
+    {
+        return Err("内置解压不支持 ZIP64 或分卷 ZIP，请使用系统工具".into());
+    }
+    if count > MAX_FILES
+        || size > 32 * 1024 * 1024
+        || start.checked_add(size) != Some(length - tail_len as u64 + offset as u64)
+    {
+        return Err("ZIP 中央目录超出预算或布局不支持".into());
+    }
+    file.seek(SeekFrom::Start(start)).map_err(err)?;
+    let mut used = 0u64;
+    for _ in 0..count {
+        if used + 46 > size {
+            return Err("ZIP 中央目录长度不符".into());
+        }
+        let mut header = [0; 46];
+        file.read_exact(&mut header).map_err(err)?;
+        if &header[..4] != b"PK\x01\x02" {
+            return Err("ZIP 中央目录条目无效".into());
+        }
+        let field = |n| u16::from_le_bytes([header[n], header[n + 1]]) as u64;
+        if field(28) > 2048 {
+            return Err("ZIP 路径过长".into());
+        }
+        let rest = field(28) + field(30) + field(32);
+        used += 46 + rest;
+        if used > size {
+            return Err("ZIP 中央目录长度不符".into());
+        }
+        file.seek(SeekFrom::Current(rest as i64)).map_err(err)?;
+    }
+    if used != size {
+        return Err("ZIP 中央目录条目数量不符".into());
+    }
+    file.seek(SeekFrom::Start(0)).map_err(err)?;
+    Ok(())
+}
+fn unzip(mut file: impl Read + Seek, writer: &mut Writer<'_>) -> Result<(), String> {
+    zip_preflight(&mut file)?;
+    let mut zip = zip::ZipArchive::with_config(
+        zip::read::Config {
+            archive_offset: zip::read::ArchiveOffset::Known(0),
+        },
+        file,
+    )
+    .map_err(err)?;
     if zip.len() > MAX_FILES {
         return Err("归档文件数量超过限制".into());
     }
@@ -349,5 +425,20 @@ mod tests {
                 }
             }
         }
+    }
+    #[test]
+    fn zip_index_budget_is_checked_before_library_construction() {
+        use std::io::Cursor;
+        for (count, size) in [(65535u16, 0u32), (1, 33 * 1024 * 1024)] {
+            let mut bytes = vec![0u8; 22];
+            bytes[..4].copy_from_slice(b"PK\x05\x06");
+            bytes[8..10].copy_from_slice(&count.to_le_bytes());
+            bytes[10..12].copy_from_slice(&count.to_le_bytes());
+            bytes[12..16].copy_from_slice(&size.to_le_bytes());
+            assert!(zip_preflight(&mut Cursor::new(bytes)).is_err());
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let mut valid = zip_file(&temp, &[("file", b"data")]);
+        assert!(zip_preflight(&mut valid).is_ok());
     }
 }

@@ -1,0 +1,19 @@
+{
+  "task_check_exit_code": 0,
+  "frontend_passed": 131,
+  "rust_passed": 292,
+  "python_passed": 28,
+  "live_sound": {
+    "archive_bytes": 11141644,
+    "archive_sha256": "9c49965cd652ea62787aaf3e575507da6e8eba002a8d2343dc644014c048d4eb",
+    "extracted_bytes": 11739788,
+    "extracted_entries": 797,
+    "name": "CC-Sounds-sfx-only.zip",
+    "same_receipt_reused": true,
+    "software_executed": false,
+    "upstream_verified": true
+  },
+  "windows_native_build_verified": false,
+  "debug_build_exit_code": 0,
+  "installed_or_launched": false
+}

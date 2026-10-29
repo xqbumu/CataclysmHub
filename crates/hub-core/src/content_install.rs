@@ -93,6 +93,7 @@ fn check_deployment(d: &Deployment) -> Result<()> {
     }
     Ok(())
 }
+#[cfg(any(target_os = "macos", target_os = "linux"))]
 fn publish_deployment(p: &PreparedContentInstall, container: &Dir, d: &Deployment) -> Result<()> {
     check_deployment(d)?;
     same(&p.parent, Path::new(&p.plan.parent_dir))?;
