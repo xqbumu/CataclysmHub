@@ -1,0 +1,80 @@
+{
+  "date": "2026-10-29",
+  "tested_commit": "4e9bb52d527a0f59627f84d76e9e18849faec8b8",
+  "result": "blocked",
+  "local_evidence_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-config-manual-20261029-6qc3e1vz/evidence",
+  "environment": {
+    "commit": "4e9bb52",
+    "build": "debug default features",
+    "os": "macOS-27.0.1-arm64-arm-64bit",
+    "game_executable_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+    "game_source": "existing modified I QA bundle copied without hard links",
+    "root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-config-manual-20261029-6qc3e1vz",
+    "control_source": "/private/tmp/hub-concurrent-qa-rqzpsmun/i"
+  },
+  "findings": [
+    {
+      "id": "QA-CONFIG-001",
+      "priority": "P1",
+      "error_code": "CONFIG_CHANGE_DIAGNOSTICS",
+      "trigger": "SOUND_ENABLED true -> false; no mod changes",
+      "cause": "all proposed discovery findings block publication, including dependencies_unknown on dda and dda_tutorial"
+    }
+  ],
+  "backup_task_id": "6e69bde6-5dce-4c5d-bf25-b20205cf8d3b",
+  "backup_state": "succeeded",
+  "config_change_count": 0,
+  "session_count": 0,
+  "scope_change_count": 0,
+  "files": [
+    {
+      "name": "after-blocked.json",
+      "sha256": "c30c207cc996c885d5e34c43667953aaabb773ee6711b953ea3b892f850bb82d",
+      "bytes": 4176134
+    },
+    {
+      "name": "application-blocked-ax.txt",
+      "sha256": "1f106e59028ff727322e0cb401b8f2cbe9f99c6f895b9a21b62333167b9ccc72",
+      "bytes": 12852
+    },
+    {
+      "name": "application-blocked.png",
+      "sha256": "e9b477c27a7e2e1942ff090cfd0a75f6698fe102dc4c3e0a27780979f492068c",
+      "bytes": 416630
+    },
+    {
+      "name": "blocked-scope-diff.json",
+      "sha256": "587ed4f8ad026da813ecae99622598c7309ba0f7565fbaf43198119df25a1bf6",
+      "bytes": 561
+    },
+    {
+      "name": "database-observation.json",
+      "sha256": "6949f3eb182a6a41ac7a9a9ce106851b6b16c66d316d72f347b5ab35bc071f36",
+      "bytes": 3805
+    },
+    {
+      "name": "environment.json",
+      "sha256": "ef13937356cef572809a0f894678bb261f0769945319b5933bfd19afba0f4604",
+      "bytes": 445
+    },
+    {
+      "name": "hub.stderr",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "hub.stdout",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "name": "pre-inspection.json",
+      "sha256": "4c77060afacc675f0340ece38f4e1a250a64b4c7b83a8c88f844c8cb644e1067",
+      "bytes": 4176134
+    }
+  ],
+  "binding_verified": false,
+  "concurrency_accepted": false,
+  "game_loading_verified": false,
+  "audio_verified": false
+}
