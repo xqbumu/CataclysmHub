@@ -60,6 +60,25 @@ export default function PlayInstancesPanel({
       setBusy(false);
     }
   }
+  async function openSettings(item: PlayInstance) {
+    const preferences = await api.preferences();
+    setLaunchTarget(item);
+    setProfileId(preferences.instance_profiles[item.id] ?? '');
+    setProfileSelected(false);
+    setProfileSaved(false);
+    setPlan(null);
+  }
+  async function startInstance(item: PlayInstance) {
+    const preferences = await api.preferences();
+    const saved = preferences.instance_profiles[item.id];
+    if (!saved || saved.includes('concurrency-candidate')) {
+      await openSettings(item);
+      return;
+    }
+    const prepared = await api.instanceLaunchPlan(item.id, saved);
+    await api.launch(prepared.id);
+    await onRefresh();
+  }
   return (
     <section className="panel instances-panel">
       <h2>游玩实例</h2>
@@ -113,59 +132,85 @@ export default function PlayInstancesPanel({
             目标实例：{launchTarget.name} · {launchTarget.data_root}
           </p>
           <p className="warning">
-            请按此实例关联的游戏版本选择方案。普通方案保持全局互斥；固定 QA
-            并发候选尚未完成正式验收。实例备份不含安装与共享缓存。
+            请确认此实例的游戏版本。首次启动后会记住设置，后续可直接启动。存档目录绑定仍需在游戏中验收。
           </p>
           <label>
-            试运行参数方案
+            游戏版本
             <select
-              value={profileId}
+              aria-label="游戏版本"
+              value={profileId.includes('native-trial') ? profileId : ''}
               disabled={busy}
-              onChange={(event) => {
-                setProfileId(event.target.value);
-                setProfileSelected(false);
+              onChange={(e) => {
+                setProfileId(e.target.value);
+                setProfileSelected(!!e.target.value);
                 setProfileSaved(false);
               }}
             >
-              <option value="">请选择与此安装匹配的启动方案</option>
-              <option value="cdda-0h-macos-concurrency-candidate-v1">
-                CDDA H · 固定 QA 并发候选（实验构建限定）
-              </option>
-              <option value="cdda-0i-1-macos-concurrency-candidate-v1">
-                CDDA I · 固定 QA 并发候选（实验构建限定）
-              </option>
-              <option value="cdda-0h-source-trial-v1">
-                CDDA 0.H 源码参数（通用）
-              </option>
+              <option value="">选择已确认的游戏版本</option>
               <option value="cdda-0h-release-macos-native-trial-v1">
-                CDDA 0.H-RELEASE · macOS 原生本体入口
+                CDDA 0.H · macOS 应用
               </option>
               <option value="cdda-0i-1-macos-native-trial-v1">
-                CDDA 0.I-1 · macOS 原生本体入口
-              </option>
-              <option value="cdda-0h-release-macos-trial-v2">
-                CDDA 0.H-RELEASE · macOS · 独立 HOME 与临时目录
-              </option>
-              <option value="cdda-0i-1-macos-trial-v2">
-                CDDA 0.I-1 · macOS · 独立 HOME 与临时目录
-              </option>
-              <option value="cdda-0h-release-macos-trial-v1">
-                CDDA 0.H-RELEASE · macOS SDL2 发布包
-              </option>
-              <option value="cdda-0i-1-macos-trial-v1">
-                CDDA 0.I-1 · macOS SDL2 发布包
+                CDDA 0.I-1 · macOS 应用
               </option>
             </select>
           </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={profileSelected}
-              disabled={busy || !profileId}
-              onChange={(event) => setProfileSelected(event.target.checked)}
-            />
-            使用所选源码参数方案试运行（本地程序版本未验证）
-          </label>
+          <p className="inline-note">
+            首次确认后记住此实例的设置。其他版本或系统请先核对启动适配；不能根据安装名称自动推断。
+          </p>
+          <details className="disclosure">
+            <summary>高级启动方案（旧版与实验选项）</summary>
+            <label>
+              试运行参数方案
+              <select
+                value={profileId}
+                disabled={busy}
+                onChange={(event) => {
+                  setProfileId(event.target.value);
+                  setProfileSelected(false);
+                  setProfileSaved(false);
+                }}
+              >
+                <option value="">请选择与此安装匹配的启动方案</option>
+                <option value="cdda-0h-macos-concurrency-candidate-v1">
+                  CDDA H · 固定 QA 并发候选（实验构建限定）
+                </option>
+                <option value="cdda-0i-1-macos-concurrency-candidate-v1">
+                  CDDA I · 固定 QA 并发候选（实验构建限定）
+                </option>
+                <option value="cdda-0h-source-trial-v1">
+                  CDDA 0.H 源码参数（通用）
+                </option>
+                <option value="cdda-0h-release-macos-native-trial-v1">
+                  CDDA 0.H-RELEASE · macOS 原生本体入口
+                </option>
+                <option value="cdda-0i-1-macos-native-trial-v1">
+                  CDDA 0.I-1 · macOS 原生本体入口
+                </option>
+                <option value="cdda-0h-release-macos-trial-v2">
+                  CDDA 0.H-RELEASE · macOS · 独立 HOME 与临时目录
+                </option>
+                <option value="cdda-0i-1-macos-trial-v2">
+                  CDDA 0.I-1 · macOS · 独立 HOME 与临时目录
+                </option>
+                <option value="cdda-0h-release-macos-trial-v1">
+                  CDDA 0.H-RELEASE · macOS SDL2 发布包
+                </option>
+                <option value="cdda-0i-1-macos-trial-v1">
+                  CDDA 0.I-1 · macOS SDL2 发布包
+                </option>
+              </select>
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={profileSelected}
+                disabled={busy || !profileId}
+                onChange={(event) => setProfileSelected(event.target.checked)}
+              />
+              使用所选源码参数方案试运行（本地程序版本未验证）
+            </label>
+          </details>
           {error && <p role="alert">{error}</p>}
           {profileSaved && (
             <p role="status">
@@ -245,16 +290,18 @@ export default function PlayInstancesPanel({
               disabled={busy || !api.desktop}
               onClick={() =>
                 void perform(async () => {
-                  const preferences = await api.preferences();
-                  setLaunchTarget(item);
-                  setProfileId(preferences.instance_profiles[item.id] ?? '');
-                  setProfileSelected(false);
-                  setProfileSaved(false);
-                  setPlan(null);
+                  await startInstance(item);
                 })
               }
             >
               启动
+            </button>
+            <button
+              disabled={busy || !api.desktop}
+              aria-label={`启动设置 ${item.name}`}
+              onClick={() => void perform(() => openSettings(item))}
+            >
+              启动设置
             </button>
             <button
               aria-label={`配置 ${item.name}`}
@@ -310,27 +357,32 @@ export default function PlayInstancesPanel({
       )}
       {plan && (
         <Modal
-          title="确认实例参数试运行"
+          title="启动游戏"
           onClose={() => {
             if (!busy) setPlan(null);
           }}
         >
-          <dl className="launch-details">
-            <dt>游戏程序</dt>
-            <dd>{plan.executable}</dd>
-            <dt>工作目录（可能写入缓存）</dt>
-            <dd>{plan.working_dir}</dd>
-            <dt>实例数据目录</dt>
-            <dd>{plan.instance_data_root}</dd>
-            <dt>目标存档目录（参数指定，绑定未验证）</dt>
-            <dd>{plan.save_dir}</dd>
-            <dt>进程环境覆盖（仅当前游戏）</dt>
-            <dd>{JSON.stringify(plan.environment)}</dd>
-            <dt>固定参数</dt>
-            <dd>{JSON.stringify(plan.args)}</dd>
-            <dt>程序 SHA-256</dt>
-            <dd>{plan.executable_sha256}</dd>
-          </dl>
+          <p>实例：{launchTarget?.name}</p>
+          <p className="file-path">存档：{plan.save_dir}</p>
+          <details className="disclosure">
+            <summary>启动技术详情</summary>
+            <dl className="launch-details">
+              <dt>游戏程序</dt>
+              <dd>{plan.executable}</dd>
+              <dt>工作目录（可能写入缓存）</dt>
+              <dd>{plan.working_dir}</dd>
+              <dt>实例数据目录</dt>
+              <dd>{plan.instance_data_root}</dd>
+              <dt>目标存档目录（参数指定，绑定未验证）</dt>
+              <dd>{plan.save_dir}</dd>
+              <dt>进程环境覆盖（仅当前游戏）</dt>
+              <dd>{JSON.stringify(plan.environment)}</dd>
+              <dt>固定参数</dt>
+              <dd>{JSON.stringify(plan.args)}</dd>
+              <dt>程序 SHA-256</dt>
+              <dd>{plan.executable_sha256}</dd>
+            </dl>
+          </details>
           <ul className="plan-warnings">
             {plan.warnings.map((warning) => (
               <li key={warning}>{warning}</li>
@@ -351,13 +403,22 @@ export default function PlayInstancesPanel({
               onClick={() =>
                 void perform(async () => {
                   await api.launch(plan.id);
+                  if (launchTarget) {
+                    try {
+                      await api.saveInstanceProfile(launchTarget.id, profileId);
+                    } catch {
+                      setError(
+                        '游戏已启动，但启动设置保存失败；下次需重新设置。',
+                      );
+                    }
+                  }
                   setPlan(null);
                   setLaunchTarget(null);
                   await onRefresh();
                 })
               }
             >
-              确认单实例试运行
+              确认启动
             </button>
           </div>
         </Modal>

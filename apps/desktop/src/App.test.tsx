@@ -276,6 +276,7 @@ describe('workspace and launch safety', () => {
         ),
       );
       const dialog = await screen.findByRole('dialog');
+      await user.click(within(dialog).getByText('启动技术详情'));
       expect(
         within(dialog).getByText(/"HOME":"\/instance\/.hub-runtime\/home"/),
       ).toBeVisible();

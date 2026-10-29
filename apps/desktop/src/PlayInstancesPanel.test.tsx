@@ -9,6 +9,7 @@ async function openLaunch(
   name: string,
 ) {
   await user.click(screen.getByRole('button', { name: '启动 ' + name }));
+  await user.click(await screen.findByText('高级启动方案（旧版与实验选项）'));
   await screen.findByLabelText('试运行参数方案');
   await user.selectOptions(
     screen.getByLabelText('试运行参数方案'),
@@ -120,7 +121,7 @@ it('requires choosing a trial profile and a separate confirmation before launch'
   await user.click(
     screen.getByRole('button', { name: '预览 独立实例 试运行' }),
   );
-  await user.click(screen.getByRole('button', { name: '确认单实例试运行' }));
+  await user.click(screen.getByRole('button', { name: '确认启动' }));
   expect(launch).toHaveBeenCalledWith('plan');
 });
 
@@ -367,13 +368,15 @@ it('keeps saved launch profiles and acknowledgement scoped to one instance', asy
       onRefresh={vi.fn()}
     />,
   );
-  await user.click(screen.getByRole('button', { name: '启动 A' }));
+  await user.click(screen.getByRole('button', { name: '启动设置 A' }));
+  await user.click(await screen.findByText('高级启动方案（旧版与实验选项）'));
   expect(await screen.findByLabelText('试运行参数方案')).toHaveValue(
     'cdda-0h-source-trial-v1',
   );
   await user.click(screen.getByRole('checkbox'));
   await user.click(screen.getByRole('button', { name: '关闭对话框' }));
-  await user.click(screen.getByRole('button', { name: '启动 B' }));
+  await user.click(screen.getByRole('button', { name: '启动设置 B' }));
+  await user.click(await screen.findByText('高级启动方案（旧版与实验选项）'));
   expect(await screen.findByLabelText('试运行参数方案')).toHaveValue('');
   expect(screen.getByRole('checkbox')).not.toBeChecked();
   expect(screen.getByRole('button', { name: '预览 B 试运行' })).toBeDisabled();
@@ -387,4 +390,85 @@ it('keeps saved launch profiles and acknowledgement scoped to one instance', asy
     'cdda-0h-source-trial-v1',
   );
   expect(instanceLaunchPlan).not.toHaveBeenCalled();
+});
+
+it('starts a configured instance through a fresh backend plan without reopening settings', async () => {
+  const user = userEvent.setup();
+  const launch = vi.fn().mockResolvedValue({});
+  const instanceLaunchPlan = vi.fn().mockResolvedValue({ id: 'fresh' });
+  const onRefresh = vi.fn();
+  render(
+    <PlayInstancesPanel
+      api={{
+        ...api,
+        desktop: true,
+        preferences: vi.fn().mockResolvedValue({
+          revision: 1,
+          instance_profiles: { a: 'cdda-0i-1-macos-native-trial-v1' },
+        }),
+        instanceLaunchPlan,
+        launch,
+      }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'a',
+            name: 'A',
+            installation_id: 'g',
+            installation_sha256: 'hash',
+            data_root: '/a',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+      }}
+      onRefresh={onRefresh}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '启动 A' }));
+  await vi.waitFor(() => expect(launch).toHaveBeenCalledWith('fresh'));
+  expect(instanceLaunchPlan).toHaveBeenCalledWith(
+    'a',
+    'cdda-0i-1-macos-native-trial-v1',
+  );
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+it('does not launch when a saved profile fails current backend checks', async () => {
+  const user = userEvent.setup();
+  const launch = vi.fn();
+  render(
+    <PlayInstancesPanel
+      api={{
+        ...api,
+        desktop: true,
+        preferences: vi.fn().mockResolvedValue({
+          revision: 1,
+          instance_profiles: { a: 'cdda-0i-1-macos-native-trial-v1' },
+        }),
+        instanceLaunchPlan: vi
+          .fn()
+          .mockRejectedValue(new Error('游戏程序已变化')),
+        launch,
+      }}
+      data={{
+        ...emptyDashboard,
+        play_instances: [
+          {
+            id: 'a',
+            name: 'A',
+            installation_id: 'g',
+            installation_sha256: 'hash',
+            data_root: '/a',
+            binding_status: 'unverified',
+            created_at: '',
+          },
+        ],
+      }}
+      onRefresh={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '启动 A' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent('游戏程序已变化');
+  expect(launch).not.toHaveBeenCalled();
 });
