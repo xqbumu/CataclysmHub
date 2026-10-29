@@ -106,6 +106,7 @@ impl Hub {
             .map_err(|_| invalid("实例目录不可访问。"))?;
         let report = self.inspect_content_config_locked(instance_id).await?;
         tokio::task::spawn_blocking(move || {
+            let sound_only = input.default_mods.is_none();
             let mut budget = 2 * 1024 * 1024;
             let mut files = vec![];
             let mut proposed = report.clone();
@@ -145,6 +146,17 @@ impl Hub {
                     original.sha256.as_deref(),
                     &mut budget,
                 )?;
+                // A switch change still uses the retained soundpack, when declared.
+                if input.soundpack.is_none()
+                    && let Some(id) = &original.soundpack
+                {
+                    proposed.references.push(ContentReference {
+                        kind: "soundpack".into(),
+                        content_id: id.clone(),
+                        referenced_by: vec![original.path.clone()],
+                        registered_roots: vec![],
+                    });
+                }
                 let mut after = before.clone();
                 for (name, value) in [
                     ("SOUNDPACKS", input.soundpack),
@@ -185,7 +197,16 @@ impl Hub {
             }
             let mut discovery = report.discovery.clone();
             discovery.findings.clear();
-            crate::content_discovery::diagnose(&proposed, &mut discovery);
+            // Keep all observed packages and scan status as evidence. Only sound
+            // diagnostics govern sound-only edits; unrelated mod warnings remain
+            // visible in the original report and do not authorize mod changes.
+            let mut diagnostic_scope = discovery.clone();
+            if sound_only {
+                diagnostic_scope.packages.retain(|p| p.kind == "soundpack");
+            }
+            crate::content_discovery::diagnose(&proposed, &mut diagnostic_scope);
+            discovery.findings = diagnostic_scope.findings;
+            discovery.truncated |= diagnostic_scope.truncated;
             Ok(ContentConfigPlan {
                 report,
                 files,

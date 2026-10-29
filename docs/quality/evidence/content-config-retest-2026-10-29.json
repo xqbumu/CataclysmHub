@@ -1,0 +1,146 @@
+{
+  "date": "2026-10-29",
+  "base_commit": "cc754757699f467a8a639b89323b4f812710cb69",
+  "source_patch": "fix.patch",
+  "build": "debug default features with sound-only diagnostic fix",
+  "result": "file_cycle_matched",
+  "local_evidence_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-config-manual-20261029-6qc3e1vz/evidence",
+  "config_changes": [
+    {
+      "id": "49a6eb46-01d2-42da-9021-855a10cf0cad",
+      "request_key": "5176662e-f1cc-4906-a32a-6184eadf5e6b",
+      "request_digest": "f0bebdf93166b6da6706b1f0fccce227786a7ce85b40eed3af9a255807f63fc6",
+      "instance_id": "144f8221-0faa-4378-968f-c2b6e52ace5f",
+      "backup_id": "6e69bde6-5dce-4c5d-bf25-b20205cf8d3b",
+      "data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-config-manual-20261029-6qc3e1vz/instance-a",
+      "path": "config/options.json",
+      "before_sha256": "c19cab0b0eeaaf71492fcc8975a932f0fe17dad43645ddc2614c2e09dd149e24",
+      "after_sha256": "63860aeb4f02d65546fe57cf8589812f376ccb978f6bb092111d82e4a6b3fac5",
+      "state": "applied",
+      "error_code": null,
+      "created_at": "2026-10-29T02:05:00.629920+00:00",
+      "finished_at": "2026-10-29T02:05:00.848516+00:00",
+      "rollback_of": null
+    },
+    {
+      "id": "a0a19e29-9cf9-4c96-84a1-5143f7b19526",
+      "request_key": "85388b88-61b3-4182-a4b4-c9f20b5d4217",
+      "request_digest": "ade49907b57b6da62f24fce1950d3f3fd740bcb5c7d694ebb788af3d8c2472c1",
+      "instance_id": "144f8221-0faa-4378-968f-c2b6e52ace5f",
+      "backup_id": "6e69bde6-5dce-4c5d-bf25-b20205cf8d3b",
+      "data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-config-manual-20261029-6qc3e1vz/instance-a",
+      "path": "config/options.json",
+      "before_sha256": "63860aeb4f02d65546fe57cf8589812f376ccb978f6bb092111d82e4a6b3fac5",
+      "after_sha256": "c19cab0b0eeaaf71492fcc8975a932f0fe17dad43645ddc2614c2e09dd149e24",
+      "state": "applied",
+      "error_code": null,
+      "created_at": "2026-10-29T02:06:34.495227+00:00",
+      "finished_at": "2026-10-29T02:06:34.727547+00:00",
+      "rollback_of": "49a6eb46-01d2-42da-9021-855a10cf0cad"
+    }
+  ],
+  "file_cycle_check": "matched",
+  "issues": [],
+  "phase_changes": {
+    "apply": [
+      {
+        "after": {
+          "identity": [
+            "16777230",
+            "499075650"
+          ],
+          "kind": "file",
+          "mode": 420,
+          "sha256": "63860aeb4f02d65546fe57cf8589812f376ccb978f6bb092111d82e4a6b3fac5",
+          "size": "38756"
+        },
+        "before": {
+          "identity": [
+            "16777230",
+            "498980528"
+          ],
+          "kind": "file",
+          "mode": 420,
+          "sha256": "c19cab0b0eeaaf71492fcc8975a932f0fe17dad43645ddc2614c2e09dd149e24",
+          "size": "35586"
+        },
+        "change": "modified",
+        "path": "config/options.json",
+        "scope": "instance-a"
+      }
+    ],
+    "rollback": [
+      {
+        "after": {
+          "identity": [
+            "16777230",
+            "499078044"
+          ],
+          "kind": "file",
+          "mode": 420,
+          "sha256": "c19cab0b0eeaaf71492fcc8975a932f0fe17dad43645ddc2614c2e09dd149e24",
+          "size": "35586"
+        },
+        "before": {
+          "identity": [
+            "16777230",
+            "499075650"
+          ],
+          "kind": "file",
+          "mode": 420,
+          "sha256": "63860aeb4f02d65546fe57cf8589812f376ccb978f6bb092111d82e4a6b3fac5",
+          "size": "38756"
+        },
+        "change": "modified",
+        "path": "config/options.json",
+        "scope": "instance-a"
+      }
+    ]
+  },
+  "files": [
+    {
+      "name": "fix-applied.json",
+      "sha256": "9317e6200478e92e0ff02d7ebe74a9bb5d1a276f47e2995755889f3919eb6b72",
+      "bytes": 4176134
+    },
+    {
+      "name": "fix-before.json",
+      "sha256": "d41ddfab016d7990a9aa5680f58bdace284ce31a76a6aecafd3d9e4806d5a3b0",
+      "bytes": 4176134
+    },
+    {
+      "name": "fix-completed-ax.txt",
+      "sha256": "6215354b83dae7c09478ddfb08676ecf3909064c0ab322e225f9fa85fd61a77d",
+      "bytes": 12218
+    },
+    {
+      "name": "fix-completed.png",
+      "sha256": "1cf93efa3fb9be7c77a8e510aaefdd70cd574dcab7e38108f3a7e4bbfba8f7ef",
+      "bytes": 439694
+    },
+    {
+      "name": "fix-config-changes.json",
+      "sha256": "1e8a579c951eee933325cb8b6b4135f1756b28b0bf931b73c6a64e0b1941c4f3",
+      "bytes": 1718
+    },
+    {
+      "name": "fix-cycle.json",
+      "sha256": "1000c11ef7f31c4dd5609c04b3eaf3c42f98e9f9098695b9c69862359409a217",
+      "bytes": 2780
+    },
+    {
+      "name": "fix-prepared-ax.txt",
+      "sha256": "6fbf17565b337b87af1ba1a7eae95f101b3dffb565c6106a9678fc80ee80b522",
+      "bytes": 13068
+    },
+    {
+      "name": "fix-rolled-back.json",
+      "sha256": "fba8da83b9d65011b2bfd7cbf249f6daf4bf065438a440cb200a81a64bc53d45",
+      "bytes": 4176134
+    }
+  ],
+  "game_loading_verified": false,
+  "audio_verified": false,
+  "binding_verified": false,
+  "concurrency_accepted": false
+}

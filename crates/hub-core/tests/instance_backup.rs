@@ -1210,3 +1210,129 @@ async fn schema_thirteen_upgrade_keeps_existing_config_history_and_snapshots_dat
             .starts_with("metadata-v13-")
     }));
 }
+
+#[tokio::test]
+async fn sound_change_ignores_unrelated_mod_diagnostics_but_preserves_mod_guard() {
+    let f = Fixture::new().await;
+    std::fs::create_dir_all(f.path("game/data/mods/dda")).unwrap();
+    std::fs::write(
+        f.path("game/data/mods/dda/modinfo.json"),
+        br#"[{"type":"MOD_INFO","id":"dda","name":"Core","core":true}]"#,
+    )
+    .unwrap();
+    let (plan, original) = config_ready(&f).await;
+    let preview = f
+        .hub
+        .preview_content_config(&f.a, sound_draft())
+        .await
+        .unwrap();
+    assert!(
+        preview
+            .report
+            .discovery
+            .findings
+            .iter()
+            .any(|d| d.code == "dependencies_unknown")
+    );
+    assert!(preview.proposed_discovery.findings.is_empty());
+    let applied = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &applied.id).await.state, "applied");
+    let rollback = f.hub.prepare_config_rollback(&applied.id).await.unwrap();
+    let restored = f
+        .hub
+        .apply_config_change(
+            &rollback.id,
+            &rollback.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &restored.id).await.state, "applied");
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
+    std::fs::write(
+        f.path("a/config/user-default-mods.json"),
+        br#"{"type":"MOD_INFO","id":"user:default","dependencies":[]}"#,
+    )
+    .unwrap();
+    let backup = f.create(&f.a).await;
+    let error = f
+        .hub
+        .prepare_config_change(
+            &f.a,
+            hub_core::ContentConfigInput {
+                default_mods: Some(vec!["dda".into()]),
+                soundpack: None,
+                sound_enabled: None,
+            },
+            &backup.backup_id,
+        )
+        .await
+        .unwrap_err();
+    assert_eq!(error.code, "CONFIG_CHANGE_DIAGNOSTICS");
+}
+
+#[tokio::test]
+async fn sound_switch_keeps_retained_pack_and_scan_integrity_guards() {
+    let f = Fixture::new().await;
+    std::fs::write(
+        f.path("a/config/options.json"),
+        br#"[{"name":"SOUND_ENABLED","value":"false"},{"name":"SOUNDPACKS","value":"basic"}]"#,
+    )
+    .unwrap();
+    let backup = f.create(&f.a).await;
+    // A declared but missing pack remains a blocker even for a switch-only draft.
+    assert_eq!(
+        f.hub
+            .prepare_config_change(&f.a, sound_draft(), &backup.backup_id)
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIG_CHANGE_DIAGNOSTICS"
+    );
+    for dir in ["game/data/sound/one", "game/data/sound/two"] {
+        std::fs::create_dir_all(f.path(dir)).unwrap();
+        std::fs::write(
+            f.path(&format!("{dir}/soundpack.txt")),
+            b"NAME: basic\nVIEW: Basic\n",
+        )
+        .unwrap();
+    }
+    assert_eq!(
+        f.hub
+            .prepare_config_change(&f.a, sound_draft(), &backup.backup_id)
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIG_CHANGE_DIAGNOSTICS"
+    );
+    std::fs::remove_dir_all(f.path("game/data/sound/two")).unwrap();
+    f.hub
+        .prepare_config_change(&f.a, sound_draft(), &backup.backup_id)
+        .await
+        .unwrap();
+    // Incomplete scanning is still rejected, even in an unrelated mod root.
+    std::fs::create_dir_all(f.path("game/data/mods/broken")).unwrap();
+    std::fs::write(f.path("game/data/mods/broken/modinfo.json"), b"not JSON").unwrap();
+    assert_eq!(
+        f.hub
+            .prepare_config_change(&f.a, sound_draft(), &backup.backup_id)
+            .await
+            .unwrap_err()
+            .code,
+        "CONFIG_CHANGE_DIAGNOSTICS"
+    );
+    assert!(f.hub.config_changes().await.unwrap().is_empty());
+}
