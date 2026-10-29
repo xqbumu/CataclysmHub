@@ -42,6 +42,7 @@ const fixture: RemoteView = {
 };
 function client(): RemoteApi {
   return {
+    extract: vi.fn().mockResolvedValue({ path: '/extracted' }),
     progress: vi.fn().mockResolvedValue(null),
     cancel: vi.fn().mockResolvedValue(undefined),
     view: vi.fn().mockResolvedValue(fixture),
@@ -140,4 +141,46 @@ it('offers cancellation while a large download is pending', async () => {
   await waitFor(() =>
     expect(screen.getByRole('button', { name: '确认下载' })).toBeEnabled(),
   );
+});
+
+it('offers cache verification instead of another download and explicitly confirms extraction', async () => {
+  const c = client();
+  const v: RemoteView = {
+    ...fixture,
+    host_os: 'macos',
+    host_arch: 'aarch64',
+    catalog: {
+      ...fixture.catalog,
+      downloads: [
+        {
+          id: 'cached',
+          source: 'dda',
+          repo: 'CleverRaven/Cataclysm-DDA',
+          tag: '0.I',
+          asset_id: 7,
+          url: fixture.catalog.listings.dda.releases[0].assets[0].url,
+          name: 'windows.zip',
+          path: '/cached/windows.zip',
+          size: 100,
+          sha256: 'hash',
+          upstream_verified: false,
+        },
+      ],
+    },
+  };
+  vi.mocked(c.view).mockResolvedValue(v);
+  vi.mocked(c.sync).mockResolvedValue(v);
+  const u = userEvent.setup();
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  await screen.findByText('0.I');
+  await u.click(screen.getByText('0.I'));
+  expect(screen.getByRole('button', { name: '校验并复用缓存' })).toBeEnabled();
+  expect(screen.getByText(/文件名提示：其他系统或架构/)).toBeInTheDocument();
+  expect(c.download).not.toHaveBeenCalled();
+  await u.click(screen.getByText(/windows.zip ·/));
+  await u.click(screen.getByRole('button', { name: '解压到独立目录' }));
+  expect(c.extract).not.toHaveBeenCalled();
+  await u.click(screen.getByRole('button', { name: '确认解压' }));
+  await waitFor(() => expect(c.extract).toHaveBeenCalledWith('cached'));
+  expect(await screen.findByRole('status')).toHaveTextContent('/extracted');
 });

@@ -38,11 +38,26 @@ export interface RemoteDownload {
   sha256: string;
   upstream_verified: boolean;
 }
+export interface RemoteExtraction {
+  source: string;
+  name: string;
+  tag: string;
+  id: string;
+  download_id: string;
+  archive_sha256: string;
+  path: string;
+  entries: number;
+  bytes: number;
+  extracted_at: string;
+}
 export interface RemoteView {
+  host_os?: string;
+  host_arch?: string;
   sources: RemoteSource[];
   catalog: {
     listings: Record<string, RemoteListing>;
     downloads: RemoteDownload[];
+    extractions?: RemoteExtraction[];
   };
 }
 export interface RemoteTransfer {
@@ -51,6 +66,7 @@ export interface RemoteTransfer {
   total: number;
 }
 export interface RemoteApi {
+  extract(id: string): Promise<RemoteExtraction>;
   progress(): Promise<RemoteTransfer | null>;
   cancel(): Promise<void>;
   view(): Promise<RemoteView>;
@@ -63,6 +79,7 @@ export interface RemoteApi {
   ): Promise<RemoteDownload>;
 }
 export const remoteApi: RemoteApi = {
+  extract: (id) => invoke('extract_remote_download', { id }),
   progress: () => invoke('remote_download_progress'),
   cancel: () => invoke('cancel_remote_download'),
   remove: (id) => invoke('remove_remote_download', { id }),
@@ -91,4 +108,42 @@ export function syncInitialGameCatalog() {
     /* The page exposes cached failures and explicit retry. */
   });
   return initialSync;
+}
+
+/** Filename hints only; never a compatibility certificate or an automatic asset choice. */
+export function assetHostHint(name: string, os?: string, arch?: string) {
+  const n = name.toLowerCase();
+  const platform = /(?:macos|osx|darwin|mac-)/.test(n)
+    ? 'macos'
+    : /(?:windows|win32|win64|msvc|mingw)/.test(n)
+      ? 'windows'
+      : /(?:linux|appimage)/.test(n)
+        ? 'linux'
+        : undefined;
+  const cpu = /(?:aarch64|arm64)/.test(n)
+    ? 'aarch64'
+    : /(?:x86_64|x64|amd64)/.test(n)
+      ? 'x86_64'
+      : /(?:i686|i386|x86-)/.test(n)
+        ? 'x86'
+        : undefined;
+  if ((platform && os && platform !== os) || (cpu && arch && cpu !== arch))
+    return '文件名提示：其他系统或架构';
+  if (platform && cpu && os && arch) return '文件名提示：匹配本机';
+  return '系统或架构未完全声明，请核对';
+}
+export function matchesDownload(
+  d: RemoteDownload,
+  source: RemoteSource,
+  release: RemoteRelease,
+  asset: RemoteAsset,
+) {
+  return (
+    d.source === source.id &&
+    d.repo === source.repo &&
+    d.tag === release.tag &&
+    d.asset_id === asset.id &&
+    d.url === asset.url &&
+    d.name === asset.name
+  );
 }

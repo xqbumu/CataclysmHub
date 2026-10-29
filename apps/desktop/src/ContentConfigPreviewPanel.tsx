@@ -1,3 +1,4 @@
+import { contentChoices } from './contentChoices';
 import ConfigChangePanel, { type ConfigChangeApi } from './ConfigChangePanel';
 import ContentConfigProtectionPanel, {
   type ProtectionApi,
@@ -21,6 +22,14 @@ export default function ContentConfigPreviewPanel({
   protectionApi?: ProtectionApi;
   changeApi?: ConfigChangeApi;
 }) {
+  const modChoices = contentChoices(report, 'mod');
+  const soundChoices = contentChoices(report, 'soundpack');
+  const [addMod, setAddMod] = useState('');
+  const selectedMods = (text: string) =>
+    text
+      .split(/\r?\n/u)
+      .map((id) => id.trim())
+      .filter(Boolean);
   const [editMods, setEditMods] = useState(false);
   const [mods, setMods] = useState(
     report.default_mods.status === 'read'
@@ -91,17 +100,106 @@ export default function ContentConfigPreviewPanel({
         拟调整新世界默认模组
       </label>
       {editMods && (
-        <label>
-          默认模组 ID（每行一项，空白表示显式空组合）
-          <textarea
-            value={mods}
-            maxLength={66000}
-            onChange={(event) => {
-              setMods(event.target.value);
+        <div>
+          <p className="inline-note">
+            候选来自此实例与关联安装的扫描范围，资源库登记不代表游戏可发现。重复
+            ID 不自动选择；现有顺序保留，不自动补依赖。
+          </p>
+          <label>
+            添加可用模组
+            <select value={addMod} onChange={(e) => setAddMod(e.target.value)}>
+              <option value="">选择模组</option>
+              {modChoices.map((choice) => (
+                <option
+                  key={choice.id}
+                  value={choice.id}
+                  disabled={
+                    choice.paths.length > 1 ||
+                    selectedMods(mods).includes(choice.id)
+                  }
+                >
+                  {choice.name} · {choice.id}
+                  {choice.paths.length > 1 ? '（重复 ID）' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            disabled={!addMod || selectedMods(mods).includes(addMod)}
+            onClick={() => {
+              setMods([...selectedMods(mods), addMod].join('\n'));
+              setAddMod('');
               invalidate();
             }}
-          />
-        </label>
+          >
+            添加模组
+          </button>
+          <ol aria-label="新世界模组顺序">
+            {selectedMods(mods).map((id, index, ids) => {
+              const choice = modChoices.find((c) => c.id === id);
+              const move = (offset: number) => {
+                const next = [...ids];
+                [next[index], next[index + offset]] = [
+                  next[index + offset],
+                  next[index],
+                ];
+                setMods(next.join('\n'));
+                invalidate();
+              };
+              return (
+                <li key={`${id}:${index}`}>
+                  <strong>{choice?.name ?? id}</strong> · {id}
+                  {choice ? (
+                    <small>
+                      {' '}
+                      版本声明：{choice.version ?? '未声明'} · 依赖：
+                      {choice.dependencies?.join(', ') || '未声明'} ·{' '}
+                      {choice.paths.length > 1
+                        ? '重复 ID，需排查'
+                        : choice.paths[0]}
+                    </small>
+                  ) : (
+                    <small> 本次扫描未发现，请先检查资源目录</small>
+                  )}
+                  <button
+                    aria-label={`上移 ${id}`}
+                    disabled={index === 0}
+                    onClick={() => move(-1)}
+                  >
+                    上移
+                  </button>
+                  <button
+                    aria-label={`下移 ${id}`}
+                    disabled={index === ids.length - 1}
+                    onClick={() => move(1)}
+                  >
+                    下移
+                  </button>
+                  <button
+                    aria-label={`移除 ${id}`}
+                    onClick={() => {
+                      setMods(ids.filter((_, i) => i !== index).join('\n'));
+                      invalidate();
+                    }}
+                  >
+                    移除
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          <label>
+            默认模组 ID（每行一项，空白表示显式空组合）
+            <textarea
+              value={mods}
+              maxLength={66000}
+              onChange={(event) => {
+                setMods(event.target.value);
+                invalidate();
+              }}
+            />
+          </label>
+        </div>
       )}
       <p>
         只比较 config/user-default-mods.json 的默认组合。已有世界
@@ -119,17 +217,46 @@ export default function ContentConfigPreviewPanel({
         拟调整声音包
       </label>
       {editSound && (
-        <label>
-          目标声音包 ID
-          <input
-            value={sound}
-            maxLength={256}
-            onChange={(event) => {
-              setSound(event.target.value);
-              invalidate();
-            }}
-          />
-        </label>
+        <div>
+          <label>
+            选择已发现声音包
+            <select
+              value={soundChoices.some((c) => c.id === sound) ? sound : ''}
+              onChange={(e) => {
+                if (e.target.value) {
+                  setSound(e.target.value);
+                  invalidate();
+                }
+              }}
+            >
+              <option value="">选择声音包（保留当前草稿）</option>
+              {soundChoices.map((choice) => (
+                <option
+                  key={choice.id}
+                  value={choice.id}
+                  disabled={choice.paths.length > 1}
+                >
+                  {choice.name} · {choice.id}
+                  {choice.paths.length > 1 ? '（重复 ID）' : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="inline-note">
+            声音包须位于目标实例或安装可发现目录；这里只修改该实例的配置，不写入其他实例。切换声音包后需重启游戏，实际播放仍需在游戏中验证。
+          </p>
+          <label>
+            目标声音包 ID
+            <input
+              value={sound}
+              maxLength={256}
+              onChange={(event) => {
+                setSound(event.target.value);
+                invalidate();
+              }}
+            />
+          </label>
+        </div>
       )}
       <label>
         声音开关草稿

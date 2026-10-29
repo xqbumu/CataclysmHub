@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   remoteApi,
+  assetHostHint,
+  matchesDownload,
   type RemoteApi,
   type RemoteView,
   type RemoteAsset,
@@ -52,6 +54,7 @@ export default function RemoteCatalogPanel({
       clearInterval(timer);
     };
   }, [client, downloading]);
+  const [extracting, setExtracting] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
@@ -122,7 +125,7 @@ export default function RemoteCatalogPanel({
         pending.release.tag,
         pending.asset.id,
       );
-      setNotice(`已下载：${saved.path}`);
+      setNotice(`下载包已就绪（已有缓存会先校验复用）：${saved.path}`);
       setPending(null);
       setView(await client.view());
     } catch (e) {
@@ -194,8 +197,15 @@ export default function RemoteCatalogPanel({
         </p>
       )}
       <p className="inline-note">
-        下载原始包，不自动解压、执行或替换实例。请按系统与架构选择附件；上游发布标签不代表已验证兼容。
+        下载 → 校验缓存 → 独立解压 → 登记游戏或资源 →
+        按实例配置。相同附件先校验缓存，缺失或损坏才重新下载；不自动执行或替换实例。
       </p>
+      {view?.host_os && (
+        <p className="inline-note">
+          宿主系统：{view.host_os} · {view.host_arch}
+          。附件匹配仅依据文件名，不代表兼容认证。
+        </p>
+      )}
       {source?.id === 'kenan' && (
         <p className="inline-note">
           此合集已停更，提供历史测试包；不代表适配最新 DDA。
@@ -241,14 +251,28 @@ export default function RemoteCatalogPanel({
                 <div className="asset-row" key={a.id}>
                   <span className="file-path">{a.name}</span>
                   <small>{size(a.size)}</small>
-                  <small>{a.digest ? '上游 SHA-256' : '仅本地摘要'}</small>
+                  <small>
+                    {a.digest ? '上游 SHA-256' : '仅本地摘要'}
+                    {kind === 'game' && (
+                      <>
+                        {' '}
+                        ·{' '}
+                        {assetHostHint(a.name, view?.host_os, view?.host_arch)}
+                      </>
+                    )}
+                  </small>
                   <button
                     disabled={busy}
                     onClick={() =>
                       setPending({ source: selected, release: r, asset: a })
                     }
                   >
-                    下载
+                    {source &&
+                    view?.catalog.downloads.some((d) =>
+                      matchesDownload(d, source, r, a),
+                    )
+                      ? '校验并复用缓存'
+                      : '下载'}
                   </button>
                 </div>
               ))}
@@ -257,7 +281,7 @@ export default function RemoteCatalogPanel({
           </details>
         ))}
       </div>
-      <h3>已下载文件</h3>
+      <h3>下载缓存与解压目录</h3>
       <p className="inline-note">
         解包后，游戏通过“导入本地游戏”登记程序；模组或声音通过“资源来源库”登记单个包目录，再到关联实例配置。下载记录不代表已安装。
       </p>
@@ -270,6 +294,25 @@ export default function RemoteCatalogPanel({
                 {d.name} · {size(d.size)} · {d.tag}
               </summary>
               <p className="file-path">{d.path}</p>
+              <button
+                onClick={() =>
+                  void navigator.clipboard
+                    .writeText(d.path)
+                    .then(() => setNotice('下载包路径已复制'))
+                    .catch((e) => setError(message(e)))
+                }
+              >
+                复制下载包路径
+              </button>
+              <button
+                disabled={busy || !/\.(zip|tar|tar\.gz|tgz)$/i.test(d.name)}
+                onClick={() => setExtracting(d.id)}
+              >
+                解压到独立目录
+              </button>
+              {!/\.(zip|tar|tar\.gz|tgz)$/i.test(d.name) && (
+                <small>此格式请通过系统工具解包或挂载，再导入。</small>
+              )}
               {d.repo && (
                 <p className="inline-note">
                   来源：{d.repo} · {d.downloaded_at}
@@ -287,6 +330,71 @@ export default function RemoteCatalogPanel({
             </details>
           ))}
       </div>
+      <h3>已解压目录</h3>
+      <p className="inline-note">
+        删除下载包后仍保留这些独立目录与记录。目录内容可能被后续导入或手工修改，以下为解压时信息。
+      </p>
+      {view?.catalog.extractions
+        ?.filter((e) => sources.some((s) => s.id === e.source))
+        .map((e) => (
+          <details key={e.id}>
+            <summary>
+              {e.name} · {e.tag} · {size(e.bytes)}
+            </summary>
+            <p className="file-path">{e.path}</p>
+            <small>
+              {e.entries} 项 · {e.extracted_at}
+            </small>
+            <button
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(e.path)
+                  .then(() => setNotice('解压目录已复制'))
+                  .catch((error) => setError(message(error)))
+              }
+            >
+              复制解压目录
+            </button>
+          </details>
+        ))}
+      {extracting && (
+        <Modal
+          title="解压下载缓存"
+          onClose={() => {
+            if (!busy) setExtracting(null);
+          }}
+        >
+          <p>
+            先重新校验缓存摘要，再解压到同一缓存容器中的新目录，不覆盖已有游戏、资源或实例。最多
+            100000 项、8 GiB；拒绝路径穿越、链接及特殊文件。
+          </p>
+          <p>
+            解压后游戏通过本地导入登记；资源合集需选择单个包登记。解压不代表已安装或已启用。
+          </p>
+          {error && <p role="alert">{error}</p>}
+          <button disabled={busy} onClick={() => setExtracting(null)}>
+            取消
+          </button>
+          <button
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              setError('');
+              void client
+                .extract(extracting)
+                .then(async (result) => {
+                  setNotice(`已解压：${result.path}`);
+                  setExtracting(null);
+                  setView(await client.view());
+                })
+                .catch((e) => setError(message(e)))
+                .finally(() => setBusy(false));
+            }}
+          >
+            {busy ? '校验并解压中…' : '确认解压'}
+          </button>
+        </Modal>
+      )}
       {removing && (
         <Modal
           title="删除下载包"
@@ -335,7 +443,10 @@ export default function RemoteCatalogPanel({
           <p className="file-path">
             {pending.asset.name} · {size(pending.asset.size)}
           </p>
-          <p>保存到系统托管 downloads 目录的独立子目录，不覆盖已有文件。</p>
+          <p>
+            优先校验并复用相同附件的缓存；不可用时下载到系统托管 downloads
+            的新子目录，不覆盖已有文件。
+          </p>
           {downloading && (
             <p role="status">
               {transfer

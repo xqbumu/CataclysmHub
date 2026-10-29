@@ -1,0 +1,13 @@
+{
+  "command": "cargo test -p cataclysm-hub --lib live_sound_download_cache_and_extraction --locked -- --ignored --nocapture",
+  "source": "Fris0uman/CDDA-Soundpacks",
+  "name": "CC-Sounds-sfx-only.zip",
+  "archive_bytes": 11141644,
+  "archive_sha256": "9c49965cd652ea62787aaf3e575507da6e8eba002a8d2343dc644014c048d4eb",
+  "upstream_verified": true,
+  "same_receipt_reused": true,
+  "extracted_entries": 797,
+  "extracted_bytes": 11739788,
+  "software_executed": false,
+  "scope": "temporary directories only; no player data or installation modified"
+}

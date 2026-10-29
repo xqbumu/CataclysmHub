@@ -1,3 +1,4 @@
+mod archive;
 mod catalog;
 use hub_core::{
     Dashboard, Hub, HubError, Installation, LaunchPlan, ScanReport, ScanTask, Session, Workspace,
@@ -102,6 +103,29 @@ async fn download_remote_asset(
             &downloads,
             &state.managed_root.join("downloads"),
         )
+        .await
+}
+#[tauri::command]
+async fn extract_remote_download(
+    store: tauri::State<'_, RemoteState>,
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<catalog::Extraction, String> {
+    use cap_fs_ext::DirExt;
+    let parent = cap_std::fs::Dir::open_ambient_dir(
+        state.managed_root.parent().ok_or("缺少目录")?,
+        cap_std::ambient_authority(),
+    )
+    .map_err(|e| e.to_string())?;
+    let root = parent
+        .open_dir_nofollow(state.managed_root.file_name().ok_or("缺少目录")?)
+        .map_err(|e| e.to_string())?;
+    let downloads = root
+        .open_dir_nofollow("downloads")
+        .map_err(|e| e.to_string())?;
+    store
+        .store()?
+        .extract(&id, &downloads, &state.managed_root.join("downloads"))
         .await
 }
 fn selection_error() -> HubError {
@@ -864,6 +888,7 @@ pub fn run() {
             remote_catalog,
             sync_remote_source,
             download_remote_asset,
+            extract_remote_download,
             register_managed_instance,
             workspace_defaults,
             hub_preferences,

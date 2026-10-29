@@ -58,13 +58,30 @@ pub struct Download {
     pub sha256: String,
     pub upstream_verified: bool,
 }
+#[derive(Clone, Serialize, Deserialize)]
+pub struct Extraction {
+    pub source: String,
+    pub name: String,
+    pub tag: String,
+    pub id: String,
+    pub download_id: String,
+    pub archive_sha256: String,
+    pub path: String,
+    pub entries: usize,
+    pub bytes: u64,
+    pub extracted_at: String,
+}
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct Catalog {
     pub listings: std::collections::BTreeMap<String, Listing>,
     pub downloads: Vec<Download>,
+    #[serde(default)]
+    pub extractions: Vec<Extraction>,
 }
 #[derive(Serialize)]
 pub struct View {
+    pub host_os: String,
+    pub host_arch: String,
     pub sources: Vec<Source>,
     pub catalog: Catalog,
 }
@@ -205,6 +222,8 @@ impl Store {
     }
     pub async fn view(&self) -> View {
         View {
+            host_os: std::env::consts::OS.into(),
+            host_arch: std::env::consts::ARCH.into(),
             sources: sources(),
             catalog: self.state.lock().await.clone(),
         }
@@ -217,6 +236,8 @@ impl Store {
         let mut state = self.state.lock().await;
         if !manual && state.listings.get(id).is_some_and(|l| l.attempted) {
             return Ok(View {
+                host_os: std::env::consts::OS.into(),
+                host_arch: std::env::consts::ARCH.into(),
                 sources: sources(),
                 catalog: state.clone(),
             });
@@ -240,6 +261,8 @@ impl Store {
         self.persist(&next)?;
         *state = next;
         Ok(View {
+            host_os: std::env::consts::OS.into(),
+            host_arch: std::env::consts::ARCH.into(),
             sources: sources(),
             catalog: state.clone(),
         })
@@ -329,6 +352,74 @@ impl Store {
         }
         Ok(releases)
     }
+    pub async fn extract(&self, id: &str, parent: &Dir, root: &Path) -> Result<Extraction, String> {
+        let mut state = self
+            .state
+            .try_lock()
+            .map_err(|_| "另一项同步、下载或解压正在进行")?;
+        let receipt = state
+            .downloads
+            .iter()
+            .find(|d| d.id == id)
+            .cloned()
+            .ok_or("下载记录不存在")?;
+        if !crate::archive::supported(&receipt.name) {
+            return Err("此格式需使用系统解包工具；内置支持 ZIP、TAR、TAR.GZ".into());
+        }
+        let parent = parent.try_clone().map_err(failure)?;
+        let root = root.to_owned();
+        let extracted = tokio::task::spawn_blocking(move || {
+            let file = verified_file(&parent, &receipt, None)?;
+            let directory = parent.open_dir_nofollow(&receipt.id).map_err(failure)?;
+            let extraction_id = uuid::Uuid::new_v4().to_string();
+            let stage = format!("extract-{extraction_id}.partial");
+            let leaf = format!("extracted-{extraction_id}");
+            directory.create_dir(&stage).map_err(failure)?;
+            #[cfg(unix)]
+            {
+                use cap_std::fs::PermissionsExt;
+                directory
+                    .set_permissions(&stage, cap_std::fs::Permissions::from_mode(0o700))
+                    .map_err(failure)?;
+            }
+            let destination = directory.open_dir_nofollow(&stage).map_err(failure)?;
+            let result = crate::archive::extract(file, &receipt.name, &destination);
+            let (entries, bytes) = match result {
+                Ok(value) => value,
+                Err(error) => {
+                    let _ = directory.remove_dir_all(&stage);
+                    return Err(error);
+                }
+            };
+            // Recheck the cache before publishing; extracted output never replaces a game or instance.
+            if let Err(error) = verified_file(&parent, &receipt, None) {
+                let _ = directory.remove_dir_all(&stage);
+                return Err(error);
+            }
+            directory
+                .rename(&stage, &directory, &leaf)
+                .map_err(failure)?;
+            Ok(Extraction {
+                source: receipt.source,
+                name: receipt.name,
+                tag: receipt.tag,
+                id: extraction_id,
+                download_id: receipt.id.clone(),
+                archive_sha256: receipt.sha256,
+                path: root.join(&receipt.id).join(leaf).to_string_lossy().into(),
+                entries,
+                bytes,
+                extracted_at: timestamp(),
+            })
+        })
+        .await
+        .map_err(failure)??;
+        let mut next = state.clone();
+        next.extractions.push(extracted.clone());
+        self.persist(&next)?;
+        *state = next;
+        Ok(extracted)
+    }
     pub async fn remove_download(&self, id: &str, parent: &Dir) -> Result<View, String> {
         uuid::Uuid::parse_str(id).map_err(failure)?;
         let mut state = self.state.lock().await;
@@ -366,6 +457,8 @@ impl Store {
         self.persist(&next)?;
         *state = next;
         Ok(View {
+            host_os: std::env::consts::OS.into(),
+            host_arch: std::env::consts::ARCH.into(),
             sources: sources(),
             catalog: state.clone(),
         })
@@ -394,6 +487,34 @@ impl Store {
             .cloned()
             .ok_or("版本附件已变化，请重新选择")?;
         validate_asset(&asset, &source.repo)?;
+        // Treat receipts as hints: verify the actual capability-relative file before reuse.
+        for receipt in state.downloads.iter().rev() {
+            if receipt.source == source_id
+                && receipt.repo == source.repo
+                && receipt.tag == tag
+                && receipt.asset_id == asset.id
+                && receipt.url == asset.url
+                && receipt.name == asset.name
+            {
+                let parent = parent.try_clone().map_err(failure)?;
+                let receipt = receipt.clone();
+                let expected = asset.clone();
+                if let Ok(mut cached) = tokio::task::spawn_blocking(move || {
+                    verified_file(&parent, &receipt, Some(&expected))?;
+                    Ok::<_, String>(receipt)
+                })
+                .await
+                .map_err(failure)?
+                {
+                    cached.path = root
+                        .join(&cached.id)
+                        .join(&cached.name)
+                        .to_string_lossy()
+                        .into();
+                    return Ok(cached);
+                }
+            }
+        }
         let id = uuid::Uuid::new_v4().to_string();
         parent.create_dir(&id).map_err(failure)?;
         let dir = parent.open_dir_nofollow(&id).map_err(failure)?;
@@ -477,6 +598,68 @@ impl Store {
         Ok(download)
     }
 }
+pub(crate) fn verified_file(
+    parent: &Dir,
+    receipt: &Download,
+    asset: Option<&Asset>,
+) -> Result<std::fs::File, String> {
+    use std::io::{Seek, SeekFrom};
+    uuid::Uuid::parse_str(&receipt.id).map_err(failure)?;
+    if receipt.name.is_empty()
+        || receipt.name.contains(['/', '\\'])
+        || receipt.name == "."
+        || receipt.name == ".."
+    {
+        return Err("缓存文件名无效".into());
+    }
+    let dir = parent.open_dir_nofollow(&receipt.id).map_err(failure)?;
+    let leaf_metadata = dir.symlink_metadata(&receipt.name).map_err(failure)?;
+    if !leaf_metadata.is_file() || leaf_metadata.file_type().is_symlink() {
+        return Err("缓存必须是普通文件".into());
+    }
+    let mut file = dir
+        .open_with(
+            &receipt.name,
+            OpenOptions::new()
+                .read(true)
+                .follow(cap_fs_ext::FollowSymlinks::No),
+        )
+        .map_err(failure)?
+        .into_std();
+    let metadata = file.metadata().map_err(failure)?;
+    if !metadata.is_file()
+        || metadata.len() != receipt.size
+        || receipt.size > 2 * 1024 * 1024 * 1024
+    {
+        return Err("缓存大小变化，请重新下载".into());
+    }
+    let mut hash = Sha256::new();
+    let mut buffer = [0; 64 * 1024];
+    let mut size = 0;
+    loop {
+        let n = file.read(&mut buffer).map_err(failure)?;
+        if n == 0 {
+            break;
+        }
+        size += n as u64;
+        if size > receipt.size {
+            return Err("缓存读取期间变化".into());
+        }
+        hash.update(&buffer[..n]);
+    }
+    let actual = format!("{:x}", hash.finalize());
+    if size != receipt.size || actual != receipt.sha256 {
+        return Err("缓存摘要变化，请重新下载".into());
+    }
+    if let Some(asset) = asset {
+        if asset.size > 0 && size != asset.size {
+            return Err("上游附件大小已变化".into());
+        }
+        verify_digest(asset, &actual)?;
+    }
+    file.seek(SeekFrom::Start(0)).map_err(failure)?;
+    Ok(file)
+}
 async fn bounded_body(mut response: reqwest::Response, limit: usize) -> Result<Vec<u8>, String> {
     let mut bytes = Vec::new();
     while let Some(chunk) = response.chunk().await.map_err(failure)? {
@@ -489,7 +672,7 @@ async fn bounded_body(mut response: reqwest::Response, limit: usize) -> Result<V
 }
 fn verify_digest(asset: &Asset, actual: &str) -> Result<(), String> {
     if let Some(expected) = &asset.digest
-        && expected != &format!("sha256:{actual}")
+        && !expected.eq_ignore_ascii_case(&format!("sha256:{actual}"))
     {
         return Err("上游 SHA-256 校验失败".into());
     }
@@ -758,5 +941,202 @@ mod tests {
         } else {
             panic!("No bounded download fixture found");
         }
+    }
+    fn cache_fixture(temp: &tempfile::TempDir, source_id: &str) -> (Store, Dir, Asset, Download) {
+        let store = Store::open(temp.path()).unwrap();
+        let parent = Dir::open_ambient_dir(temp.path(), cap_std::ambient_authority()).unwrap();
+        let source = sources().into_iter().find(|s| s.id == source_id).unwrap();
+        let asset = Asset {
+            id: 7,
+            name: "package.zip".into(),
+            size: 4,
+            url: format!(
+                "https://github.com/{}/releases/download/v/package.zip",
+                source.repo
+            ),
+            digest: None,
+        };
+        let id = uuid::Uuid::new_v4().to_string();
+        parent.create_dir(&id).unwrap();
+        parent
+            .open_dir(&id)
+            .unwrap()
+            .write(&asset.name, b"data")
+            .unwrap();
+        let receipt = Download {
+            id,
+            source: source_id.into(),
+            repo: source.repo,
+            url: asset.url.clone(),
+            asset_id: 7,
+            downloaded_at: timestamp(),
+            tag: "v".into(),
+            name: asset.name.clone(),
+            path: "/untrusted/display/path".into(),
+            size: 4,
+            sha256: format!("{:x}", Sha256::digest(b"data")),
+            upstream_verified: false,
+        };
+        (store, parent, asset, receipt)
+    }
+    #[tokio::test]
+    async fn cache_reuse_works_offline_after_restart_for_games_mods_and_sound() {
+        for source in ["dda", "kenan", "sound"] {
+            let temp = tempfile::tempdir().unwrap();
+            let (store, parent, asset, receipt) = cache_fixture(&temp, source);
+            let mut state = Catalog::default();
+            state.downloads.push(receipt.clone());
+            state.listings.insert(
+                source.into(),
+                Listing {
+                    attempted: true,
+                    releases: vec![Release {
+                        tag: "v".into(),
+                        published: String::new(),
+                        prerelease: false,
+                        assets: vec![asset],
+                    }],
+                    ..Default::default()
+                },
+            );
+            store.persist(&state).unwrap();
+            let reopened = Store::open(temp.path()).unwrap();
+            let reused = reopened
+                .download(source, "v", 7, &parent, temp.path())
+                .await
+                .unwrap();
+            assert_eq!(reused.id, receipt.id);
+            assert_eq!(reopened.view().await.catalog.downloads.len(), 1);
+            assert_eq!(
+                Path::new(&reused.path),
+                temp.path().join(&receipt.id).join("package.zip")
+            );
+        }
+    }
+    #[test]
+    fn cache_checks_actual_bytes_size_upstream_digest_and_links() {
+        let temp = tempfile::tempdir().unwrap();
+        let (_, parent, mut asset, receipt) = cache_fixture(&temp, "dda");
+        assert!(verified_file(&parent, &receipt, Some(&asset)).is_ok());
+        asset.digest = Some(format!("sha256:{}", "a".repeat(64)));
+        assert!(verified_file(&parent, &receipt, Some(&asset)).is_err());
+        asset.digest = None;
+        asset.size = 5;
+        assert!(verified_file(&parent, &receipt, Some(&asset)).is_err());
+        let dir = parent.open_dir(&receipt.id).unwrap();
+        dir.write("package.zip", b"evil").unwrap();
+        assert!(verified_file(&parent, &receipt, None).is_err());
+        dir.remove_file("package.zip").unwrap();
+        assert!(verified_file(&parent, &receipt, None).is_err());
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(
+                temp.path().join("remote-catalog.json"),
+                temp.path().join(&receipt.id).join("package.zip"),
+            )
+            .unwrap();
+            assert!(verified_file(&parent, &receipt, None).is_err());
+        }
+    }
+    #[tokio::test]
+    async fn extraction_failure_does_not_publish_or_remove_original_archive() {
+        let temp = tempfile::tempdir().unwrap();
+        let (store, parent, _, receipt) = cache_fixture(&temp, "dda");
+        store.state.lock().await.downloads.push(receipt.clone());
+        assert!(
+            store
+                .extract(&receipt.id, &parent, temp.path())
+                .await
+                .is_err()
+        );
+        assert!(store.view().await.catalog.extractions.is_empty());
+        assert_eq!(
+            parent
+                .open_dir(&receipt.id)
+                .unwrap()
+                .read("package.zip")
+                .unwrap(),
+            b"data"
+        );
+        assert_eq!(
+            std::fs::read_dir(temp.path().join(receipt.id))
+                .unwrap()
+                .count(),
+            1
+        );
+    }
+    #[tokio::test]
+    async fn successful_extraction_is_persisted_separately_from_archive_cache() {
+        let temp = tempfile::tempdir().unwrap();
+        let (store, parent, _, mut receipt) = cache_fixture(&temp, "sound");
+        let path = temp.path().join(&receipt.id).join(&receipt.name);
+        let mut zip = zip::ZipWriter::new(std::fs::File::create(&path).unwrap());
+        zip.start_file(
+            "pack/soundpack.txt",
+            zip::write::SimpleFileOptions::default(),
+        )
+        .unwrap();
+        zip.write_all(b"NAME pack\nVIEW Pack\n").unwrap();
+        zip.finish().unwrap();
+        let bytes = std::fs::read(&path).unwrap();
+        receipt.size = bytes.len() as u64;
+        receipt.sha256 = format!("{:x}", Sha256::digest(&bytes));
+        store.state.lock().await.downloads.push(receipt.clone());
+        let extracted = store
+            .extract(&receipt.id, &parent, temp.path())
+            .await
+            .unwrap();
+        assert_eq!(extracted.entries, 1);
+        assert_eq!(
+            std::fs::read(Path::new(&extracted.path).join("pack/soundpack.txt")).unwrap(),
+            b"NAME pack\nVIEW Pack\n"
+        );
+        let reopened = Store::open(temp.path()).unwrap();
+        assert_eq!(reopened.view().await.catalog.extractions.len(), 1);
+        let view = reopened
+            .remove_download(&receipt.id, &parent)
+            .await
+            .unwrap();
+        assert!(view.catalog.downloads.is_empty());
+        assert_eq!(view.catalog.extractions[0].source, "sound");
+        assert!(Path::new(&extracted.path).exists());
+    }
+    #[tokio::test]
+    #[ignore = "explicit public soundpack download/cache/extraction acceptance; never executes contents"]
+    async fn live_sound_download_cache_and_extraction() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::open(temp.path()).unwrap();
+        let parent = Dir::open_ambient_dir(temp.path(), cap_std::ambient_authority()).unwrap();
+        let view = store.sync("sound", true).await.unwrap();
+        let listing = &view.catalog.listings["sound"];
+        assert!(listing.error.is_none(), "{:?}", listing.error);
+        let (release, asset) = listing
+            .releases
+            .iter()
+            .find_map(|r| {
+                r.assets
+                    .iter()
+                    .find(|a| a.name.ends_with(".zip") && a.size > 0 && a.size < 32_000_000)
+                    .map(|a| (r, a))
+            })
+            .expect("bounded public ZIP asset");
+        let first = store
+            .download("sound", &release.tag, asset.id, &parent, temp.path())
+            .await
+            .unwrap();
+        let reused = store
+            .download("sound", &release.tag, asset.id, &parent, temp.path())
+            .await
+            .unwrap();
+        assert_eq!(first.id, reused.id);
+        assert_eq!(store.view().await.catalog.downloads.len(), 1);
+        let extracted = store
+            .extract(&first.id, &parent, temp.path())
+            .await
+            .unwrap();
+        println!(
+            "SOUND_CACHE_ACCEPTANCE {}",
+            serde_json::json!({"name":first.name,"archive_bytes":first.size,"archive_sha256":first.sha256,"upstream_verified":first.upstream_verified,"same_receipt_reused":first.id==reused.id,"extracted_entries":extracted.entries,"extracted_bytes":extracted.bytes,"software_executed":false})
+        );
     }
 }

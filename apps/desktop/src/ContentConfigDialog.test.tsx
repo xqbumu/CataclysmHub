@@ -593,3 +593,79 @@ it('reuses the same request key after an ambiguous backup response and permits c
   expect(cancelBackup).toHaveBeenCalledWith('protection-task');
   expect(screen.getByText(/正在取消/)).toBeInTheDocument();
 });
+
+it('selects discovered resources for this instance and preserves explicit mod order', async () => {
+  const user = userEvent.setup();
+  const definition = (
+    content_id: string,
+    name: string,
+    dependencies: string[] = [],
+  ) => ({ content_id, name, dependencies, version: null });
+  render(
+    <ContentConfigDialog
+      report={{
+        ...report,
+        discovery: {
+          ...report.discovery,
+          packages: [
+            {
+              path: '/game/data/mods/dda',
+              kind: 'mod',
+              metadata_sha256: 'a',
+              definitions: [definition('dda', '基础内容')],
+            },
+            {
+              path: '/instance/mods/extra',
+              kind: 'mod',
+              metadata_sha256: 'b',
+              definitions: [definition('extra', '扩展内容', ['dda'])],
+            },
+            {
+              path: '/instance/sound/pack',
+              kind: 'soundpack',
+              metadata_sha256: 'c',
+              definitions: [definition('pack', '环境声音')],
+            },
+            {
+              path: '/game/data/mods/dup1',
+              kind: 'mod',
+              metadata_sha256: 'd',
+              definitions: [definition('dup', '重复项')],
+            },
+            {
+              path: '/instance/mods/dup2',
+              kind: 'mod',
+              metadata_sha256: 'e',
+              definitions: [definition('dup', '重复项')],
+            },
+          ],
+        },
+      }}
+      onClose={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('tab', { name: '修改配置' }));
+  await user.click(screen.getByLabelText('拟调整新世界默认模组'));
+  expect(
+    screen.getByRole('option', { name: /重复项.*重复 ID/ }),
+  ).toBeDisabled();
+  await user.selectOptions(screen.getByLabelText('添加可用模组'), 'extra');
+  await user.click(screen.getByRole('button', { name: '添加模组' }));
+  expect(screen.getByRole('textbox', { name: /默认模组 ID/ })).toHaveValue(
+    'dda\nextra',
+  );
+  await user.click(screen.getByRole('button', { name: '上移 extra' }));
+  expect(screen.getByRole('textbox', { name: /默认模组 ID/ })).toHaveValue(
+    'extra\ndda',
+  );
+  await user.click(screen.getByLabelText('拟调整声音包'));
+  await user.selectOptions(screen.getByLabelText('选择已发现声音包'), 'pack');
+  expect(screen.getByRole('textbox', { name: '目标声音包 ID' })).toHaveValue(
+    'pack',
+  );
+  await user.click(screen.getByRole('button', { name: '比较配置草稿' }));
+  expect(screen.getByLabelText('配置草稿结果')).toHaveTextContent('extra');
+  await user.click(screen.getByRole('button', { name: '移除 extra' }));
+  expect(screen.queryByLabelText('配置草稿结果')).not.toBeInTheDocument();
+  expect(report.default_mods.mod_ids).toEqual(['dda']);
+});
