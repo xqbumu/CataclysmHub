@@ -1,0 +1,3 @@
+The following is a diff from the previous accessibility tree for Window: "new-root" with ~ and + representing changed and added elements, respectively. Removed elements are summarized by ID range.
+~			73 text Value: 3 items, 15.04 GB available, ID: statusBarText
+The focused UI element is 33 outline Description: list view, ID: ListView

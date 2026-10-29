@@ -1041,7 +1041,7 @@ async fn schema3_migration_preserves_archives_and_creates_a_valid_metadata_snaps
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO workspace VALUES ('workspace','saves','backups','content','2026-01-01')",
+        "INSERT INTO workspace (id,save_dir,backup_dir,content_dir,created_at) VALUES ('workspace','saves','backups','content','2026-01-01')",
     )
     .execute(&db)
     .await
@@ -1156,4 +1156,39 @@ async fn restore_preview_revokes_verified_status_when_the_registered_archive_is_
     assert_eq!(current.verification, "unavailable");
     assert_eq!(current.verified_at, previous.verified_at);
     assert!(f.hub.dashboard().await.unwrap().restore_tasks.is_empty());
+}
+
+#[tokio::test]
+async fn directory_change_cannot_detach_existing_backup_history() {
+    let f = Fixture::new().await;
+    std::fs::write(f.source.join("world"), b"save").unwrap();
+    assert_eq!(f.create().await.state, "succeeded");
+    let w = f.hub.dashboard().await.unwrap().workspace.unwrap();
+    let old = WorkspaceInput {
+        save_dir: w.save_dir,
+        backup_dir: w.backup_dir,
+        content_dir: w.content_dir,
+    };
+    let new = f._temp.path().join("new-backups");
+    std::fs::create_dir(&new).unwrap();
+    let mut input = old.clone();
+    input.backup_dir = new.to_str().unwrap().into();
+    assert_eq!(
+        f.hub
+            .update_workspace(old.clone(), input, f._temp.path().to_str().unwrap().into())
+            .await
+            .unwrap_err()
+            .code,
+        "BACKUP_ROOT_IN_USE"
+    );
+    assert_eq!(
+        f.hub
+            .dashboard()
+            .await
+            .unwrap()
+            .workspace
+            .unwrap()
+            .backup_dir,
+        old.backup_dir
+    );
 }

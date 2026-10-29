@@ -1,3 +1,4 @@
+import PathActions from './PathActions';
 import type { InstallationRecognition } from './bindings/InstallationRecognition';
 import ContentConfigDialog from './ContentConfigDialog';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
@@ -317,7 +318,7 @@ export default function PlayInstancesPanel({
           </p>
           <details className="inline-details">
             <summary>数据目录</summary>
-            <p className="mono">{item.data_root}</p>
+            <PathActions api={api} path={item.data_root} />
           </details>
           {data.sessions
             .filter((session) => session.play_instance_id === item.id)

@@ -305,3 +305,91 @@ async fn a_running_game_blocks_other_installations_in_the_unverified_workspace()
     }
     panic!("synthetic child should exit");
 }
+
+#[tokio::test]
+async fn directory_update_keeps_identity_and_files_and_rejects_stale_edits() {
+    let f = Fixture::new().await;
+    let old = f.hub.initialize(f.input.clone()).await.unwrap();
+    let expected = WorkspaceInput {
+        save_dir: old.save_dir.clone(),
+        backup_dir: old.backup_dir.clone(),
+        content_dir: old.content_dir.clone(),
+    };
+    let marker = PathBuf::from(&f.input.save_dir).join("world");
+    std::fs::write(&marker, b"keep").unwrap();
+    let new_save = f._temp.path().join("new-saves");
+    std::fs::create_dir(&new_save).unwrap();
+    let mut input = f.input.clone();
+    input.save_dir = new_save.to_str().unwrap().into();
+    let root = f._temp.path().to_str().unwrap().to_owned();
+    let updated = f
+        .hub
+        .update_workspace(expected.clone(), input.clone(), root.clone())
+        .await
+        .unwrap();
+    assert_eq!(updated.id, old.id);
+    assert_eq!(updated.root_dir.as_deref(), Some(root.as_str()));
+    assert_eq!(std::fs::read(marker).unwrap(), b"keep");
+    assert_eq!(
+        f.hub
+            .update_workspace(expected, input, root)
+            .await
+            .unwrap_err()
+            .code,
+        "WORKSPACE_CHANGED"
+    );
+}
+
+#[tokio::test]
+async fn directory_update_rejects_overlap_without_changing_registration() {
+    let f = Fixture::new().await;
+    let old = f.hub.initialize(f.input.clone()).await.unwrap();
+    let expected = WorkspaceInput {
+        save_dir: old.save_dir.clone(),
+        backup_dir: old.backup_dir.clone(),
+        content_dir: old.content_dir.clone(),
+    };
+    let mut input = f.input.clone();
+    input.save_dir = input.backup_dir.clone();
+    assert_eq!(
+        f.hub
+            .update_workspace(expected, input, f._temp.path().to_str().unwrap().into())
+            .await
+            .unwrap_err()
+            .code,
+        "PATH_OVERLAP"
+    );
+    assert_eq!(
+        f.hub.dashboard().await.unwrap().workspace.unwrap().save_dir,
+        old.save_dir
+    );
+}
+
+#[tokio::test]
+async fn schema15_upgrade_retains_legacy_directories_without_inventing_a_root() {
+    let f = Fixture::new().await;
+    let old = f.hub.initialize(f.input.clone()).await.unwrap();
+    drop(f.hub);
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        f.data.join("metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::raw_sql("ALTER TABLE workspace DROP COLUMN root_dir; PRAGMA user_version=15;")
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    let hub = Hub::open(&f.data).await.unwrap();
+    let w = hub.dashboard().await.unwrap().workspace.unwrap();
+    assert_eq!(w.save_dir, old.save_dir);
+    assert_eq!(w.backup_dir, old.backup_dir);
+    assert!(w.root_dir.is_none());
+    assert!(std::fs::read_dir(&f.data).unwrap().any(|p| {
+        p.unwrap()
+            .file_name()
+            .to_string_lossy()
+            .starts_with("metadata-v15-")
+    }));
+}

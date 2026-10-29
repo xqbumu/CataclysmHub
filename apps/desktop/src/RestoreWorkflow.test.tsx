@@ -35,6 +35,8 @@ const task: RestoreTask = {
 function client() {
   return {
     registerManagedInstance: vi.fn(),
+    configureWorkspace: vi.fn(),
+    openWorkspacePath: vi.fn(),
     workspaceDefaults: vi.fn().mockResolvedValue(null),
     preferences: vi
       .fn()

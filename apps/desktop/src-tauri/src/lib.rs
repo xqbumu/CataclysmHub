@@ -169,7 +169,21 @@ async fn register_managed_instance(
 ) -> Result<hub_core::PlayInstance, HubError> {
     state
         .hub
-        .register_managed_instance(&state.managed_root, installation_id, name)
+        .register_managed_instance(
+            &{
+                let w = state
+                    .hub
+                    .dashboard()
+                    .await?
+                    .workspace
+                    .ok_or_else(selection_error)?;
+                w.root_dir
+                    .map(PathBuf::from)
+                    .unwrap_or_else(|| state.managed_root.clone())
+            },
+            installation_id,
+            name,
+        )
         .await
 }
 #[tauri::command]
@@ -480,6 +494,130 @@ async fn initialize_workspace_impl(
     state.hub.initialize(input).await
 }
 #[tauri::command]
+async fn configure_workspace(
+    state: tauri::State<'_, AppState>,
+    root: String,
+    input: WorkspaceInput,
+    expected: Option<WorkspaceInput>,
+) -> Result<Workspace, HubError> {
+    configure_workspace_impl(&state, root, input, expected).await
+}
+async fn configure_workspace_impl(
+    state: &AppState,
+    root: String,
+    input: WorkspaceInput,
+    expected: Option<WorkspaceInput>,
+) -> Result<Workspace, HubError> {
+    use cap_fs_ext::DirExt;
+    let root_path = PathBuf::from(&root);
+    let current = state.hub.dashboard().await?.workspace;
+    let retained_root = current.as_ref().and_then(|w| w.root_dir.as_deref()) == Some(root.as_str());
+    if root_path != state.managed_root && !retained_root {
+        authorized(state, &root)?;
+    }
+    let data = state.hub.dashboard().await?;
+    for installation in &data.installations {
+        let p = PathBuf::from(&installation.working_dir);
+        let scope = p
+            .ancestors()
+            .find(|p| p.extension().is_some_and(|e| e == "app"))
+            .unwrap_or(&p);
+        if root_path.starts_with(scope) {
+            return Err(HubError::new(
+                "PATH_OVERLAP",
+                "数据根目录不能与安装范围重叠。",
+            ));
+        }
+    }
+    for instance in &data.play_instances {
+        if root_path.starts_with(&instance.data_root) {
+            return Err(HubError::new(
+                "PATH_OVERLAP",
+                "数据根目录不能位于已有实例内。",
+            ));
+        }
+    }
+    // Validate every override before creating the default child directories.
+    for (path, leaf) in [
+        (&input.save_dir, "saves"),
+        (&input.backup_dir, "backups"),
+        (&input.content_dir, "content"),
+    ] {
+        if std::path::Path::new(path) != root_path.join(leaf)
+            && !current.as_ref().is_some_and(|w| match leaf {
+                "saves" => &w.save_dir == path,
+                "backups" => &w.backup_dir == path,
+                _ => &w.content_dir == path,
+            })
+        {
+            authorized(state, path)?;
+        }
+    }
+    if root_path == state.managed_root {
+        prepare_default_directory(state, "saves")?;
+    }
+    let base = cap_std::fs::Dir::open_ambient_dir(&root_path, cap_std::ambient_authority())
+        .map_err(|_| selection_error())?;
+    for (path, leaf) in [
+        (&input.save_dir, "saves"),
+        (&input.backup_dir, "backups"),
+        (&input.content_dir, "content"),
+    ] {
+        if std::path::Path::new(path) == root_path.join(leaf) {
+            match base.create_dir(leaf) {
+                Ok(()) => (),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => (),
+                Err(_) => return Err(selection_error()),
+            }
+            base.open_dir_nofollow(leaf)
+                .map_err(|_| selection_error())?;
+        } else {
+            let current = state.hub.dashboard().await?.workspace;
+            let unchanged = current.as_ref().is_some_and(|w| match leaf {
+                "saves" => &w.save_dir == path,
+                "backups" => &w.backup_dir == path,
+                _ => &w.content_dir == path,
+            });
+            if !unchanged {
+                authorized(state, path)?;
+            }
+        }
+    }
+    match expected {
+        Some(old) => state.hub.update_workspace(old, input, root).await,
+        None => state.hub.initialize_with_root(input, Some(root)).await,
+    }
+}
+#[tauri::command]
+async fn open_workspace_path(
+    state: tauri::State<'_, AppState>,
+    path: String,
+) -> Result<(), HubError> {
+    let data = state.hub.dashboard().await?;
+    let w = data.workspace.ok_or_else(selection_error)?;
+    if w.root_dir.as_ref() != Some(&path)
+        && ![w.save_dir, w.backup_dir, w.content_dir].contains(&path)
+        && !data.play_instances.iter().any(|i| i.data_root == path)
+    {
+        return Err(selection_error());
+    }
+    let p = std::fs::canonicalize(&path).map_err(|_| selection_error())?;
+    if !p.is_dir() {
+        return Err(selection_error());
+    }
+    #[cfg(target_os = "macos")]
+    let mut command = std::process::Command::new("open");
+    #[cfg(target_os = "windows")]
+    let mut command = std::process::Command::new("explorer.exe");
+    #[cfg(target_os = "linux")]
+    let mut command = std::process::Command::new("xdg-open");
+    command
+        .arg(p)
+        .spawn()
+        .map_err(|_| HubError::new("OPEN_FAILED", "无法打开文件浏览器。"))?;
+    Ok(())
+}
+#[tauri::command]
 async fn import_installation(
     state: tauri::State<'_, AppState>,
     executable: String,
@@ -755,6 +893,8 @@ pub fn run() {
             cancel_installation_copy,
             register_copied_installation,
             initialize_workspace,
+            configure_workspace,
+            open_workspace_path,
             import_installation,
             register_play_instance,
             create_launch_plan,
@@ -800,6 +940,59 @@ mod directory_tests {
             managed_root: temp.path().join("app.workspace"),
         };
         (temp, state)
+    }
+    #[tokio::test]
+    async fn selected_root_creates_children_and_persists_root_without_moving_files() {
+        let (temp, state) = fixture().await;
+        let root = temp.path().join("chosen");
+        std::fs::create_dir(&root).unwrap();
+        let root = std::fs::canonicalize(root).unwrap();
+        state.selected.lock().unwrap().insert(root.clone());
+        let input = WorkspaceInput {
+            save_dir: root.join("saves").to_str().unwrap().into(),
+            backup_dir: root.join("backups").to_str().unwrap().into(),
+            content_dir: root.join("content").to_str().unwrap().into(),
+        };
+        let w =
+            configure_workspace_impl(&state, root.to_str().unwrap().into(), input.clone(), None)
+                .await
+                .unwrap();
+        assert_eq!(w.root_dir.as_deref(), root.to_str());
+        assert!(root.join("saves").is_dir());
+        let marker = root.join("saves/world");
+        std::fs::write(&marker, b"original").unwrap();
+        let w = configure_workspace_impl(
+            &state,
+            root.to_str().unwrap().into(),
+            input.clone(),
+            Some(input),
+        )
+        .await
+        .unwrap();
+        assert_eq!(std::fs::read(marker).unwrap(), b"original");
+        assert_eq!(
+            w.id,
+            state.hub.dashboard().await.unwrap().workspace.unwrap().id
+        );
+    }
+    #[tokio::test]
+    async fn unselected_override_does_not_create_root_children() {
+        let (temp, state) = fixture().await;
+        let root = std::fs::canonicalize(temp.path()).unwrap();
+        state.selected.lock().unwrap().insert(root.clone());
+        let input = WorkspaceInput {
+            save_dir: root.join("saves").to_str().unwrap().into(),
+            backup_dir: root.join("unselected").to_str().unwrap().into(),
+            content_dir: root.join("content").to_str().unwrap().into(),
+        };
+        assert_eq!(
+            configure_workspace_impl(&state, root.to_str().unwrap().into(), input, None)
+                .await
+                .unwrap_err()
+                .code,
+            "PATH_NOT_SELECTED"
+        );
+        assert!(!root.join("saves").exists());
     }
     #[tokio::test]
     async fn defaults_are_read_only_until_saved_and_existing_workspace_is_preserved() {

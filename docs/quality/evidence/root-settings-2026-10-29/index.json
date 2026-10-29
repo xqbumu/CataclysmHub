@@ -1,0 +1,18 @@
+[
+  {
+    "name": "finder.ax.txt",
+    "sha256": "b09b63ff7a244591e0c370ecfb8cb2aeb18c726a00445e04947df1e607d4b355"
+  },
+  {
+    "name": "result.json",
+    "sha256": "4c4c8d572c823c7de9676a584d8ac1f9aaea34a624cfe06e0785117067400185"
+  },
+  {
+    "name": "settings.ax.txt",
+    "sha256": "92dde912771af5452051c57caa4b3f94aa50c152406e7d0a32cec6b4352baa14"
+  },
+  {
+    "name": "settings.png",
+    "sha256": "01d8922b0efd2fa5d7df8a8fe159057c30458a1cab3017ac97e25a1025e986df"
+  }
+]

@@ -113,7 +113,7 @@ mod tests {
     async fn fixture() -> (tempfile::TempDir, std::sync::Arc<Hub>) {
         let temp = tempfile::tempdir().unwrap();
         let hub = Hub::open(&temp.path().join("metadata")).await.unwrap();
-        sqlx::query("INSERT INTO workspace VALUES ('w','/saves','/backups','/content','now')")
+        sqlx::query("INSERT INTO workspace (id,save_dir,backup_dir,content_dir,created_at) VALUES ('w','/saves','/backups','/content','now')")
             .execute(&hub.pool)
             .await
             .unwrap();

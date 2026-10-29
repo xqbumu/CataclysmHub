@@ -154,6 +154,12 @@ export interface HubApi {
   dashboard(): Promise<Dashboard>;
   pickPath(kind: 'directory' | 'executable'): Promise<string | null>;
   initialize(input: WorkspaceInput): Promise<Workspace>;
+  configureWorkspace(
+    root: string,
+    input: WorkspaceInput,
+    expected: WorkspaceInput | null,
+  ): Promise<Workspace>;
+  openWorkspacePath(path: string): Promise<void>;
   importInstallation(executable: string, name: string): Promise<Installation>;
   instanceLaunchPlan(
     instanceId: string,
@@ -276,6 +282,9 @@ export const api: HubApi = {
   dashboard: () =>
     isTauri() ? desktopOnly('get_dashboard') : Promise.resolve(emptyDashboard),
   pickPath: (kind) => desktopOnly('pick_path', { kind }),
+  configureWorkspace: (root, input, expected) =>
+    desktopOnly('configure_workspace', { root, input, expected }),
+  openWorkspacePath: (path) => desktopOnly('open_workspace_path', { path }),
   initialize: (input) => desktopOnly('initialize_workspace', { input }),
   importInstallation: (executable, name) =>
     desktopOnly('import_installation', { executable, name }),

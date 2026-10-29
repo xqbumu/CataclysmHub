@@ -395,7 +395,7 @@ async fn schema4_upgrade_preserves_restore_history_and_saves_a_valid_metadata_sn
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO workspace VALUES ('workspace','saves','backups','content','2026-01-01')",
+        "INSERT INTO workspace (id,save_dir,backup_dir,content_dir,created_at) VALUES ('workspace','saves','backups','content','2026-01-01')",
     )
     .execute(&db)
     .await

@@ -13,6 +13,7 @@ import {
 } from './api';
 const workspace = {
   id: 'workspace',
+  root_dir: null,
   save_dir: '/chosen/saves',
   backup_dir: '/chosen/backups',
   content_dir: '/chosen/content',
@@ -76,6 +77,8 @@ const record: BackupRecord = {
 function client(): HubApi {
   return {
     registerManagedInstance: vi.fn(),
+    configureWorkspace: vi.fn(),
+    openWorkspacePath: vi.fn(),
     workspaceDefaults: vi.fn().mockResolvedValue(null),
     preferences: vi
       .fn()

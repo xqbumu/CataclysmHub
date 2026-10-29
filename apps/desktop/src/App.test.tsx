@@ -12,6 +12,7 @@ import {
 } from './api';
 const workspace = {
   id: 'workspace',
+  root_dir: null,
   save_dir: '/selected/saves',
   backup_dir: '/selected/backups',
   content_dir: '/selected/content',
@@ -48,6 +49,8 @@ const plan: LaunchPlan = {
 function client(data: Dashboard = emptyDashboard): HubApi {
   return {
     registerManagedInstance: vi.fn(),
+    configureWorkspace: vi.fn(),
+    openWorkspacePath: vi.fn(),
     workspaceDefaults: vi.fn().mockResolvedValue(null),
     preferences: vi
       .fn()
@@ -179,7 +182,7 @@ describe('workspace and launch safety', () => {
       await user.click(button);
     await user.click(screen.getByRole('button', { name: /保存工作区/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('目录不能重叠');
-    expect(screen.getByLabelText('存档根目录')).toHaveValue('/same');
+    expect(screen.getByLabelText('存档目录')).toHaveValue('/same');
   });
   it('validates literal argument arrays without accepting shell strings', () => {
     expect(parseArguments('["$(touch marker)","with spaces"]')).toEqual([
@@ -436,8 +439,14 @@ it('offers platform defaults without requiring three directory picker operations
   const user = userEvent.setup();
   render(<App api={service} />);
   await screen.findByRole('button', { name: '恢复系统推荐目录' });
-  expect(screen.getByLabelText('存档根目录')).toHaveValue(defaults.save_dir);
+  await waitFor(() =>
+    expect(screen.getByLabelText('存档目录')).toHaveValue(defaults.save_dir),
+  );
   await user.click(screen.getByRole('button', { name: /保存工作区/ }));
-  expect(service.initialize).toHaveBeenCalledWith(defaults);
+  expect(service.configureWorkspace).toHaveBeenCalledWith(
+    '/system/app.workspace',
+    defaults,
+    null,
+  );
   expect(service.pickPath).not.toHaveBeenCalled();
 });

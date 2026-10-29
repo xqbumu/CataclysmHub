@@ -306,6 +306,10 @@ async fn schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision() {
                 .await
                 .unwrap();
         }
+        sqlx::query("ALTER TABLE workspace DROP COLUMN root_dir")
+            .execute(&pool)
+            .await
+            .unwrap();
         sqlx::query("PRAGMA user_version=11")
             .execute(&pool)
             .await
@@ -332,7 +336,7 @@ async fn schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision() {
                 .fetch_one(&pool)
                 .await
                 .unwrap(),
-            if fail { 11 } else { 15 }
+            if fail { 11 } else { 16 }
         );
         assert!(
             std::fs::read_dir(f.temp.path().join("metadata"))

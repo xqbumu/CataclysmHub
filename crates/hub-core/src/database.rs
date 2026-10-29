@@ -95,7 +95,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 15 {
+        if version > 16 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -119,7 +119,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 15 {
+        if version > 0 && version < 16 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -160,7 +160,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 15 {
+        if version < 16 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -305,7 +305,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-015.sql"))
+            if version < 15 {
+                sqlx::raw_sql(include_str!("migration-015.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-016.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {
@@ -589,6 +600,13 @@ impl Hub {
     }
 
     pub async fn initialize(&self, input: WorkspaceInput) -> Result<Workspace> {
+        self.initialize_with_root(input, None).await
+    }
+    pub async fn initialize_with_root(
+        &self,
+        input: WorkspaceInput,
+        root_dir: Option<String>,
+    ) -> Result<Workspace> {
         let _guard = self.mutation.lock().await;
         if self.dashboard().await?.workspace.is_some() {
             return Err(HubError::new(
@@ -615,6 +633,7 @@ impl Hub {
         paths::writable(&backup)?;
         paths::writable(&content)?;
         let workspace = Workspace {
+            root_dir,
             id: id(),
             save_dir: paths::text(&save)?,
             backup_dir: paths::text(&backup)?,
@@ -622,12 +641,13 @@ impl Hub {
             created_at: now(),
         };
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
-        sqlx::query("INSERT INTO workspace VALUES (?,?,?,?,?)")
+        sqlx::query("INSERT INTO workspace (id,save_dir,backup_dir,content_dir,created_at,root_dir) VALUES (?,?,?,?,?,?)")
             .bind(&workspace.id)
             .bind(&workspace.save_dir)
             .bind(&workspace.backup_dir)
             .bind(&workspace.content_dir)
             .bind(&workspace.created_at)
+            .bind(&workspace.root_dir)
             .execute(&mut *tx)
             .await
             .map_err(HubError::db)?;
@@ -643,6 +663,97 @@ impl Hub {
             .map_err(HubError::db)?;
         tx.commit().await.map_err(HubError::db)?;
         Ok(workspace)
+    }
+
+    pub async fn update_workspace(
+        &self,
+        expected: WorkspaceInput,
+        input: WorkspaceInput,
+        root_dir: String,
+    ) -> Result<Workspace> {
+        let _guard = self.mutation.lock().await;
+        self.check_resource_claims().await?;
+        let data = self.dashboard().await?;
+        let old = data
+            .workspace
+            .ok_or(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"))?;
+        if old.save_dir != expected.save_dir
+            || old.backup_dir != expected.backup_dir
+            || old.content_dir != expected.content_dir
+        {
+            return Err(HubError::new(
+                "WORKSPACE_CHANGED",
+                "工作区已变化，请刷新后重新编辑。",
+            ));
+        }
+        let save = paths::canonical(&input.save_dir, true)?;
+        let backup = paths::canonical(&input.backup_dir, true)?;
+        let content = paths::canonical(&input.content_dir, true)?;
+        let dirs = [&save, &backup, &content, &self.data_dir];
+        for (i, a) in dirs.iter().enumerate() {
+            for b in dirs.iter().skip(i + 1) {
+                if paths::overlap(a, b) {
+                    return Err(HubError::new(
+                        "PATH_OVERLAP",
+                        "工作区子目录和元数据必须分离。",
+                    ));
+                }
+            }
+            for installation in &data.installations {
+                if paths::overlap(a, &paths::installation_scope(&installation.working_dir)) {
+                    return Err(HubError::new("PATH_OVERLAP", "目录不能与已登记安装重叠。"));
+                }
+            }
+            for instance in &data.play_instances {
+                if paths::overlap(a, Path::new(&instance.data_root)) {
+                    return Err(HubError::new("PATH_OVERLAP", "目录不能与已登记实例重叠。"));
+                }
+            }
+        }
+        if paths::text(&backup)? != old.backup_dir {
+            let references: i64 = sqlx::query_scalar("SELECT (SELECT count(*) FROM backup_archive) + (SELECT count(*) FROM backup_task) + (SELECT count(*) FROM restore_task) + (SELECT count(*) FROM config_change)")
+                .fetch_one(&self.pool).await.map_err(HubError::db)?;
+            if references > 0 {
+                return Err(HubError::new(
+                    "BACKUP_ROOT_IN_USE",
+                    "已有备份或任务引用原备份目录，请保留此目录；目录迁移尚未提供。",
+                ));
+            }
+        }
+        std::fs::read_dir(&save)
+            .map_err(|_| HubError::new("PERMISSION_DENIED", "存档目录不可读。"))?;
+        paths::writable(&backup)?;
+        paths::writable(&content)?;
+        let mut tx = self.pool.begin().await.map_err(HubError::db)?;
+        sqlx::query(
+            "UPDATE workspace SET save_dir=?,backup_dir=?,content_dir=?,root_dir=? WHERE id=?",
+        )
+        .bind(paths::text(&save)?)
+        .bind(paths::text(&backup)?)
+        .bind(paths::text(&content)?)
+        .bind(&root_dir)
+        .bind(&old.id)
+        .execute(&mut *tx)
+        .await
+        .map_err(HubError::db)?;
+        sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
+            .bind(id())
+            .bind(&old.id)
+            .bind("workspace.update")
+            .bind("succeeded")
+            .bind(Option::<String>::None)
+            .bind(now())
+            .execute(&mut *tx)
+            .await
+            .map_err(HubError::db)?;
+        tx.commit().await.map_err(HubError::db)?;
+        Ok(Workspace {
+            root_dir: Some(root_dir),
+            save_dir: paths::text(&save)?,
+            backup_dir: paths::text(&backup)?,
+            content_dir: paths::text(&content)?,
+            ..old
+        })
     }
 
     pub async fn acknowledge_interrupted(&self, session_id: &str) -> Result<()> {

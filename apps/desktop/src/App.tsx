@@ -1,3 +1,4 @@
+import WorkspaceSettings from './WorkspaceSettings';
 import RemoteCatalogPanel from './RemoteCatalogPanel';
 import { syncInitialGameCatalog } from './remoteCatalog';
 import HubSettings from './HubSettings';
@@ -57,15 +58,6 @@ const pages: Record<Page, string> = {
   activity: '任务与记录',
   settings: '设置',
 };
-const pathFields: [keyof WorkspaceInput, string, string][] = [
-  [
-    'save_dir',
-    '存档根目录',
-    '使用推荐目录或选择现有存档根；只读发现，不迁移文件',
-  ],
-  ['backup_dir', '独立备份目录', '选择与存档分离的目录，可使用外置磁盘'],
-  ['content_dir', '资源目录', '共享模组与声音包来源；登记不等于对实例启用'],
-];
 const statusNames: Record<string, string> = {
   starting: '正在启动',
   running: '运行中',
@@ -80,6 +72,7 @@ const statusNames: Record<string, string> = {
 };
 const actionNames: Record<string, string> = {
   'workspace.initialize': '工作区初始化',
+  'workspace.update': '更新工作区目录',
   'installation.import': '导入游戏安装',
   'installation.copy': '复制独立安装',
   'installation.copy_cancel': '取消安装复制',
@@ -150,11 +143,6 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [paths, setPaths] = useState<WorkspaceInput>({
-    save_dir: '',
-    backup_dir: '',
-    content_dir: '',
-  });
   const [importing, setImporting] = useState(false);
   const [name, setName] = useState('');
   const [executable, setExecutable] = useState('');
@@ -213,9 +201,6 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
         .then((defaults) => {
           if (!alive || !defaults) return;
           setDefaultPaths(defaults);
-          setPaths((old) =>
-            Object.values(old).every((value) => !value) ? defaults : old,
-          );
         })
         .catch((err) => {
           if (alive) setError(errorMessage(err));
@@ -249,102 +234,12 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
   }
 
   const setup = (
-    <section className="panel setup-panel">
-      <div className="section-heading">
-        <div>
-          <span className="eyebrow">FIRST THINGS FIRST</span>
-          <h2>{workspace ? '本地工作区' : '建立你的安全工作区'}</h2>
-        </div>
-        <span className="step-label">{workspace ? '已配置' : '01 / 02'}</span>
-      </div>
-      <p className="muted">
-        系统推荐目录用于 Hub
-        托管数据，也可选择已有目录。保存时仅创建所需的推荐目录，不移动已有文件。
-      </p>
-      {!workspace && defaultPaths && (
-        <button
-          className="secondary"
-          disabled={busy}
-          onClick={() => setPaths(defaultPaths)}
-        >
-          恢复系统推荐目录
-        </button>
-      )}
-      {workspace && defaultPaths && (
-        <details className="disclosure">
-          <summary>系统推荐目录（已有工作区保持原位置）</summary>
-          <p className="file-path">存档：{defaultPaths.save_dir}</p>
-          <p className="file-path">备份：{defaultPaths.backup_dir}</p>
-          <p className="file-path">资源：{defaultPaths.content_dir}</p>
-          <p>
-            可重建缓存与临时文件不作为存档或备份位置。备份仍可选择外置磁盘。
-          </p>
-        </details>
-      )}
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          void act(async () => {
-            await api.initialize(paths);
-            setNotice('工作区已保存，可以导入你的第一个游戏安装。');
-          });
-        }}
-      >
-        {pathFields.map(([key, label, help]) => (
-          <div className="path-field" key={key}>
-            <label htmlFor={key}>{label}</label>
-            <div className="path-input">
-              <FolderOpen size={17} />
-              <input
-                id={key}
-                value={workspace?.[key] ?? paths[key]}
-                readOnly
-                placeholder="尚未选择目录"
-              />
-              <button
-                type="button"
-                disabled={busy || !!workspace || !api.desktop}
-                onClick={() =>
-                  void act(async () => {
-                    const result = await api.pickPath('directory');
-                    if (result)
-                      setPaths((current) => ({ ...current, [key]: result }));
-                  })
-                }
-              >
-                选择
-              </button>
-            </div>
-            <small>{help}</small>
-          </div>
-        ))}
-        {!workspace && (
-          <div className="form-footer">
-            <span>
-              <ShieldCheck size={14} /> 数据保留在你的设备上
-            </span>
-            <button
-              className="primary"
-              disabled={
-                busy || !api.desktop || Object.values(paths).some((p) => !p)
-              }
-            >
-              {busy ? (
-                <LoaderCircle className="spin" size={16} />
-              ) : (
-                <ArrowRight size={16} />
-              )}{' '}
-              保存工作区
-            </button>
-          </div>
-        )}
-        {workspace && (
-          <p className="inline-note">
-            路径已保存。当前开发版本暂不提供工作区路径迁移，以避免意外改变已有绑定。
-          </p>
-        )}
-      </form>
-    </section>
+    <WorkspaceSettings
+      api={api}
+      workspace={workspace}
+      defaults={defaultPaths}
+      onSaved={refresh}
+    />
   );
 
   const detailedInstallation = data.installations.find(
@@ -770,13 +665,6 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       setBackupView('archives');
                       setInstanceFilter('');
                       setInstallationQuery('');
-                      setPaths(
-                        defaultPaths ?? {
-                          save_dir: '',
-                          backup_dir: '',
-                          content_dir: '',
-                        },
-                      );
                     }}
                   />
                 </div>

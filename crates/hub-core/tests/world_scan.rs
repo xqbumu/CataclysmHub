@@ -216,7 +216,7 @@ async fn migration_preserves_v1_database_and_saves_a_consistent_backup() {
         .execute(&pool)
         .await
         .unwrap();
-    sqlx::query("INSERT INTO workspace VALUES ('original','save','backup','content','date')")
+    sqlx::query("INSERT INTO workspace (id,save_dir,backup_dir,content_dir,created_at) VALUES ('original','save','backup','content','date')")
         .execute(&pool)
         .await
         .unwrap();

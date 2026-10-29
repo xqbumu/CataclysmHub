@@ -194,7 +194,7 @@ async fn schema14_upgrade_keeps_workspace_and_creates_a_metadata_backup() {
     ))
     .await
     .unwrap();
-    sqlx::raw_sql("DROP TABLE hub_preferences; PRAGMA user_version=14;")
+    sqlx::raw_sql("ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; PRAGMA user_version=14;")
         .execute(&pool)
         .await
         .unwrap();

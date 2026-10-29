@@ -27,6 +27,7 @@ pub type Result<T> = std::result::Result<T, HubError>;
 
 #[derive(Debug, Clone, Serialize, sqlx::FromRow, TS)]
 pub struct Workspace {
+    pub root_dir: Option<String>,
     pub id: String,
     pub save_dir: String,
     pub backup_dir: String,

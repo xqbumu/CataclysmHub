@@ -1,0 +1,39 @@
+{
+  "fixture_root": "/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-root-settings-20261029-m9tht5v8",
+  "workspace": {
+    "id": "6fd3e7de-5c5f-4dc3-96bf-af4b90cc05d2",
+    "save_dir": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-root-settings-20261029-m9tht5v8/new-root/saves",
+    "backup_dir": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-root-settings-20261029-m9tht5v8/new-root/backups",
+    "content_dir": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-root-settings-20261029-m9tht5v8/new-root/content",
+    "created_at": "2026-10-29T07:23:47.507843+00:00",
+    "root_dir": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-root-settings-20261029-m9tht5v8/new-root"
+  },
+  "schema": 16,
+  "observations": {
+    "default_root_saved_without_picker": true,
+    "restart_retained_root": true,
+    "new_root_selected_via_native_picker": true,
+    "polling_kept_draft": true,
+    "copy_success_feedback": true,
+    "finder_opened_new_root": true,
+    "old_marker_bytes": "keep original",
+    "new_saves_empty": true
+  },
+  "limits": [
+    "isolated empty workspace with sentinel only; no real user data migration",
+    "Finder and clipboard feedback checked on macOS only",
+    "no running game, historical-backup rejection covered by automated regression"
+  ],
+  "screenshots_note": "Captured after successful save/copy/open; later changes only operation label and authorization tightening",
+  "final_build_sha256": "3e1d30359b15c616b70725a2de6e18a7d88bdcaecb54bb6d62bd3fa6f59280c9",
+  "checks": {
+    "frontend_passed": 117,
+    "rust_passed": 276,
+    "rust_ignored": 2,
+    "python_passed": 28,
+    "final_native_passed": 11,
+    "final_native_ignored": 1,
+    "clippy": "passed",
+    "debug_bundle": "passed"
+  }
+}

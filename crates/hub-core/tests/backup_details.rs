@@ -337,7 +337,7 @@ async fn schema5_database(data: &Path) -> sqlx::SqlitePool {
     .await
     .unwrap();
     sqlx::query(
-        "INSERT INTO workspace VALUES ('workspace','saves','backups','content','2026-01-01')",
+        "INSERT INTO workspace (id,save_dir,backup_dir,content_dir,created_at) VALUES ('workspace','saves','backups','content','2026-01-01')",
     )
     .execute(&db)
     .await

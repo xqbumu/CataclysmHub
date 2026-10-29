@@ -2478,3 +2478,20 @@ main {
 .remote-catalog a {
   color: var(--green);
 }
+
+.workspace-settings .path-input {
+  display: flex;
+  flex-wrap: wrap;
+}
+.workspace-settings .path-input > input {
+  flex: 1 1 240px;
+  min-width: 0;
+  width: auto;
+}
+.workspace-settings .path-input > button {
+  flex: 0 0 auto;
+}
+.workspace-settings .file-path {
+  overflow-wrap: anywhere;
+  text-align: left;
+}
