@@ -1,0 +1,107 @@
+{
+  "baseline_commit": "64c99253c8bf9a79554281bf2d1ae24931e765ca",
+  "local_evidence_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/evidence",
+  "sample": {
+    "root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb",
+    "game": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/Game.app",
+    "source": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-config-manual-20261029-6qc3e1vz/Game.app",
+    "binary_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a"
+  },
+  "test_fixture_change": "Only copied Game.app/Contents/Resources/cataclysm-tiles was renamed to cataclysm-tiles.qa-reference before baseline, leaving unique MacOS native QA entry. Source unchanged.",
+  "build": "task build:debug, default features; no installed app replacement",
+  "hub_binary_sha256": "40a658b2793516fc943ff35cd3ef49084e67abae0e1b6f36b3d7d2fbf08429dc",
+  "outcome": "app import and menu-level launch flow passed; two P2 wording findings remain",
+  "sessions": [
+    {
+      "id": "8fefe3e4-5b7c-406c-ab07-16b893deabb0",
+      "installation_id": "26acddea-a9a2-412c-84d9-4b6c2fc8d6a7",
+      "state": "exited_unverified",
+      "pid": 30195,
+      "started_at": "2026-10-29T05:17:48.036366+00:00",
+      "finished_at": "2026-10-29T05:18:21.362657+00:00",
+      "exit_code": 0,
+      "play_instance_id": "bf211305-3d1c-477e-9dbc-f083149485d8",
+      "launch_profile_id": "cdda-0i-1-macos-native-trial-v1",
+      "instance_data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/metadata.workspace/instances/bda26616-1a56-48c0-a7d0-020c3e4f741b"
+    },
+    {
+      "id": "6627021a-8adb-4985-8400-1860bbe00833",
+      "installation_id": "26acddea-a9a2-412c-84d9-4b6c2fc8d6a7",
+      "state": "exited_unverified",
+      "pid": 31721,
+      "started_at": "2026-10-29T05:19:33.392545+00:00",
+      "finished_at": "2026-10-29T05:20:41.656837+00:00",
+      "exit_code": 0,
+      "play_instance_id": "bf211305-3d1c-477e-9dbc-f083149485d8",
+      "launch_profile_id": "cdda-0i-1-macos-native-trial-v1",
+      "instance_data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/metadata.workspace/instances/bda26616-1a56-48c0-a7d0-020c3e4f741b"
+    }
+  ],
+  "changes": {
+    "game": {
+      "changed_entries": [],
+      "root_identity_unchanged": true,
+      "before_entries": 12444,
+      "after_entries": 12444
+    },
+    "instance": {
+      "changed_entries": [
+        ".hub-runtime",
+        ".hub-runtime/cache",
+        ".hub-runtime/config",
+        ".hub-runtime/data",
+        ".hub-runtime/home",
+        ".hub-runtime/state",
+        ".hub-runtime/tmp",
+        "config",
+        "config/base_colors.json",
+        "config/cache",
+        "config/cache/base_colors.json.1793251073762.fb",
+        "config/cache/fonts.json.1793251072627.fb",
+        "config/cache/imgui_style.json.1793251073852.fb",
+        "config/cache/options.json.1793251073824.fb",
+        "config/debug.log",
+        "config/fonts.json",
+        "config/imgui_style.json",
+        "config/options.json",
+        "font",
+        "gfx",
+        "mods",
+        "save",
+        "sound",
+        "templates"
+      ],
+      "root_identity_unchanged": true,
+      "before_entries": 0,
+      "after_entries": 24
+    },
+    "sentinel": {
+      "changed_entries": [],
+      "root_identity_unchanged": true,
+      "before_entries": 1,
+      "after_entries": 1
+    },
+    "source": {
+      "changed_entries": [],
+      "root_identity_unchanged": true,
+      "before_entries": 12444,
+      "after_entries": 12444
+    }
+  },
+  "snapshot_sha256": {
+    "before.json": "65088e9d3788fed50140988138cd85079e9e8d167f692f76828f2a32f8c3a59c",
+    "after-first.json": "4377fd9c6b2b31cc73bac80bce6187f64d0437f8dca7d4007573a38544c1ca4e",
+    "after-second.json": "7141e366a365f54c19b027c504e7f45e794502391fac5db4246237e2495d5eac"
+  },
+  "findings": [
+    "QA-LAUNCH-001: first launch warning says local version not recognized after successful sample recognition",
+    "QA-LAUNCH-002: imported installation stays version unknown even when instance recognition matches sample"
+  ],
+  "limits": [
+    "single modified CDDA I QA package on macOS arm64",
+    "main-menu level only, no world created or loaded",
+    "declared scope observations, not whole-device write attribution",
+    "no binding or concurrency trust flags changed"
+  ],
+  "cleanup": "Test Hub PID 31277 and game PIDs 30195,31721 absent after normal UI quit"
+}
