@@ -81,3 +81,6 @@ pub use config_change::{ConfigChange, ConfigChangeObservation, ConfigChangePlan}
 
 mod preferences;
 pub use preferences::{HubPreferences, PreferencesReset};
+
+mod installation_recognition;
+pub use installation_recognition::InstallationRecognition;

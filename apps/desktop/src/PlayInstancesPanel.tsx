@@ -1,3 +1,4 @@
+import type { InstallationRecognition } from './bindings/InstallationRecognition';
 import ContentConfigDialog from './ContentConfigDialog';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import InstanceResourcesDialog from './InstanceResourcesDialog';
@@ -45,6 +46,9 @@ export default function PlayInstancesPanel({
   const [profileSaved, setProfileSaved] = useState(false);
   const [profileSelected, setProfileSelected] = useState(false);
   const [profileId, setProfileId] = useState('');
+  const [recognition, setRecognition] =
+    useState<InstallationRecognition | null>(null);
+  const [recognitionError, setRecognitionError] = useState('');
   const candidateProfile = [
     'cdda-0h-macos-concurrency-candidate-v1',
     'cdda-0i-1-macos-concurrency-candidate-v1',
@@ -67,6 +71,32 @@ export default function PlayInstancesPanel({
     setProfileSelected(false);
     setProfileSaved(false);
     setPlan(null);
+    setRecognition(null);
+    setRecognitionError('');
+    if (api.inspectInstallationRecognition) {
+      try {
+        const result = await api.inspectInstallationRecognition(
+          item.installation_id,
+        );
+        if (
+          result.installation_id !== item.installation_id ||
+          result.executable_sha256 !== item.installation_sha256
+        ) {
+          setRecognitionError('安装记录与实例不一致，请重新核对安装。');
+          return;
+        }
+        setRecognition(result);
+        if (
+          !preferences.instance_profiles[item.id] &&
+          result.recommended_profile
+        ) {
+          setProfileId(result.recommended_profile);
+          setProfileSelected(true);
+        }
+      } catch (err) {
+        setRecognitionError(errorMessage(err));
+      }
+    }
   }
   async function startInstance(item: PlayInstance) {
     const preferences = await api.preferences();
@@ -134,11 +164,27 @@ export default function PlayInstancesPanel({
           <p className="warning">
             请确认此实例的游戏版本。首次启动后会记住设置，后续可直接启动。存档目录绑定仍需在游戏中验收。
           </p>
+          {recognition && (
+            <p role="status">
+              {recognition.version
+                ? `识别版本：CDDA ${recognition.version}。`
+                : ''}
+              {recognition.evidence}
+            </p>
+          )}
+          {recognitionError && (
+            <p className="inline-note">{recognitionError}</p>
+          )}
           <label>
             游戏版本
             <select
               aria-label="游戏版本"
-              value={profileId.includes('native-trial') ? profileId : ''}
+              value={
+                profileId.includes('native-trial') ||
+                profileId === recognition?.recommended_profile
+                  ? profileId
+                  : ''
+              }
               disabled={busy}
               onChange={(e) => {
                 setProfileId(e.target.value);
@@ -147,6 +193,12 @@ export default function PlayInstancesPanel({
               }}
             >
               <option value="">选择已确认的游戏版本</option>
+              {recognition?.recommended_profile &&
+                !recognition.recommended_profile.includes('native-trial') && (
+                  <option value={recognition.recommended_profile}>
+                    CDDA {recognition.version} · 当前安装推荐
+                  </option>
+                )}
               <option value="cdda-0h-release-macos-native-trial-v1">
                 CDDA 0.H · macOS 应用
               </option>

@@ -462,3 +462,28 @@ async fn managed_instances_use_unique_directories_and_refuse_protected_ancestors
     );
     assert!(!inside_instance.exists());
 }
+
+#[tokio::test]
+async fn recognition_reads_current_program_without_running_or_trusting_its_name() {
+    let (temp, hub, id) = setup().await;
+    let before = std::fs::read(temp.path().join("game/test.exe")).unwrap();
+    let report = hub
+        .inspect_installation_recognition(id.clone())
+        .await
+        .unwrap();
+    assert_eq!(report.installation_id, id);
+    assert!(report.version.is_none());
+    assert!(report.recommended_profile.is_none());
+    assert_eq!(
+        std::fs::read(temp.path().join("game/test.exe")).unwrap(),
+        before
+    );
+    std::fs::write(temp.path().join("game/test.exe"), b"changed binary").unwrap();
+    assert_eq!(
+        hub.inspect_installation_recognition(id)
+            .await
+            .unwrap_err()
+            .code,
+        "SOURCE_CHANGED"
+    );
+}

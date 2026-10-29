@@ -23,6 +23,13 @@ struct AppState {
     managed_root: PathBuf,
 }
 #[tauri::command]
+async fn inspect_installation_recognition(
+    state: tauri::State<'_, AppState>,
+    id: String,
+) -> Result<hub_core::InstallationRecognition, HubError> {
+    state.hub.inspect_installation_recognition(id).await
+}
+#[tauri::command]
 fn remote_download_progress(
     store: tauri::State<'_, RemoteState>,
 ) -> Result<Option<catalog::Transfer>, String> {
@@ -712,6 +719,7 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            inspect_installation_recognition,
             remove_remote_download,
             remote_download_progress,
             cancel_remote_download,

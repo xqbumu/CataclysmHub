@@ -1,3 +1,4 @@
+import type { InstallationRecognition } from './bindings/InstallationRecognition';
 import type { HubPreferences } from './bindings/HubPreferences';
 import type { PreferencesReset } from './bindings/PreferencesReset';
 import type { ConfigChangePlan } from './bindings/ConfigChangePlan';
@@ -70,6 +71,7 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  inspectInstallationRecognition?(id: string): Promise<InstallationRecognition>;
   registerManagedInstance(
     installationId: string,
     name: string,
@@ -201,6 +203,8 @@ function desktopOnly<T>(
   return invoke<T>(command, args);
 }
 export const api: HubApi = {
+  inspectInstallationRecognition: (id) =>
+    desktopOnly('inspect_installation_recognition', { id }),
   registerManagedInstance: (installationId, name) =>
     desktopOnly('register_managed_instance', { installationId, name }),
   workspaceDefaults: () =>
