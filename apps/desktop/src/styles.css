@@ -2495,3 +2495,9 @@ main {
   overflow-wrap: anywhere;
   text-align: left;
 }
+.workspace-settings .modal-actions {
+  justify-content: flex-start;
+  padding: 0;
+  margin: 8px 0;
+  border: 0;
+}

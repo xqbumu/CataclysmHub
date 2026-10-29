@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { HubApi } from './api';
 import { errorMessage } from './api';
 import type { Workspace } from './bindings/Workspace';
@@ -23,6 +23,8 @@ export default function WorkspaceSettings({
   defaults: WorkspaceInput | null;
   onSaved: () => Promise<void>;
 }) {
+  const edited = useRef(false);
+  const [ack, setAck] = useState(false);
   const [root, setRoot] = useState('');
   const [paths, setPaths] = useState<WorkspaceInput>({
     save_dir: '',
@@ -33,8 +35,10 @@ export default function WorkspaceSettings({
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   useEffect(() => {
+    if (!workspace && edited.current) return;
     const v = workspace ?? defaults;
     if (v) {
+      setAck(false);
       setPaths({
         save_dir: v.save_dir,
         backup_dir: v.backup_dir,
@@ -48,13 +52,14 @@ export default function WorkspaceSettings({
     workspace?.save_dir,
     workspace?.backup_dir,
     workspace?.content_dir,
-    defaults?.save_dir,
-    defaults?.backup_dir,
-    defaults?.content_dir,
+    workspace ? undefined : defaults?.save_dir,
+    workspace ? undefined : defaults?.backup_dir,
+    workspace ? undefined : defaults?.content_dir,
   ]);
   async function run(fn: () => Promise<void>) {
     setBusy(true);
     setError('');
+    setMessage('');
     try {
       await fn();
     } catch (e) {
@@ -86,10 +91,12 @@ export default function WorkspaceSettings({
               void run(async () => {
                 const p = await api.pickPath('directory');
                 if (p) {
+                  edited.current = true;
+                  setAck(false);
                   setRoot(p);
                   setPaths({
                     save_dir: join(p, 'saves'),
-                    backup_dir: join(p, 'backups'),
+                    backup_dir: workspace?.backup_dir ?? join(p, 'backups'),
                     content_dir: join(p, 'content'),
                   });
                 }
@@ -102,7 +109,7 @@ export default function WorkspaceSettings({
       </div>
       <div className="modal-actions">
         <button
-          disabled={!root}
+          disabled={busy || !root}
           onClick={() =>
             void run(async () => {
               await navigator.clipboard.writeText(root);
@@ -114,7 +121,10 @@ export default function WorkspaceSettings({
         </button>
         <button
           disabled={
-            !api.desktop || !workspace?.root_dir || root !== workspace.root_dir
+            busy ||
+            !api.desktop ||
+            !workspace?.root_dir ||
+            root !== workspace.root_dir
           }
           onClick={() => void run(() => api.openWorkspacePath(root))}
         >
@@ -125,6 +135,8 @@ export default function WorkspaceSettings({
         <button
           disabled={busy}
           onClick={() => {
+            edited.current = true;
+            setAck(false);
             setRoot(parent(defaults.save_dir));
             setPaths(defaults);
           }}
@@ -149,7 +161,11 @@ export default function WorkspaceSettings({
                 onClick={() =>
                   void run(async () => {
                     const p = await api.pickPath('directory');
-                    if (p) setPaths((v) => ({ ...v, [key]: p }));
+                    if (p) {
+                      edited.current = true;
+                      setAck(false);
+                      setPaths((v) => ({ ...v, [key]: p }));
+                    }
                   })
                 }
               >
@@ -157,16 +173,18 @@ export default function WorkspaceSettings({
               </button>
               <button
                 disabled={busy || !root}
-                onClick={() =>
-                  setPaths((v) => ({ ...v, [key]: join(root, leaf) }))
-                }
+                onClick={() => {
+                  edited.current = true;
+                  setAck(false);
+                  setPaths((v) => ({ ...v, [key]: join(root, leaf) }));
+                }}
               >
                 跟随根目录
               </button>
             </div>
             <div className="modal-actions">
               <button
-                disabled={!paths[key]}
+                disabled={busy || !paths[key]}
                 onClick={() =>
                   void run(async () => {
                     await navigator.clipboard.writeText(paths[key]);
@@ -178,7 +196,10 @@ export default function WorkspaceSettings({
               </button>
               <button
                 disabled={
-                  !workspace || paths[key] !== workspace[key] || !api.desktop
+                  busy ||
+                  !workspace ||
+                  paths[key] !== workspace[key] ||
+                  !api.desktop
                 }
                 onClick={() =>
                   void run(() => api.openWorkspacePath(paths[key]))
@@ -192,12 +213,19 @@ export default function WorkspaceSettings({
       </details>
       {workspace && (
         <p>
-          修改只影响工作区扫描、资源位置及后续操作，不搬移已有文件；既有实例继续使用原目录。已有备份或任务记录时，请将备份目录保留为原位置。更改根目录后可在上方单独选择原备份目录。
+          修改只影响工作区扫描、资源位置及后续操作，不搬移已有文件；既有实例继续使用原目录。已有备份或任务记录时，请将备份目录保留为原位置。更改根目录时默认保留原备份目录；如需改为新根目录下的
+          backups，请展开自定义目录并点击该项“跟随根目录”。
         </p>
       )}
       {workspace && (
         <label>
-          <input type="checkbox" required form="workspace-settings" />
+          <input
+            type="checkbox"
+            checked={ack}
+            onChange={(e) => setAck(e.target.checked)}
+            required
+            form="workspace-settings"
+          />
           我理解已有数据不会自动迁移，已核对目标目录。
         </label>
       )}

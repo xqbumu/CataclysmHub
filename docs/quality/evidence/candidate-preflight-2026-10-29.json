@@ -1,0 +1,32 @@
+{
+  "import_test_copies": [
+    {
+      "tag": "H",
+      "root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/H-Game.app",
+      "fingerprint": "dd3feeaecd354226f28baca15962f8f5e36ac19fa164a91a12fb87876f9272bb",
+      "expected": "033a9cdbd5ce0fe2ff040c5fa9c96360b4bb620c796316751db67ac355741b67",
+      "matches": false,
+      "scope": "read-only reproduction of record hashing; not backend admission or isolation verification"
+    },
+    {
+      "tag": "I",
+      "root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-launch-qa-20261029-1edba9nb/Game.app",
+      "fingerprint": "47d7c53e6093b41d23a98e7b25d6d09613a6e2e31715aff4f8393539efa1d038",
+      "expected": "b09651201f62aeede5798347ec2c7e7a3dd55ebd6935033afda581a7c4453982",
+      "matches": false,
+      "scope": "read-only reproduction of record hashing; not backend admission or isolation verification"
+    }
+  ],
+  "original_qa_sources": [
+    {
+      "source": "/private/tmp/cataclysm-hub-real-game-validation/0.H-RELEASE.app",
+      "fingerprint": "033a9cdbd5ce0fe2ff040c5fa9c96360b4bb620c796316751db67ac355741b67",
+      "matches_expected": true
+    },
+    {
+      "source": "/private/tmp/cataclysm-hub-real-game-validation/0.I-1.app",
+      "fingerprint": "b09651201f62aeede5798347ec2c7e7a3dd55ebd6935033afda581a7c4453982",
+      "matches_expected": true
+    }
+  ]
+}

@@ -102,3 +102,74 @@ it('preserves a root draft when dashboard polling returns identical saved values
   );
   expect(screen.getByLabelText('数据根目录')).toHaveValue('/draft');
 });
+
+it('does not replace a first-run draft when platform defaults arrive late', async () => {
+  const user = userEvent.setup();
+  const service = {
+    ...api,
+    desktop: true,
+    pickPath: vi.fn().mockResolvedValue('/chosen'),
+  };
+  const onSaved = vi.fn();
+  const { rerender } = render(
+    <WorkspaceSettings
+      api={service}
+      workspace={null}
+      defaults={null}
+      onSaved={onSaved}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '选择根目录' }));
+  rerender(
+    <WorkspaceSettings
+      api={service}
+      workspace={null}
+      defaults={{
+        save_dir: '/system/saves',
+        backup_dir: '/system/backups',
+        content_dir: '/system/content',
+      }}
+      onSaved={onSaved}
+    />,
+  );
+  expect(screen.getByLabelText('数据根目录')).toHaveValue('/chosen');
+  expect(screen.getByLabelText('存档目录')).toHaveValue('/chosen/saves');
+});
+
+it('keeps the registered backup directory when selecting a new root until explicitly changed', async () => {
+  const user = userEvent.setup();
+  const configureWorkspace = vi.fn().mockResolvedValue(workspace);
+  const service = {
+    ...api,
+    desktop: true,
+    pickPath: vi.fn().mockResolvedValue('/new'),
+    configureWorkspace,
+  };
+  render(
+    <WorkspaceSettings
+      api={service}
+      workspace={workspace}
+      defaults={null}
+      onSaved={vi.fn()}
+    />,
+  );
+  await user.click(screen.getByRole('button', { name: '选择根目录' }));
+  expect(screen.getByLabelText('独立备份目录')).toHaveValue('/old/backups');
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(screen.getByRole('button', { name: '保存目录设置' }));
+  await waitFor(() =>
+    expect(configureWorkspace).toHaveBeenCalledWith(
+      '/new',
+      {
+        save_dir: '/new/saves',
+        backup_dir: '/old/backups',
+        content_dir: '/new/content',
+      },
+      {
+        save_dir: '/old/saves',
+        backup_dir: '/old/backups',
+        content_dir: '/old/content',
+      },
+    ),
+  );
+});
