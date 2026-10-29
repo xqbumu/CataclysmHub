@@ -156,3 +156,7 @@ ResourceClaim 与实例资源预览的安装 path 对已知 .app 祖先使用整
 ### macOS 原生本体入口方案
 
 create_instance_launch_plan 的 profileId 新增 cdda-0h-release-macos-native-trial-v1、cdda-0i-1-macos-native-trial-v1。仅 macOS；所选本体须已在 .app/Contents/MacOS 中并符合 Mach-O 文件头形状。working_dir 固定为同包 Resources，executable 保持实际所选路径；环境和目录参数沿用 v2。脚本返回 BUNDLE_NATIVE_ENTRY_REQUIRED，错误/重定向布局返回 BUNDLE_LAYOUT_UNSUPPORTED。未新增任意命令、环境或参数入口，DTO 和数据库 schema 不变。详见 [原生入口设计](../design/macos-native-entry.md)。
+
+## 应用包启动脚本拒绝（2026-10-29）
+
+导入 `.app`、直接选择包内文件以及旧记录的启动预览/确认，共用包内脚本检查。脚本扩展名或 `#!` 头返回 `APPLICATION_LAUNCHER_UNSUPPORTED`，用户应选择实际游戏程序；直接包内选择经链接逃出应用包时返回 `APPLICATION_ENTRY_INVALID`。错误发生在安装登记或会话创建之前，不执行脚本，不修改历史记录。已有真实本体的导入与幂等保持；这不是完整 Mach-O 认证，独立程序的既有直接进程监测边界不变。

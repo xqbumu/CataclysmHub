@@ -5,6 +5,12 @@ pub(crate) fn resolve(selected: &str) -> Result<PathBuf> {
     let root = std::fs::canonicalize(selected)
         .map_err(|_| HubError::new("PATH_INVALID", "所选程序或应用不存在。"))?;
     if root.is_file() {
+        if paths::bundle_root(std::path::Path::new(selected)).is_some()
+            && paths::bundle_root(&root).is_none()
+        {
+            return Err(invalid());
+        }
+        validate_bundle_program(&root)?;
         return paths::canonical(selected, false);
     }
     if !root.is_dir()
@@ -34,6 +40,7 @@ pub(crate) fn resolve(selected: &str) -> Result<PathBuf> {
                 {
                     return Err(invalid());
                 }
+                validate_bundle_program(&path)?;
                 paths::executable(&path)?;
                 candidates.push(path);
             }
@@ -48,6 +55,30 @@ pub(crate) fn resolve(selected: &str) -> Result<PathBuf> {
         ));
     }
     Ok(candidates.remove(0))
+}
+// Apply the same launcher rule to bundle selection, direct files and legacy records.
+pub(crate) fn validate_bundle_program(path: &std::path::Path) -> Result<()> {
+    use std::io::Read;
+    if paths::bundle_root(path).is_none() {
+        return Ok(());
+    }
+    let script_extension = path.extension().and_then(|s| s.to_str()).is_some_and(|s| {
+        ["sh", "command", "bash", "zsh", "py", "pl", "rb"]
+            .iter()
+            .any(|ext| s.eq_ignore_ascii_case(ext))
+    });
+    let mut header = Vec::with_capacity(2);
+    let file = std::fs::File::open(path).map_err(|_| invalid())?;
+    file.take(2)
+        .read_to_end(&mut header)
+        .map_err(|_| invalid())?;
+    if script_extension || header == b"#!" {
+        return Err(HubError::new(
+            "APPLICATION_LAUNCHER_UNSUPPORTED",
+            "不能使用应用包内的启动脚本；请选择实际游戏程序或重新导入 .app。",
+        ));
+    }
+    Ok(())
 }
 fn invalid() -> HubError {
     HubError::new(
@@ -105,6 +136,16 @@ mod tests {
             .unwrap();
         assert_eq!(
             resolve(root.to_str().unwrap()).unwrap_err().code,
+            "APPLICATION_ENTRY_INVALID"
+        );
+        assert_eq!(
+            resolve(
+                root.join("Contents/Resources/cataclysm-tiles")
+                    .to_str()
+                    .unwrap()
+            )
+            .unwrap_err()
+            .code,
             "APPLICATION_ENTRY_INVALID"
         );
     }

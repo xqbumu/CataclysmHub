@@ -576,3 +576,72 @@ async fn dashboard_describes_recorded_sample_without_changing_legacy_rows_or_tru
     assert_eq!(record.branch.as_deref(), Some("other"));
     connection.close().await;
 }
+
+#[tokio::test]
+async fn bundle_scripts_are_rejected_for_direct_and_directory_imports() {
+    let (temp, hub, _) = setup().await;
+    let parent = temp.path().join("Game.app/Contents/MacOS");
+    std::fs::create_dir_all(&parent).unwrap();
+    for name in ["Cataclysm.sh", "cataclysm-tiles"] {
+        let path = parent.join(name);
+        std::fs::write(&path, b"#!/bin/sh\nexit 0\n").unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+        }
+        assert_eq!(
+            hub.import_installation(path.to_str().unwrap(), "Script")
+                .await
+                .unwrap_err()
+                .code,
+            "APPLICATION_LAUNCHER_UNSUPPORTED"
+        );
+    }
+    assert_eq!(
+        hub.import_installation(temp.path().join("Game.app").to_str().unwrap(), "App")
+            .await
+            .unwrap_err()
+            .code,
+        "APPLICATION_LAUNCHER_UNSUPPORTED"
+    );
+    assert_eq!(hub.dashboard().await.unwrap().installations.len(), 1);
+    assert!(hub.dashboard().await.unwrap().sessions.is_empty());
+}
+
+#[tokio::test]
+async fn legacy_bundle_script_record_cannot_prepare_a_launch() {
+    use sha2::{Digest, Sha256};
+    let (temp, hub, id) = setup().await;
+    let parent = temp.path().join("Game.app/Contents/MacOS");
+    std::fs::create_dir_all(&parent).unwrap();
+    let path = parent.join("Cataclysm.sh");
+    let bytes = b"#!/bin/sh\nexit 0\n";
+    std::fs::write(&path, bytes).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    let path = std::fs::canonicalize(path).unwrap();
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("UPDATE installation SET executable=?,working_dir=?,sha256=? WHERE id=?")
+        .bind(path.to_str().unwrap())
+        .bind(path.parent().unwrap().to_str().unwrap())
+        .bind(format!("{:x}", Sha256::digest(bytes)))
+        .bind(&id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    pool.close().await;
+    assert_eq!(
+        hub.launch_plan(&id, vec![]).await.unwrap_err().code,
+        "APPLICATION_LAUNCHER_UNSUPPORTED"
+    );
+    assert!(hub.dashboard().await.unwrap().sessions.is_empty());
+}

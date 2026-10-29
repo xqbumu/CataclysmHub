@@ -82,6 +82,10 @@ it('keeps cached releases after a manual network failure', async () => {
   const u = userEvent.setup();
   render(<RemoteCatalogPanel kind="game" client={c} />);
   await screen.findByText('0.I');
+  await waitFor(() => {
+    expect(c.sync).toHaveBeenCalledWith('dda', false);
+    expect(screen.getByRole('button', { name: '更新版本' })).toBeEnabled();
+  });
   vi.mocked(c.sync).mockRejectedValueOnce('rate limit');
   await u.click(screen.getByRole('button', { name: '更新版本' }));
   expect(await screen.findByRole('alert')).toHaveTextContent('rate limit');

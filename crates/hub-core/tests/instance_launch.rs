@@ -402,7 +402,7 @@ async fn macos_bundle_trial_freezes_local_loader_paths_and_rechecks_frameworks()
     let resources = f.temp.path().join("Game.app/Contents/Resources");
     std::fs::create_dir_all(&resources).unwrap();
     let executable = resources.join("cataclysm-tiles");
-    std::fs::write(&executable, b"#!/bin/sh\nexit 0\n").unwrap();
+    std::fs::copy("/usr/bin/true", &executable).unwrap();
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
     for name in ["SDL2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"] {
         let folder = resources.join(format!("{name}.framework/Versions/A"));
@@ -578,7 +578,26 @@ async fn runtime_fixture(f: &Fixture) -> String {
     let resources = f.temp.path().join("Runtime.app/Contents/Resources");
     std::fs::create_dir_all(&resources).unwrap();
     let executable = resources.join("cataclysm-tiles");
-    std::fs::write(&executable, b"#!/bin/sh\nfor dir in \"$HOME\" \"$TMPDIR\" \"$TMP\" \"$TEMP\" \"$XDG_CONFIG_HOME\" \"$XDG_CACHE_HOME\" \"$XDG_DATA_HOME\" \"$XDG_STATE_HOME\"; do\n test -d \"$dir\" || exit 17\n printf 'isolated child marker' > \"$dir/child-marker\" || exit 18\ndone\n").unwrap();
+    let source = f.temp.path().join("runtime-probe.rs");
+    std::fs::write(&source, r#"fn main() {
+        for key in ["HOME", "TMPDIR", "TMP", "TEMP", "XDG_CONFIG_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME", "XDG_STATE_HOME"] {
+            let path = std::path::PathBuf::from(std::env::var_os(key).expect("runtime variable"));
+            assert!(path.is_dir());
+            std::fs::write(path.join("child-marker"), b"isolated child marker").unwrap();
+        }
+    }"#).unwrap();
+    let output = std::process::Command::new("rustc")
+        .args(["--crate-name", "hub_runtime_probe"])
+        .arg(&source)
+        .arg("-o")
+        .arg(&executable)
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     std::fs::set_permissions(&executable, std::fs::Permissions::from_mode(0o700)).unwrap();
     for name in ["SDL2", "SDL2_image", "SDL2_ttf", "SDL2_mixer"] {
         let folder = resources.join(format!("{name}.framework/Versions/A"));
@@ -852,32 +871,15 @@ async fn native_entry_rejects_wrappers_and_body_changes_before_launch() {
     let wrapper = executable.with_file_name("wrapper");
     std::fs::write(&wrapper, b"#!/bin/sh\nexit 0\n").unwrap();
     std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o700)).unwrap();
-    let installation = f
-        .hub
-        .import_installation(wrapper.to_str().unwrap(), "wrapper fixture")
-        .await
-        .unwrap();
-    let root = f.temp.path().join("wrapper-instance");
-    std::fs::create_dir(&root).unwrap();
-    let instance = f
-        .hub
-        .register_play_instance(PlayInstanceInput {
-            installation_id: installation.id,
-            name: "wrapper".into(),
-            data_root: root.to_str().unwrap().into(),
-        })
-        .await
-        .unwrap();
     assert_eq!(
         f.hub
-            .instance_launch_plan(&instance.id, "cdda-0h-release-macos-native-trial-v1")
+            .import_installation(wrapper.to_str().unwrap(), "wrapper fixture")
             .await
             .unwrap_err()
             .code,
-        "BUNDLE_NATIVE_ENTRY_REQUIRED"
+        "APPLICATION_LAUNCHER_UNSUPPORTED"
     );
     assert!(f.hub.dashboard().await.unwrap().sessions.is_empty());
-    assert_eq!(std::fs::read_dir(&root).unwrap().count(), 0);
 }
 
 #[cfg(target_os = "macos")]

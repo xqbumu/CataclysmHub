@@ -49,6 +49,7 @@ impl Hub {
             .ok_or(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"))?;
         let path = paths::canonical(&installation.executable, false)?;
         paths::executable(&path)?;
+        crate::application_entry::validate_bundle_program(&path)?;
         if paths::text(&path)? != installation.executable
             || paths::digest(path).await? != installation.sha256
         {
@@ -139,6 +140,7 @@ impl Hub {
             ));
         }
         paths::executable(&path)?;
+        crate::application_entry::validate_bundle_program(&path)?;
         if let Some(ref identity) = prepared.instance_identity {
             self.revalidate_instance_launch(&plan, identity).await?;
         } else if plan.play_instance_id.is_some() {
