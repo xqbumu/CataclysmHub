@@ -1,0 +1,65 @@
+{
+  "user_observation": "loaded existing Mount Andrew character, entered map, saved and exited",
+  "session": {
+    "id": "2d99307b-88da-40e4-8bbb-83a8ce00dc67",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "exited_unverified",
+    "pid": 14309,
+    "started_at": "2026-10-30T07:17:50.333349+00:00",
+    "finished_at": "2026-10-30T07:22:14.373857+00:00",
+    "exit_code": 0,
+    "play_instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/restore-check/restored-685eacc4-ea3e-402a-b872-211d7181153e/data"
+  },
+  "archive": {
+    "id": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+    "task_id": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+    "workspace_id": "638c65a9-1b9b-439f-b67b-046e68212350",
+    "relative_dir": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+    "created_at": "2026-10-30T07:22:21.262024+00:00",
+    "entry_count": 145,
+    "file_count": 124,
+    "total_bytes": "1526626",
+    "consistency": "best_effort",
+    "verification": "verified",
+    "verified_at": "2026-10-30T07:22:22.311308+00:00",
+    "archive_sha256": "95f69f23a4d6456bbb86088c90e4e75f790454399268fd82016264b0f809d25d",
+    "manifest_sha256": "5b00e952f809d73f577fa35edf663c9b64a49e36428f940ab14a07a613a0c9c6",
+    "display_name": "",
+    "notes": "",
+    "retention_locked": 0,
+    "metadata_revision": 0,
+    "metadata_updated_at": null,
+    "play_instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+    "source_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/restore-check/restored-685eacc4-ea3e-402a-b872-211d7181153e/data"
+  },
+  "independent_verifier": {
+    "backup_id": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+    "file_count": 124,
+    "entry_count": 145,
+    "total_bytes": "1526626",
+    "consistency": "best_effort",
+    "archive_sha256": "95f69f23a4d6456bbb86088c90e4e75f790454399268fd82016264b0f809d25d",
+    "manifest_sha256": "5b00e952f809d73f577fa35edf663c9b64a49e36428f940ab14a07a613a0c9c6",
+    "verified_at": "2026-10-30T07:23:31.181427+00:00",
+    "receipt_present": true
+  },
+  "after_restart_policy": {
+    "instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+    "revision": 10,
+    "settings": "{\"enabled\":false,\"min_interval_minutes\":15,\"retention\":{\"keep_recent\":7,\"daily_days\":14,\"weekly_weeks\":8}}",
+    "updated_at": "2026-10-30T07:23:08.685524+00:00"
+  },
+  "after_restart_archive_count": 3,
+  "after_restart_attempt_count": 2,
+  "protected_original_files": 121,
+  "protected_original_unchanged": true,
+  "reset_backup_preserved_enabled_policy": true,
+  "reset_epoch_sequence": [
+    6,
+    7,
+    8,
+    10
+  ]
+}
