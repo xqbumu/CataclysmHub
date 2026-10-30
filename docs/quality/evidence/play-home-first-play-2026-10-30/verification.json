@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "9cd3272",
+  "scope": [
+    "play environment home",
+    "first-play preparation flow"
+  ],
+  "checks": {
+    "frontend_full": {
+      "command": "npm run check",
+      "passed_tests": 147,
+      "files": 21,
+      "format": true,
+      "typecheck": true,
+      "production_build": true
+    },
+    "final_app_regression": {
+      "passed_tests": 15,
+      "note": "After completion-message update; overlaps full suite."
+    },
+    "final_format": true,
+    "debug_bundle": {
+      "command": "task build:debug",
+      "exit_code": 0,
+      "size_mib_reported": 67.15
+    }
+  },
+  "visual_checks": {
+    "browser": "Ego Lite existing installation",
+    "empty_and_storage": "Browser preview; native buttons disabled as expected.",
+    "populated": "Synthetic read-only Dashboard; no player metadata.",
+    "narrow_pre_final_spacing": {
+      "width": 900,
+      "height": 660,
+      "document_width": 900,
+      "first_launch_button_bottom": 540.11
+    },
+    "final_wide": {
+      "width": 1470,
+      "launch_visible": true,
+      "screenshot": "home-wide-synthetic.png"
+    },
+    "note": "Narrow metrics were observed before final spacing/empty-diagnostic cleanup; final screenshot is wide, not a claim of final narrow-window certification."
+  },
+  "backend_source_changed": false,
+  "schema_migration_added": false,
+  "real_game_executed": false,
+  "player_data_modified": false,
+  "existing_app_replaced": false,
+  "verified_flow_properties": [
+    "No import or environment creation on mount.",
+    "Existing installation selection requires explicit action.",
+    "Import proceeds to managed environment creation.",
+    "Creation never automatically launches a game.",
+    "Successful creation followed by refresh failure does not create again.",
+    "First-play context survives navigation.",
+    "Directory forms retain independent accessible labels when both are mounted.",
+    "Saved normal profiles on home still request fresh backend launch plans."
+  ],
+  "remaining_acceptance": [
+    "Real native chooser and trusted official .app import in isolated QA workspace.",
+    "Real game startup/save/load remains separate from visual acceptance.",
+    "Target-player usability testing."
+  ]
+}

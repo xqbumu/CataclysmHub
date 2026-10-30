@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import type { HubApi } from './api';
 import { errorMessage } from './api';
 import type { Workspace } from './bindings/Workspace';
@@ -17,12 +17,17 @@ export default function WorkspaceSettings({
   workspace,
   defaults,
   onSaved,
+  onboarding = false,
 }: {
   api: HubApi;
   workspace: Workspace | null;
   defaults: WorkspaceInput | null;
   onSaved: () => Promise<void>;
+  onboarding?: boolean;
 }) {
+  const prefix = useId();
+  const formId = `${prefix}-workspace-settings`;
+  const rootId = `${prefix}-workspace-root`;
   const edited = useRef(false);
   const [ack, setAck] = useState(false);
   const [root, setRoot] = useState('');
@@ -70,17 +75,23 @@ export default function WorkspaceSettings({
   }
   return (
     <section className="panel setup-panel workspace-settings">
-      <h2>{workspace ? '本地工作区' : '建立你的安全工作区'}</h2>
+      <h2>
+        {onboarding
+          ? '数据存放位置'
+          : workspace
+            ? '本地工作区'
+            : '建立你的安全工作区'}
+      </h2>
       <p>
         选择一个数据根目录，默认在其下创建
         saves、backups、content；新托管实例位于根目录下的
         instances。可按需单独指定子目录。
       </p>
       <div className="path-field">
-        <label htmlFor="workspace-root">数据根目录</label>
+        <label htmlFor={rootId}>数据根目录</label>
         <div className="path-input">
           <input
-            id="workspace-root"
+            id={rootId}
             value={root}
             readOnly
             placeholder="选择数据根目录"
@@ -107,30 +118,32 @@ export default function WorkspaceSettings({
           </button>
         </div>
       </div>
-      <div className="modal-actions">
-        <button
-          disabled={busy || !root}
-          onClick={() =>
-            void run(async () => {
-              await navigator.clipboard.writeText(root);
-              setMessage('根目录已复制');
-            })
-          }
-        >
-          复制根目录
-        </button>
-        <button
-          disabled={
-            busy ||
-            !api.desktop ||
-            !workspace?.root_dir ||
-            root !== workspace.root_dir
-          }
-          onClick={() => void run(() => api.openWorkspacePath(root))}
-        >
-          打开根目录
-        </button>
-      </div>
+      {!onboarding && (
+        <div className="modal-actions">
+          <button
+            disabled={busy || !root}
+            onClick={() =>
+              void run(async () => {
+                await navigator.clipboard.writeText(root);
+                setMessage('根目录已复制');
+              })
+            }
+          >
+            复制根目录
+          </button>
+          <button
+            disabled={
+              busy ||
+              !api.desktop ||
+              !workspace?.root_dir ||
+              root !== workspace.root_dir
+            }
+            onClick={() => void run(() => api.openWorkspacePath(root))}
+          >
+            打开根目录
+          </button>
+        </div>
+      )}
       {defaults && (
         <button
           disabled={busy}
@@ -141,17 +154,17 @@ export default function WorkspaceSettings({
             setPaths(defaults);
           }}
         >
-          恢复系统推荐目录
+          {onboarding ? '使用系统推荐目录' : '恢复系统推荐目录'}
         </button>
       )}
-      <details open={!workspace && !defaults}>
+      <details open={!onboarding && !workspace && !defaults}>
         <summary>自定义子目录与路径操作</summary>
         {fields.map(([key, label, leaf]) => (
           <div className="path-field" key={key}>
-            <label htmlFor={key}>{label}</label>
+            <label htmlFor={`${prefix}-${key}`}>{label}</label>
             <div className="path-input">
               <input
-                id={key}
+                id={`${prefix}-${key}`}
                 value={paths[key]}
                 readOnly
                 placeholder="尚未选择目录"
@@ -224,13 +237,13 @@ export default function WorkspaceSettings({
             checked={ack}
             onChange={(e) => setAck(e.target.checked)}
             required
-            form="workspace-settings"
+            form={formId}
           />
           我理解已有数据不会自动迁移，已核对目标目录。
         </label>
       )}
       <form
-        id="workspace-settings"
+        id={formId}
         onSubmit={(e) => {
           e.preventDefault();
           void run(async () => {
@@ -264,7 +277,11 @@ export default function WorkspaceSettings({
             busy || !api.desktop || Object.values(paths).some((p) => !p)
           }
         >
-          {workspace ? '保存目录设置' : '保存工作区'}
+          {onboarding
+            ? '保存位置并继续'
+            : workspace
+              ? '保存目录设置'
+              : '保存工作区'}
         </button>
       </form>
       {error && <p role="alert">{error}</p>}

@@ -15,12 +15,16 @@ export default function PlayInstancesPanel({
   data,
   onRefresh,
   installationFilter = '',
+  home = false,
+  focusId = '',
   onInstallationFilterChange,
 }: {
   api: HubApi;
   data: Dashboard;
   onRefresh: () => Promise<void>;
   installationFilter?: string;
+  home?: boolean;
+  focusId?: string;
   onInstallationFilterChange?: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -32,6 +36,21 @@ export default function PlayInstancesPanel({
         .toLowerCase()
         .includes(query.trim().toLowerCase()),
   );
+  if (home) {
+    const lastUsed = (id: string) =>
+      Math.max(
+        0,
+        ...data.sessions
+          .filter((s) => s.play_instance_id === id)
+          .map((s) => Date.parse(s.started_at) || 0),
+      );
+    visibleInstances.sort(
+      (a, b) =>
+        Number(b.id === focusId) - Number(a.id === focusId) ||
+        lastUsed(b.id) - lastUsed(a.id) ||
+        (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0),
+    );
+  }
   const [installationId, setInstallationId] = useState('');
   const [name, setName] = useState('');
   const [directoryMode, setDirectoryMode] = useState('managed');
@@ -129,43 +148,61 @@ export default function PlayInstancesPanel({
     await api.launch(prepared.id);
     await onRefresh();
   }
-  return (
-    <section className="panel instances-panel">
-      <h2>游玩实例</h2>
-      <p>一个安装可以登记多个实例，分别管理存档、配置、缓存与日志。</p>
+  const launchNotes = (
+    <details className="inline-details">
+      <summary>启动与目录保护说明</summary>
       <p className="inline-note">
         目录绑定尚未验证。普通方案保持全局互斥；已识别安装自动适配，并发仅限实验候选。
       </p>
-      <div className="task-center-filters">
-        {onInstallationFilterChange && (
+    </details>
+  );
+  return (
+    <section
+      className={
+        home
+          ? 'panel instances-panel home-environments'
+          : 'panel instances-panel'
+      }
+    >
+      <h2>{home ? '你的游玩环境' : '游玩实例'}</h2>
+      {!home && (
+        <p>一个安装可以登记多个实例，分别管理存档、配置、缓存与日志。</p>
+      )}
+      {!home && launchNotes}
+      {(!home || data.play_instances.length > 3 || !!query) && (
+        <div className="task-center-filters">
+          {onInstallationFilterChange && (
+            <label>
+              筛选安装版本
+              <select
+                value={installationFilter}
+                onChange={(e) => onInstallationFilterChange(e.target.value)}
+              >
+                <option value="">全部安装版本</option>
+                {data.installations.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name} · {game.version ?? '版本未知'}
+                  </option>
+                ))}
+                {installationFilter &&
+                  !data.installations.some(
+                    (game) => game.id === installationFilter,
+                  ) && (
+                    <option value={installationFilter}>安装记录不可用</option>
+                  )}
+              </select>
+            </label>
+          )}
           <label>
-            筛选安装版本
-            <select
-              value={installationFilter}
-              onChange={(e) => onInstallationFilterChange(e.target.value)}
-            >
-              <option value="">全部安装版本</option>
-              {data.installations.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name} · {game.version ?? '版本未知'}
-                </option>
-              ))}
-              {installationFilter &&
-                !data.installations.some(
-                  (game) => game.id === installationFilter,
-                ) && <option value={installationFilter}>安装记录不可用</option>}
-            </select>
+            {home ? '搜索游玩环境' : '搜索游玩实例'}
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="实例名称、ID 或数据目录"
+            />
           </label>
-        )}
-        <label>
-          搜索游玩实例
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="实例名称、ID 或数据目录"
-          />
-        </label>
-      </div>
+        </div>
+      )}
       {data.play_instances.length > 0 && !visibleInstances.length && (
         <p role="status">没有匹配的游玩实例，请调整版本或搜索条件。</p>
       )}
@@ -328,35 +365,62 @@ export default function PlayInstancesPanel({
           : '启动';
         return (
           <article key={item.id}>
-            <h3>{item.name} · 绑定未验证</h3>
+            <div className="environment-card-heading">
+              <h3>
+                {item.name}
+                {!home && ' · 绑定未验证'}
+              </h3>
+              <span className="environment-state">
+                {activeSession ? launchLabel : '未监测到运行'}
+              </span>
+            </div>
             <p>
               {data.installations.find(
                 (game) => game.id === item.installation_id,
               )?.name ?? '关联安装记录不可用'}
+              {' · '}
+              {data.installations.find((g) => g.id === item.installation_id)
+                ?.version ?? '版本未知'}
             </p>
+            {home && (
+              <p className="environment-backup">
+                {(() => {
+                  const backup = data.backups
+                    .filter((b) => b.play_instance_id === item.id)
+                    .sort(
+                      (a, b) =>
+                        Date.parse(b.created_at) - Date.parse(a.created_at),
+                    )[0];
+                  return backup
+                    ? `最近保护副本：${new Date(backup.created_at).toLocaleString('zh-CN')} · ${backup.verification === 'verified' ? '上次文件校验通过' : '需要核对文件状态'}`
+                    : '尚无保护副本';
+                })()}
+              </p>
+            )}
             <details className="inline-details">
               <summary>数据目录</summary>
               <PathActions api={api} path={item.data_root} />
             </details>
-            {data.sessions
-              .filter((session) => session.play_instance_id === item.id)
-              .slice(0, 3)
-              .map((session) => (
-                <p key={session.id}>
-                  实例会话：
-                  {session.state === 'starting'
-                    ? '启动中'
-                    : session.state === 'running'
-                      ? '运行中'
-                      : session.state === 'interrupted_unknown'
-                        ? '状态未知，请先确认关闭'
-                        : session.state === 'exited_unverified'
-                          ? '进程已退出，存档未验证'
-                          : session.state}{' '}
-                  · PID {session.pid ?? '未知'} ·{' '}
-                  {new Date(session.started_at).toLocaleString('zh-CN')}
-                </p>
-              ))}
+            {!home &&
+              data.sessions
+                .filter((session) => session.play_instance_id === item.id)
+                .slice(0, 3)
+                .map((session) => (
+                  <p key={session.id}>
+                    实例会话：
+                    {session.state === 'starting'
+                      ? '启动中'
+                      : session.state === 'running'
+                        ? '运行中'
+                        : session.state === 'interrupted_unknown'
+                          ? '状态未知，请先确认关闭'
+                          : session.state === 'exited_unverified'
+                            ? '进程已退出，存档未验证'
+                            : session.state}{' '}
+                    · PID {session.pid ?? '未知'} ·{' '}
+                    {new Date(session.started_at).toLocaleString('zh-CN')}
+                  </p>
+                ))}
             {activeSession?.state === 'interrupted_unknown' && (
               <p className="inline-note">
                 请先确认游戏已关闭，再到“任务与记录”页面处理状态未知的会话。
@@ -376,6 +440,7 @@ export default function PlayInstancesPanel({
                 {launchLabel}
               </button>
               <button
+                className={home ? 'secondary' : undefined}
                 disabled={busy || !api.desktop}
                 aria-label={`启动设置 ${item.name}`}
                 onClick={() => void perform(() => openSettings(item))}
@@ -415,6 +480,7 @@ export default function PlayInstancesPanel({
           </article>
         );
       })}
+      {home && launchNotes}
       {error && !plan && !launchTarget && <p role="alert">{error}</p>}
       {contentReport && (
         <ContentConfigDialog
@@ -517,105 +583,109 @@ export default function PlayInstancesPanel({
           </div>
         </Modal>
       )}
-      <details
-        className="disclosure"
-        open={data.play_instances.length === 0 ? true : undefined}
-      >
-        <summary>登记新实例</summary>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void perform(async () => {
-              if (directoryMode === 'managed')
-                await api.registerManagedInstance(installationId, name);
-              else
-                await api.registerPlayInstance({
-                  installation_id: installationId,
-                  name,
-                  data_root: root,
-                });
-              setName('');
-              setRoot('');
-              await onRefresh();
-            });
-          }}
+      {!home && (
+        <details
+          className="disclosure"
+          open={data.play_instances.length === 0 ? true : undefined}
         >
-          <label>
-            关联安装
-            <select
-              value={installationId}
-              disabled={busy}
-              onChange={(e) => setInstallationId(e.target.value)}
-            >
-              <option value="">选择已导入的游戏</option>
-              {data.installations.map((game) => (
-                <option key={game.id} value={game.id}>
-                  {game.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            实例名称
-            <input
-              value={name}
-              disabled={busy}
-              maxLength={100}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </label>
-          <label>
-            实例目录方式
-            <select
-              value={directoryMode}
-              disabled={busy}
-              onChange={(e) => setDirectoryMode(e.target.value)}
-            >
-              <option value="managed">系统推荐目录（自动创建独立目录）</option>
-              <option value="custom">选择自定义空目录</option>
-            </select>
-          </label>
-          {directoryMode === 'managed' && (
-            <p>
-              在系统应用数据区的 instances
-              下创建唯一目录，与其他实例和安装分离；不会迁移现有存档。
-            </p>
-          )}
-          {directoryMode === 'custom' && (
-            <>
-              <p>
-                选择现有空目录，须与安装、工作区和其他实例分离。登记不会迁移文件。
-              </p>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={busy || !api.desktop}
-                onClick={() =>
-                  void perform(async () => {
-                    const selected = await api.pickPath('directory');
-                    if (selected) setRoot(selected);
-                  })
-                }
-              >
-                选择实例空目录
-              </button>
-              <p className="mono">{root || '尚未选择'}</p>
-            </>
-          )}
-          <button
-            className="primary-button"
-            disabled={
-              busy ||
-              !api.desktop ||
-              !installationId ||
-              !name.trim() ||
-              (directoryMode === 'custom' && !root)
-            }
+          <summary>登记新实例</summary>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void perform(async () => {
+                if (directoryMode === 'managed')
+                  await api.registerManagedInstance(installationId, name);
+                else
+                  await api.registerPlayInstance({
+                    installation_id: installationId,
+                    name,
+                    data_root: root,
+                  });
+                setName('');
+                setRoot('');
+                await onRefresh();
+              });
+            }}
           >
-            登记实例
-          </button>
-        </form>
-      </details>
+            <label>
+              关联安装
+              <select
+                value={installationId}
+                disabled={busy}
+                onChange={(e) => setInstallationId(e.target.value)}
+              >
+                <option value="">选择已导入的游戏</option>
+                {data.installations.map((game) => (
+                  <option key={game.id} value={game.id}>
+                    {game.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              实例名称
+              <input
+                value={name}
+                disabled={busy}
+                maxLength={100}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </label>
+            <label>
+              实例目录方式
+              <select
+                value={directoryMode}
+                disabled={busy}
+                onChange={(e) => setDirectoryMode(e.target.value)}
+              >
+                <option value="managed">
+                  系统推荐目录（自动创建独立目录）
+                </option>
+                <option value="custom">选择自定义空目录</option>
+              </select>
+            </label>
+            {directoryMode === 'managed' && (
+              <p>
+                在系统应用数据区的 instances
+                下创建唯一目录，与其他实例和安装分离；不会迁移现有存档。
+              </p>
+            )}
+            {directoryMode === 'custom' && (
+              <>
+                <p>
+                  选择现有空目录，须与安装、工作区和其他实例分离。登记不会迁移文件。
+                </p>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={busy || !api.desktop}
+                  onClick={() =>
+                    void perform(async () => {
+                      const selected = await api.pickPath('directory');
+                      if (selected) setRoot(selected);
+                    })
+                  }
+                >
+                  选择实例空目录
+                </button>
+                <p className="mono">{root || '尚未选择'}</p>
+              </>
+            )}
+            <button
+              className="primary-button"
+              disabled={
+                busy ||
+                !api.desktop ||
+                !installationId ||
+                !name.trim() ||
+                (directoryMode === 'custom' && !root)
+              }
+            >
+              登记实例
+            </button>
+          </form>
+        </details>
+      )}
     </section>
   );
 }

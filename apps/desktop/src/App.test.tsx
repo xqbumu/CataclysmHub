@@ -110,13 +110,21 @@ function client(data: Dashboard = emptyDashboard): HubApi {
 }
 describe('workspace and launch safety', () => {
   it('does not invent backup health or enable unimplemented actions', async () => {
-    render(<App api={client()} />);
-    expect(await screen.findByText('建立你的安全工作区')).toBeVisible();
+    const api = client();
+    render(<App api={api} />);
+    expect(await screen.findByText('准备你的第一次游玩')).toBeVisible();
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: /导入已有游戏/ }));
+    expect(await screen.findByText('数据存放位置')).toBeVisible();
     expect(
       screen.queryByRole('button', { name: /存档历史/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /导入游戏/ })).toBeDisabled();
-    expect(screen.getByRole('button', { name: /保存工作区/ })).toBeDisabled();
+    expect(api.importInstallation).not.toHaveBeenCalled();
+    expect(api.launch).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole('button', { name: /保存位置并继续/ }),
+    ).toBeDisabled();
   });
   it('requires three native directory selections before initialization', async () => {
     const api = client();
@@ -127,10 +135,14 @@ describe('workspace and launch safety', () => {
       .mockResolvedValueOnce('/selected/content');
     vi.mocked(api.initialize).mockResolvedValue(workspace);
     render(<App api={api} />);
-    await screen.findByText('建立你的安全工作区');
+    await user.click(
+      await screen.findByRole('button', { name: /导入已有游戏/ }),
+    );
+    await screen.findByText('数据存放位置');
+    await user.click(screen.getByText('自定义子目录与路径操作'));
     for (const button of screen.getAllByRole('button', { name: '选择' }))
       await user.click(button);
-    await user.click(screen.getByRole('button', { name: /保存工作区/ }));
+    await user.click(screen.getByRole('button', { name: /保存位置并继续/ }));
     await waitFor(() =>
       expect(api.initialize).toHaveBeenCalledWith({
         save_dir: workspace.save_dir,
@@ -178,10 +190,14 @@ describe('workspace and launch safety', () => {
       message: '目录不能重叠',
     });
     render(<App api={api} />);
-    await screen.findByText('建立你的安全工作区');
+    await user.click(
+      await screen.findByRole('button', { name: /导入已有游戏/ }),
+    );
+    await screen.findByText('数据存放位置');
+    await user.click(screen.getByText('自定义子目录与路径操作'));
     for (const button of screen.getAllByRole('button', { name: '选择' }))
       await user.click(button);
-    await user.click(screen.getByRole('button', { name: /保存工作区/ }));
+    await user.click(screen.getByRole('button', { name: /保存位置并继续/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('目录不能重叠');
     expect(screen.getByLabelText('存档目录')).toHaveValue('/same');
   });
@@ -439,15 +455,85 @@ it('offers platform defaults without requiring three directory picker operations
   });
   const user = userEvent.setup();
   render(<App api={service} />);
-  await screen.findByRole('button', { name: '恢复系统推荐目录' });
+  await user.click(await screen.findByRole('button', { name: /导入已有游戏/ }));
+  await screen.findByRole('button', { name: '使用系统推荐目录' });
+  await user.click(screen.getByText('自定义子目录与路径操作'));
   await waitFor(() =>
     expect(screen.getByLabelText('存档目录')).toHaveValue(defaults.save_dir),
   );
-  await user.click(screen.getByRole('button', { name: /保存工作区/ }));
+  await user.click(screen.getByRole('button', { name: /保存位置并继续/ }));
   expect(service.configureWorkspace).toHaveBeenCalledWith(
     '/system/app.workspace',
     defaults,
     null,
   );
   expect(service.pickPath).not.toHaveBeenCalled();
+});
+
+it('continues local import into independent environment creation without launching', async () => {
+  let data: Dashboard = { ...emptyDashboard, workspace };
+  const service = client();
+  vi.mocked(service.dashboard).mockImplementation(async () => data);
+  vi.mocked(service.pickPath).mockResolvedValue(game.executable);
+  vi.mocked(service.importInstallation).mockImplementation(async () => {
+    data = { ...data, installations: [game] };
+    return game;
+  });
+  const instance = {
+    id: 'first',
+    installation_id: game.id,
+    installation_sha256: game.sha256,
+    name: '主力生存',
+    data_root: '/independent/first',
+    binding_status: 'unverified',
+    created_at: '2026-10-30T00:00:00Z',
+  };
+  vi.mocked(service.registerManagedInstance).mockImplementation(async () => {
+    data = { ...data, play_instances: [instance] };
+    return instance;
+  });
+  const u = userEvent.setup();
+  render(<App api={service} />);
+  await u.click(await screen.findByRole('button', { name: /导入已有游戏/ }));
+  await u.click(screen.getByRole('button', { name: '选择本地游戏' }));
+  const dialog = screen.getByRole('dialog');
+  await u.type(within(dialog).getByLabelText('安装名称'), '本地 CDDA');
+  await u.click(within(dialog).getByRole('button', { name: '选择' }));
+  await u.click(within(dialog).getByRole('button', { name: '导入安装' }));
+  await screen.findByLabelText('游玩环境名称');
+  expect(service.importInstallation).toHaveBeenCalledWith(
+    game.executable,
+    '本地 CDDA',
+  );
+  expect(service.registerManagedInstance).not.toHaveBeenCalled();
+  await u.type(screen.getByLabelText('游玩环境名称'), '主力生存');
+  await u.click(screen.getByRole('button', { name: '创建独立游玩环境' }));
+  await screen.findByText('环境已创建');
+  expect(service.registerManagedInstance).toHaveBeenCalledExactlyOnceWith(
+    game.id,
+    '主力生存',
+  );
+  expect(service.launch).not.toHaveBeenCalled();
+  await u.click(screen.getByRole('button', { name: '前往启动' }));
+  expect(
+    await screen.findByRole('button', { name: '启动 主力生存' }),
+  ).toBeEnabled();
+  expect(service.launch).not.toHaveBeenCalled();
+  expect(screen.getByRole('status')).toHaveTextContent('游玩环境已创建');
+  expect(service.registerPlayInstance).not.toHaveBeenCalled();
+});
+
+it('keeps first-play progress when visiting settings and gives both directory forms independent labels', async () => {
+  const service = client();
+  const u = userEvent.setup();
+  render(<App api={service} />);
+  await u.click(await screen.findByRole('button', { name: /导入已有游戏/ }));
+  await screen.findByText('数据存放位置');
+  await u.click(screen.getByRole('button', { name: '设置' }));
+  expect(screen.getByRole('textbox', { name: '数据根目录' })).toBeVisible();
+  await u.click(screen.getByRole('button', { name: '游玩环境' }));
+  expect(screen.getByText('数据存放位置')).toBeVisible();
+  expect(screen.getByRole('list', { name: '创建进度' })).toBeVisible();
+  expect(service.initialize).not.toHaveBeenCalled();
+  expect(service.registerManagedInstance).not.toHaveBeenCalled();
 });

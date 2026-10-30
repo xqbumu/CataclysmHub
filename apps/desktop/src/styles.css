@@ -2501,3 +2501,113 @@ main {
   margin: 8px 0;
   border: 0;
 }
+
+/* Play-first home and the existing protected creation flow. */
+.play-welcome {
+  padding: 32px;
+}
+.play-welcome h2 {
+  font-size: 24px;
+  margin: 8px 0 12px;
+}
+.welcome-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 24px 0;
+}
+.welcome-choices button {
+  min-height: 64px;
+  padding: 16px 24px;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+}
+.welcome-choices button span {
+  display: block;
+  flex-basis: 100%;
+  font-size: 12px;
+  font-weight: 400;
+}
+.flow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  list-style: none;
+  gap: 12px;
+  padding: 0;
+  margin: 20px 0;
+}
+.flow-steps li {
+  color: var(--muted);
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.flow-steps li[aria-current='step'] {
+  color: var(--green);
+  border-color: var(--green);
+}
+.flow-steps li span {
+  margin-right: 8px;
+}
+.first-play > .panel {
+  margin-top: 16px;
+}
+.first-play form > label {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.existing-game-choice {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 24px;
+}
+.existing-game-choice label {
+  display: grid;
+  gap: 8px;
+}
+.environment-card-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.environment-state,
+.environment-backup {
+  color: var(--muted);
+  font-size: 13px;
+}
+.home-utilities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+.first-play .section-heading {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+@media (max-width: 1000px) {
+  .play-welcome {
+    padding: 24px;
+  }
+  .welcome-choices button {
+    flex: 1 1 220px;
+  }
+}
+.home-environments article {
+  padding: 16px 20px;
+}
+.home-environments .environment-card-heading h3 {
+  margin: 0;
+}
+.home-environments article > p {
+  margin: 8px 0;
+}
+.home-environments article > details {
+  margin: 8px 0;
+}
+.home-environments .instance-actions {
+  margin: 12px 0;
+}

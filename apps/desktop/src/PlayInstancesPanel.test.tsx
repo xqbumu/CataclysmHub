@@ -399,6 +399,7 @@ it('starts a configured instance through a fresh backend plan without reopening 
   const onRefresh = vi.fn();
   render(
     <PlayInstancesPanel
+      home
       api={{
         ...api,
         desktop: true,

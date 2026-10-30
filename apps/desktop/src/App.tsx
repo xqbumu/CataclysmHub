@@ -1,3 +1,4 @@
+import FirstPlayFlow from './FirstPlayFlow';
 import InstanceContentPanel from './InstanceContentPanel';
 import WorkspaceSettings from './WorkspaceSettings';
 import RemoteCatalogPanel from './RemoteCatalogPanel';
@@ -19,7 +20,6 @@ import {
   Activity,
   Archive,
   ArrowRight,
-  ArrowUpRight,
   ChevronRight,
   CircleDot,
   FileText,
@@ -52,7 +52,7 @@ import {
 type Page =
   'overview' | 'games' | 'backups' | 'content' | 'activity' | 'settings';
 const pages: Record<Page, string> = {
-  overview: '总览',
+  overview: '游玩环境',
   games: '游戏库',
   backups: '存档与备份',
   content: '模组与声音',
@@ -139,12 +139,20 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
   const [backupView, setBackupView] = useState('archives');
   const [gameView, setGameView] = useState('instances');
   const [page, setPage] = useState<Page>('overview');
+  const [firstPlay, setFirstPlay] = useState<'download' | 'import' | null>(
+    null,
+  );
+  const [firstInstallationId, setFirstInstallationId] = useState('');
+  const [homeFocusId, setHomeFocusId] = useState('');
   const [data, setData] = useState(emptyDashboard);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [importing, setImporting] = useState(false);
+  const [importDestination, setImportDestination] = useState<
+    'library' | 'first-play'
+  >('library');
   const [name, setName] = useState('');
   const [executable, setExecutable] = useState('');
   const [launching, setLaunching] = useState<Installation | null>(null);
@@ -211,9 +219,6 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
     };
   }, [api]);
   const workspace = data.workspace;
-  const running = data.sessions.filter(
-    (s) => s.state === 'running' || s.state === 'starting',
-  );
   const unknown = data.sessions.filter(
     (s) => s.state === 'interrupted_unknown',
   );
@@ -224,6 +229,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
     }
   };
   function openImport() {
+    setImportDestination('library');
     setName('');
     setExecutable('');
     setImporting(true);
@@ -363,7 +369,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             selected={page === 'overview'}
             onClick={() => setPage('overview')}
           >
-            总览
+            游玩环境
           </NavItem>
           <NavItem
             icon={Gamepad2}
@@ -445,7 +451,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
               <h1>{pages[page]}</h1>
               <p>
                 {page === 'overview'
-                  ? '从一个实例开始，管理你的下一次游玩。'
+                  ? '找到你的游玩环境，启动游戏，或准备一次新的出发。'
                   : page === 'games'
                     ? '实例用于游玩，安装版本用于管理游戏程序。'
                     : page === 'backups'
@@ -457,7 +463,20 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                           : '查看本机数据位置与工作区配置。'}
               </p>
             </div>
-            {(page === 'overview' || page === 'games') && (
+            {page === 'overview' &&
+              data.play_instances.length > 0 &&
+              !firstPlay && (
+                <button
+                  className="secondary"
+                  onClick={() => {
+                    setFirstInstallationId('');
+                    setFirstPlay('import');
+                  }}
+                >
+                  添加游玩环境
+                </button>
+              )}
+            {page === 'games' && (
               <button
                 className="primary"
                 disabled={!workspace || busy || !api.desktop}
@@ -518,105 +537,114 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             </div>
           ) : (
             <>
-              {page === 'overview' && (
-                <>
-                  <div className="stats-grid">
-                    <Stat
-                      icon={Gamepad2}
-                      label="游玩实例"
-                      value={String(data.play_instances.length)}
-                      detail={`${data.installations.length} 个本地安装版本`}
+              {(page === 'overview' || !!firstPlay) && (
+                <div hidden={page !== 'overview'}>
+                  {firstPlay ? (
+                    <FirstPlayFlow
+                      api={api}
+                      data={data}
+                      defaults={defaultPaths}
+                      mode={firstPlay}
+                      installationId={firstInstallationId}
+                      onSelectInstallation={setFirstInstallationId}
+                      onRefresh={refresh}
+                      onImport={(path) => {
+                        if (path) {
+                          setExecutable(path);
+                          setName('');
+                          setImporting(true);
+                        } else openImport();
+                        setImportDestination('first-play');
+                      }}
+                      onClose={() => {
+                        setFirstPlay(null);
+                        setFirstInstallationId('');
+                      }}
+                      onDone={(id) => {
+                        setNotice('游玩环境已创建。首次启动请核对方案并确认。');
+                        setHomeFocusId(id);
+                        setFirstPlay(null);
+                        setFirstInstallationId('');
+                      }}
                     />
-                    <Stat
-                      icon={Activity}
-                      label="正在运行"
-                      value={String(running.length)}
-                      detail={
-                        unknown.length
-                          ? `${unknown.length} 个会话待确认`
-                          : '仅显示 Hub 监测的进程'
-                      }
+                  ) : data.play_instances.length > 0 ? (
+                    <PlayInstancesPanel
+                      key={settingsRevision}
+                      api={api}
+                      data={data}
+                      onRefresh={refresh}
+                      home
+                      focusId={homeFocusId}
                     />
-                    <Stat
-                      icon={Archive}
-                      label="保护副本"
-                      value={String(data.backups.length)}
-                      detail="完整性与游戏兼容性分别验证"
-                    />
-                  </div>
-                  {!workspace ? (
-                    setup
                   ) : (
-                    <section className="panel overview-actions">
-                      <h2>接下来做什么</h2>
-                      <div className="action-grid">
+                    <section className="panel play-welcome">
+                      <span className="eyebrow">CATACLYSM HUB</span>
+                      <h2>准备你的第一次游玩</h2>
+                      <p>选一个游戏版本，建立独立存档与配置，然后开始游戏。</p>
+                      <div className="welcome-choices">
                         <button
+                          className="primary"
                           onClick={() => {
-                            setGameView('instances');
-                            setPage('games');
+                            setFirstInstallationId('');
+                            setFirstPlay('download');
                           }}
                         >
                           <Gamepad2 />
-                          <span>
-                            <strong>管理游玩实例</strong>
-                            <small>启动、配置模组与声音</small>
-                          </span>
-                          <ArrowRight size={18} />
+                          获取游戏<span>从官方发布选择版本</span>
                         </button>
-                        <button onClick={() => setPage('backups')}>
-                          <Archive />
-                          <span>
-                            <strong>保护与恢复存档</strong>
-                            <small>选择范围、备份、核验与恢复</small>
-                          </span>
-                          <ArrowRight size={18} />
-                        </button>
-                        <button onClick={() => setPage('content')}>
-                          <Puzzle />
-                          <span>
-                            <strong>整理本地资源</strong>
-                            <small>登记模组和声音包</small>
-                          </span>
-                          <ArrowRight size={18} />
+                        <button
+                          className="secondary"
+                          onClick={() => {
+                            setFirstInstallationId('');
+                            setFirstPlay('import');
+                          }}
+                        >
+                          <FolderOpen />
+                          导入已有游戏<span>保留原安装与存档</span>
                         </button>
                       </div>
+                      {data.installations.length > 0 && (
+                        <button
+                          className="text-button"
+                          onClick={() => {
+                            setFirstInstallationId('');
+                            setFirstPlay('import');
+                          }}
+                        >
+                          使用已导入的版本创建环境
+                        </button>
+                      )}
+                      <p className="inline-note">
+                        每个环境使用独立数据目录。备份与恢复仍需明确选择范围和确认。
+                      </p>
                     </section>
                   )}
-                  <ResourceClaimsPanel
-                    claims={data.resource_claims}
-                    onAcknowledge={setAcknowledging}
-                    busy={busy}
-                  />
-                  <section className="panel recent">
-                    <div className="section-heading">
-                      <h2>最近操作</h2>
+                  {data.resource_claims.length > 0 && (
+                    <ResourceClaimsPanel
+                      claims={data.resource_claims}
+                      onAcknowledge={setAcknowledging}
+                      busy={busy}
+                    />
+                  )}
+                  {!firstPlay && data.play_instances.length > 0 && (
+                    <div className="home-utilities">
+                      <button
+                        className="secondary"
+                        onClick={() => setPage('backups')}
+                      >
+                        <Archive />
+                        存档与保护副本
+                      </button>
                       <button
                         className="text-button"
                         onClick={() => setPage('activity')}
                       >
-                        查看全部 <ArrowUpRight size={16} />
+                        <FileText />
+                        任务与运行记录
                       </button>
                     </div>
-                    {data.operations.length ? (
-                      data.operations.slice(0, 4).map((op) => (
-                        <div className="activity-item" key={op.id}>
-                          <Activity size={16} />
-                          <div>
-                            <strong>
-                              {actionNames[op.action] ?? op.action}
-                            </strong>
-                            <small>{statusNames[op.status] ?? op.status}</small>
-                          </div>
-                          <time>{time(op.created_at)}</time>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="muted">
-                        还没有操作记录。配置工作区后即可导入游戏。
-                      </p>
-                    )}
-                  </section>
-                </>
+                  )}
+                </div>
               )}
               {page === 'backups' && (
                 <WorkspaceTabs
@@ -734,6 +762,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                         <RemoteCatalogPanel
                           kind="game"
                           onImport={(path) => {
+                            setImportDestination('library');
                             setExecutable(path);
                             setName('');
                             setImporting(true);
@@ -854,12 +883,19 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
             onSubmit={(event) => {
               event.preventDefault();
               void act(async () => {
-                await api.importInstallation(executable, name);
+                const imported = await api.importInstallation(executable, name);
                 setImporting(false);
-                setPage('games');
-                setGameView('installations');
+                if (firstPlay && importDestination === 'first-play') {
+                  setFirstInstallationId(imported.id);
+                  setPage('overview');
+                } else {
+                  setPage('games');
+                  setGameView('installations');
+                }
                 setNotice(
-                  '安装已导入。可在安装卡查看登记版本，首次启动时会检查当前程序并推荐适用方案。',
+                  firstPlay && importDestination === 'first-play'
+                    ? '游戏已导入，接下来创建独立游玩环境。'
+                    : '安装已导入。可在安装卡查看登记版本，首次启动时会检查当前程序并推荐适用方案。',
                 );
               });
             }}
@@ -1094,33 +1130,6 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
         </Modal>
       )}
     </div>
-  );
-}
-function Stat({
-  icon: Icon,
-  label,
-  value,
-  detail,
-  warning,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: string;
-  detail: string;
-  warning?: boolean;
-}) {
-  return (
-    <section className="stat">
-      <div className="row-between">
-        <span>{label}</span>
-        <Icon size={17} />
-      </div>
-      <strong>{value}</strong>
-      <small className={warning ? 'amber-text' : ''}>
-        {warning && <span className="status-dot amber" />}
-        {detail}
-      </small>
-    </section>
   );
 }
 function EmptyLibrary({
