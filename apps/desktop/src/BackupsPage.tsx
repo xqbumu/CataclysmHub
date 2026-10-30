@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import {
   Archive,
   CircleHelp,
@@ -10,6 +10,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import Modal from './Modal';
+import PathActions from './PathActions';
 import RetentionPanel from './RetentionPanel';
 import BackupDetailsEditor from './BackupDetailsEditor';
 import { RestoreButton, RestoreTasks } from './RestoreWorkflow';
@@ -46,6 +47,7 @@ export default function BackupsPage({
   error,
   run,
   onConfigure,
+  initialSourceInstance = '',
 }: {
   api: HubApi;
   data: Dashboard;
@@ -53,11 +55,47 @@ export default function BackupsPage({
   error: string;
   run: (action: () => Promise<void>) => Promise<void>;
   onConfigure: () => void;
+  initialSourceInstance?: string;
 }) {
-  const [sourceInstance, setSourceInstance] = useState('');
+  const [sourceInstance, setSourceInstance] = useState(initialSourceInstance);
+  const [historySource, setHistorySource] = useState(
+    initialSourceInstance || 'all',
+  );
+  const [query, setQuery] = useState('');
+  const [verification, setVerification] = useState('all');
+  const source = data.play_instances.find((i) => i.id === sourceInstance);
+  const visibleBackups = data.backups
+    .filter((backup) => {
+      const instance = data.play_instances.find(
+        (i) => i.id === backup.play_instance_id,
+      );
+      return (
+        (historySource === 'all' ||
+          (historySource === 'workspace'
+            ? !backup.play_instance_id
+            : backup.play_instance_id === historySource)) &&
+        (verification === 'all' || backup.verification === verification) &&
+        [
+          backup.display_name,
+          backup.notes,
+          backup.id,
+          backup.source_root,
+          instance?.name,
+        ]
+          .join(' ')
+          .toLocaleLowerCase()
+          .includes(query.trim().toLocaleLowerCase())
+      );
+    })
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
   const [plan, setPlan] = useState<BackupPlan | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const requestKey = useRef<string | null>(null);
+  const toolbarRef = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (initialSourceInstance)
+      toolbarRef.current?.scrollIntoView?.({ block: 'start' });
+  }, [initialSourceInstance]);
   const active = data.backup_tasks.find((task) =>
     ['running', 'cancelling'].includes(task.state),
   );
@@ -102,7 +140,7 @@ export default function BackupsPage({
     );
   return (
     <div className="backups-page">
-      <section className="panel scan-toolbar">
+      <section className="panel scan-toolbar" ref={toolbarRef}>
         <div>
           <span className="eyebrow">INDEPENDENT FULL ARCHIVES</span>
           <h2>
@@ -116,6 +154,7 @@ export default function BackupsPage({
           备份来源
           <select
             aria-label="备份来源"
+            autoFocus={!!initialSourceInstance}
             value={sourceInstance}
             disabled={busy}
             onChange={(event) => {
@@ -150,6 +189,24 @@ export default function BackupsPage({
           <Archive size={16} />
           预览备份范围
         </button>
+      </section>
+      <section className="panel" aria-label="当前备份来源与位置">
+        <strong>{source ? source.name : '工作区存档根目录'}</strong>
+        <p>
+          {source
+            ? '保护整个实例数据根，包含 save、config 等普通文件；不包含游戏安装。'
+            : '仅保护工作区存档根目录，不自动包含其他游玩实例。'}
+        </p>
+        <details className="inline-details">
+          <summary>查看或打开来源与备份目录</summary>
+          <p>来源目录</p>
+          <PathActions
+            api={api}
+            path={source?.data_root ?? data.workspace.save_dir}
+          />
+          <p>独立备份目录</p>
+          <PathActions api={api} path={data.workspace.backup_dir} />
+        </details>
       </section>
       <div className="notice">
         <CircleHelp size={18} />
@@ -242,10 +299,67 @@ export default function BackupsPage({
         busy={busy}
         run={run}
       />
+      <section className="panel" aria-label="筛选保护副本">
+        <div className="backup-filters">
+          <label>
+            副本来源
+            <select
+              value={historySource}
+              onChange={(e) => setHistorySource(e.target.value)}
+            >
+              <option value="all">全部来源</option>
+              <option value="workspace">工作区存档根目录</option>
+              {data.play_instances.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            文件校验
+            <select
+              value={verification}
+              onChange={(e) => setVerification(e.target.value)}
+            >
+              <option value="all">全部状态</option>
+              <option value="verified">通过</option>
+              <option value="failed">失败</option>
+              <option value="unavailable">不可用</option>
+            </select>
+          </label>
+          <label>
+            搜索保护副本
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="名称、备注、环境或副本 ID"
+            />
+          </label>
+        </div>
+        <p role="status">
+          显示 {visibleBackups.length} / {data.backups.length}{' '}
+          个保护副本；筛选只影响历史列表，不改变上方备份来源。
+        </p>
+      </section>
+      {data.backups.length > 0 && visibleBackups.length === 0 && (
+        <section className="panel">
+          <h3>没有符合条件的保护副本</h3>
+          <button
+            onClick={() => {
+              setHistorySource('all');
+              setVerification('all');
+              setQuery('');
+            }}
+          >
+            清除筛选
+          </button>
+        </section>
+      )}
       {data.backups.length === 0 ? (
         <section className="panel empty-library">
           <Archive size={36} />
-          <h2>建立独立于 Git 的保护副本</h2>
+          <h2>还没有保护副本</h2>
           <p>
             范围确认后将复制原始字节、核对源数据，再生成可独立校验的完整归档。
             <br />
@@ -254,7 +368,7 @@ export default function BackupsPage({
         </section>
       ) : (
         <div className="backup-list">
-          {data.backups.map((backup) => (
+          {visibleBackups.map((backup) => (
             <article className="panel backup-record" key={backup.id}>
               <div className="row-between">
                 <div>

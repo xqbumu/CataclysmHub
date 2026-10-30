@@ -19,6 +19,7 @@ export default function PlayInstancesPanel({
   home = false,
   focusId = '',
   onOpenActivity,
+  onOpenBackups,
   onInstallationFilterChange,
 }: {
   api: HubApi;
@@ -28,6 +29,7 @@ export default function PlayInstancesPanel({
   home?: boolean;
   focusId?: string;
   onOpenActivity?: () => void;
+  onOpenBackups?: (instanceId: string) => void;
   onInstallationFilterChange?: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -526,6 +528,15 @@ export default function PlayInstancesPanel({
               </p>
             )}
             <div className="instance-actions">
+              {home && onOpenBackups && (
+                <button
+                  className="secondary"
+                  aria-label={`存档与备份 ${item.name}`}
+                  onClick={() => onOpenBackups(item.id)}
+                >
+                  存档与备份
+                </button>
+              )}
               <button
                 className="primary"
                 aria-label={`${launchLabel} ${item.name}`}

@@ -775,11 +775,13 @@ it.each([
   'offers macOS authorization help for exit %s and state %s without relaunching',
   async (exit_code, state) => {
     const onOpenActivity = vi.fn();
+    const onOpenBackups = vi.fn();
     const launch = vi.fn();
     render(
       <PlayInstancesPanel
         home
         onOpenActivity={onOpenActivity}
+        onOpenBackups={onOpenBackups}
         api={{ ...api, desktop: true, launch }}
         onRefresh={vi.fn()}
         data={{
@@ -864,6 +866,10 @@ it.each([
       expect(prepare).not.toHaveBeenCalled();
       prepare.mockRestore();
     }
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: '存档与备份 QA' }));
+    expect(onOpenBackups).toHaveBeenCalledWith('i');
     expect(launch).not.toHaveBeenCalled();
   },
 );

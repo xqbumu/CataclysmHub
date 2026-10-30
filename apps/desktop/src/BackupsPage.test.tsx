@@ -538,3 +538,102 @@ it('offers instance backup and restore previews while keeping verification block
   expect(api.backupPlan).not.toHaveBeenCalled();
   expect(api.createBackup).not.toHaveBeenCalled();
 });
+
+it('keeps history filters separate from the backup target and never restores while filtering', async () => {
+  const api = client();
+  const user = userEvent.setup();
+  vi.mocked(api.backupPlan).mockResolvedValue(plan);
+  show(api, {
+    ...emptyDashboard,
+    workspace,
+    backups: [
+      { ...record, id: 'workspace-copy', display_name: '工作区保护' },
+      {
+        ...record,
+        id: 'instance-copy',
+        display_name: '升级前',
+        notes: '独立测试备注',
+        play_instance_id: 'a',
+        source_root: '/isolated/a',
+        verification: 'failed',
+      },
+    ],
+    play_instances: [
+      {
+        id: 'a',
+        installation_id: 'g',
+        installation_sha256: 'hash',
+        name: '环境 A',
+        data_root: '/isolated/a',
+        binding_status: 'unverified',
+        created_at: workspace.created_at,
+      },
+    ],
+  });
+  await user.selectOptions(screen.getByLabelText('副本来源'), 'a');
+  expect(screen.queryByText('工作区保护')).not.toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: '升级前' })).toBeInTheDocument();
+  await user.type(screen.getByLabelText('搜索保护副本'), '独立测试备注');
+  await user.selectOptions(screen.getByLabelText('文件校验'), 'verified');
+  expect(screen.getByText('没有符合条件的保护副本')).toBeInTheDocument();
+  expect(screen.getByLabelText('备份来源')).toHaveValue('');
+  await user.click(screen.getByText('清除筛选'));
+  expect(
+    screen.getByRole('heading', { name: '工作区保护' }),
+  ).toBeInTheDocument();
+  expect(api.startRestore).not.toHaveBeenCalled();
+  expect(api.createBackup).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: '预览备份范围' }));
+  expect(api.backupPlan).toHaveBeenCalledOnce();
+  expect(api.instanceBackupPlan).not.toHaveBeenCalled();
+});
+
+it('opens a focused instance with its own source, history and directory actions', async () => {
+  const api = client();
+  const user = userEvent.setup();
+  vi.mocked(api.instanceBackupPlan).mockResolvedValue({
+    ...plan,
+    play_instance_id: 'a',
+    source_root: '/isolated/a',
+  });
+  render(
+    <BackupsPage
+      api={api}
+      initialSourceInstance="a"
+      data={{
+        ...emptyDashboard,
+        workspace,
+        play_instances: [
+          {
+            id: 'a',
+            installation_id: 'g',
+            installation_sha256: 'hash',
+            name: '环境 A',
+            data_root: '/isolated/a',
+            binding_status: 'unverified',
+            created_at: workspace.created_at,
+          },
+        ],
+        backups: [{ ...record, display_name: '其他来源' }],
+      }}
+      busy={false}
+      error=""
+      run={(action) => action()}
+      onConfigure={vi.fn()}
+    />,
+  );
+  expect(screen.getByLabelText('备份来源')).toHaveValue('a');
+  expect(screen.getByLabelText('副本来源')).toHaveValue('a');
+  expect(screen.queryByText('其他来源')).not.toBeInTheDocument();
+  await user.click(screen.getByText('查看或打开来源与备份目录'));
+  await user.click(
+    within(
+      screen.getByRole('region', { name: '当前备份来源与位置' }),
+    ).getAllByRole('button', { name: '打开目录' })[0],
+  );
+  expect(api.openWorkspacePath).toHaveBeenCalledWith('/isolated/a');
+  await user.click(screen.getByRole('button', { name: '预览备份范围' }));
+  expect(api.instanceBackupPlan).toHaveBeenCalledWith('a');
+  expect(api.backupPlan).not.toHaveBeenCalled();
+  expect(api.createBackup).not.toHaveBeenCalled();
+});

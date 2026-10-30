@@ -2617,3 +2617,30 @@ main {
   gap: 8px;
   margin-bottom: 16px;
 }
+
+.backup-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 12px;
+}
+.backup-filters label {
+  display: grid;
+  gap: 6px;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+
+.backup-record .row-between {
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.backup-record .row-between > div {
+  flex: 1 1 240px;
+  min-width: 0;
+}
+.backup-record .file-path {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}

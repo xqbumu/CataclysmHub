@@ -138,6 +138,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
   const [defaultPaths, setDefaultPaths] = useState<WorkspaceInput | null>(null);
   const [instanceFilter, setInstanceFilter] = useState('');
   const [backupView, setBackupView] = useState('archives');
+  const [backupFocusId, setBackupFocusId] = useState('');
   const [gameView, setGameView] = useState('instances');
   const [page, setPage] = useState<Page>('overview');
   const [firstPlay, setFirstPlay] = useState<'download' | 'import' | null>(
@@ -580,6 +581,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       onRefresh={refresh}
                       home
                       onOpenActivity={() => setPage('activity')}
+                      onOpenBackups={(id) => {
+                        setBackupFocusId(id);
+                        setBackupView('archives');
+                        setPage('backups');
+                      }}
                       focusId={homeFocusId}
                     />
                   ) : (
@@ -660,6 +666,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       label: '独立备份',
                       content: (
                         <BackupsPage
+                          initialSourceInstance={backupFocusId}
                           api={api}
                           data={data}
                           busy={busy}
@@ -696,6 +703,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       setSettingsRevision((r) => r + 1);
                       setGameView('instances');
                       setBackupView('archives');
+                      setBackupFocusId('');
                       setInstanceFilter('');
                       setInstallationQuery('');
                     }}
