@@ -188,3 +188,22 @@ it('offers cache verification instead of another download and explicitly confirm
   await waitFor(() => expect(c.extract).toHaveBeenCalledWith('cached'));
   expect(await screen.findByRole('status')).toHaveTextContent('/extracted');
 });
+
+it('recovers an existing transfer after remount and retains cancellation', async () => {
+  const c = client();
+  vi.mocked(c.progress).mockResolvedValue({
+    name: 'active.zip',
+    received: 12,
+    total: 100,
+  });
+  const first = render(<RemoteCatalogPanel kind="game" client={c} />);
+  await screen.findByText(/正在下载：active.zip/);
+  first.unmount();
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  await screen.findByText(/正在下载：active.zip/);
+  expect(c.download).not.toHaveBeenCalled();
+  await userEvent
+    .setup()
+    .click(screen.getByRole('button', { name: '取消下载' }));
+  expect(c.cancel).toHaveBeenCalledOnce();
+});

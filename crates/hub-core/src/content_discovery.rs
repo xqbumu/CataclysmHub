@@ -330,6 +330,13 @@ pub(crate) fn diagnose(report: &ContentConfigReport, out: &mut ContentDiscovery)
         .filter(|f| f.status == "read")
     {
         for id in &file.mod_ids {
+            if file.path == "config/user-default-mods.json"
+                && index
+                    .get(&("mod".into(), id.clone()))
+                    .is_some_and(|defs| defs.iter().any(|(_, d)| d.obsolete))
+            {
+                out.finding("obsolete_default_mod", &file.path, id, None);
+            }
             if let Some(definitions) = index.get(&("mod".into(), id.clone()))
                 && definitions.len() == 1
                 && let Some(deps) = &definitions[0].1.dependencies

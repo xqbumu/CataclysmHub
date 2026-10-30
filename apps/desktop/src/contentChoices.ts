@@ -8,6 +8,7 @@ export function contentChoices(report: ContentConfigReport, kind: string) {
       paths: string[];
       dependencies: string[] | null;
       version: string | null;
+      obsolete: boolean;
     }
   >();
   for (const pack of report.discovery.packages.filter((p) => p.kind === kind)) {
@@ -21,6 +22,7 @@ export function contentChoices(report: ContentConfigReport, kind: string) {
           paths: [pack.path],
           dependencies: definition.dependencies,
           version: definition.version,
+          obsolete: definition.obsolete,
         });
     }
   }

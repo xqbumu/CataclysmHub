@@ -160,3 +160,7 @@ create_instance_launch_plan 的 profileId 新增 cdda-0h-release-macos-native-tr
 ## 应用包启动脚本拒绝（2026-10-29）
 
 导入 `.app`、直接选择包内文件以及旧记录的启动预览/确认，共用包内脚本检查。脚本扩展名或 `#!` 头返回 `APPLICATION_LAUNCHER_UNSUPPORTED`，用户应选择实际游戏程序；直接包内选择经链接逃出应用包时返回 `APPLICATION_ENTRY_INVALID`。错误发生在安装登记或会话创建之前，不执行脚本，不修改历史记录。已有真实本体的导入与幂等保持；这不是完整 Mach-O 认证，独立程序的既有直接进程监测边界不变。
+
+### 资源过时标记（2026-10-30）
+
+`ContentDefinition.obsolete: boolean` 保留 MOD_INFO 的过时标记；缺省为 false，旧资源登记 JSON 缺少该字段仍可读取。声音包为 false。新世界默认组合若引用现场扫描中标记过时的模组，后端配置预览产生 `obsolete_default_mod`，现有配置发布诊断门禁拒绝应用；手写 ID 不绕过此检查。已有世界引用继续只读展示，不因该标记自动删除。该字段不表示游戏版本兼容认证。

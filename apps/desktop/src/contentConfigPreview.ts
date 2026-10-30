@@ -80,6 +80,8 @@ export function previewContentConfig(
           );
           continue;
         }
+        if (matches[0].obsolete)
+          addIssue(`${id}：过时模组不能用于新世界默认组合，旧世界引用应保留。`);
         const deps = matches[0].dependencies;
         if (deps === null) addIssue(`${id}：依赖声明未知。`);
         for (const dep of deps ?? []) {

@@ -440,3 +440,48 @@ async fn config_preview_rejects_duplicate_json_keys_and_preserves_noop_bytes() {
         original
     );
 }
+
+#[tokio::test]
+async fn obsolete_mods_remain_visible_for_old_worlds_but_diagnose_new_defaults() {
+    let f = Fixture::new().await;
+    f.write(
+        "mods/old/modinfo.json",
+        br#"{"type":"MOD_INFO","id":"old","name":"Old","dependencies":[],"obsolete":true}"#,
+    );
+    f.write(
+        "config/user-default-mods.json",
+        br#"{"type":"MOD_INFO","id":"user:default","dependencies":[]}"#,
+    );
+    f.write("save/Legacy/mods.json", br#"["old"]"#);
+    let report = f.hub.inspect_content_config("p").await.unwrap();
+    assert!(report.discovery.packages[0].definitions[0].obsolete);
+    assert!(
+        !report
+            .discovery
+            .findings
+            .iter()
+            .any(|f| f.code == "obsolete_default_mod")
+    );
+    let plan = f
+        .hub
+        .preview_content_config(
+            "p",
+            hub_core::ContentConfigInput {
+                default_mods: Some(vec!["old".into()]),
+                soundpack: None,
+                sound_enabled: None,
+            },
+        )
+        .await
+        .unwrap();
+    assert!(
+        plan.proposed_discovery
+            .findings
+            .iter()
+            .any(|f| f.code == "obsolete_default_mod")
+    );
+    assert_eq!(
+        std::fs::read(f.root.join("save/Legacy/mods.json")).unwrap(),
+        br#"["old"]"#
+    );
+}

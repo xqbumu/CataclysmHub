@@ -18,6 +18,8 @@ pub struct ContentDefinition {
     pub name: String,
     pub dependencies: Option<Vec<String>>,
     pub version: Option<String>,
+    #[serde(default)]
+    pub obsolete: bool,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct ContentEntry {
@@ -118,6 +120,11 @@ pub(crate) fn parse_metadata(kind: &str, bytes: &[u8]) -> Result<Vec<ContentDefi
                 name: value.get("name").and_then(text).ok_or_else(invalid)?,
                 dependencies,
                 version: value.get("version").and_then(text),
+                obsolete: match value.get("obsolete") {
+                    None => false,
+                    Some(Value::Bool(value)) => *value,
+                    _ => return Err(invalid()),
+                },
             });
         }
     } else {
@@ -145,6 +152,7 @@ pub(crate) fn parse_metadata(kind: &str, bytes: &[u8]) -> Result<Vec<ContentDefi
             name: fields.get("VIEW").ok_or_else(invalid)?.to_string(),
             dependencies: None,
             version: None,
+            obsolete: false,
         });
     }
     if definitions.is_empty() || definitions.len() > 256 {

@@ -80,7 +80,8 @@ export interface RemoteApi {
 }
 export const remoteApi: RemoteApi = {
   extract: (id) => invoke('extract_remote_download', { id }),
-  progress: () => invoke('remote_download_progress'),
+  progress: () =>
+    isTauri() ? invoke('remote_download_progress') : Promise.resolve(null),
   cancel: () => invoke('cancel_remote_download'),
   remove: (id) => invoke('remove_remote_download', { id }),
   view: () =>

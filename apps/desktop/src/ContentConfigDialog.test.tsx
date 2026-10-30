@@ -181,21 +181,18 @@ it('previews an explicit empty default without changing existing worlds and inva
   expect(report.default_mods.mod_ids).toEqual(['dda']);
 });
 
-it('previews sound enablement with unknown baseline without inventing default values', async () => {
-  const user = userEvent.setup();
-  render(<ContentConfigDialog report={report} onClose={vi.fn()} />);
-  await userEvent.setup().click(screen.getByRole('tab', { name: '修改配置' }));
-  await user.selectOptions(screen.getByLabelText('声音开关草稿'), 'true');
-  await user.click(screen.getByRole('button', { name: '比较配置草稿' }));
-  expect(screen.getByLabelText('配置草稿结果')).toHaveTextContent(
-    '原声明：未知',
-  );
-  expect(screen.getByLabelText('配置草稿结果')).toHaveTextContent(
-    '草稿："true"',
-  );
-  expect(
-    screen.queryByRole('button', { name: /应用|确认写入/ }),
-  ).not.toBeInTheDocument();
+it('keeps unknown sound baselines explicit in diagnostic drafts', () => {
+  const result = previewContentConfig(report, {
+    defaultMods: null,
+    soundpack: null,
+    soundEnabled: 'true',
+  });
+  expect(result.differences[0]).toMatchObject({
+    before: null,
+    after: 'true',
+    baselineKnown: false,
+  });
+  expect(result.issues.join(' ')).toContain('原值未知');
 });
 
 it('preserves no-change intent and reports order-only changes without altering source data', () => {
@@ -265,12 +262,14 @@ it('checks proposed dependencies against candidate definitions rather than catal
                 name: 'Local',
                 dependencies: ['dda'],
                 version: null,
+                obsolete: false,
               },
               {
                 content_id: 'unknown',
                 name: 'Unknown',
                 dependencies: null,
                 version: null,
+                obsolete: false,
               },
             ],
           },
@@ -307,6 +306,7 @@ it('does not choose duplicate candidate sources and bounds large dependency diag
     name: 'Duplicate',
     dependencies: [],
     version: null,
+    obsolete: false,
   };
   const duplicateReport = {
     ...report,
@@ -349,6 +349,7 @@ it('does not choose duplicate candidate sources and bounds large dependency diag
             content_id: id,
             name: id,
             version: null,
+            obsolete: false,
             dependencies: ['missing1', 'missing2'],
           })),
         },
@@ -382,7 +383,7 @@ it('only requests a fresh backend preview on explicit action and shows its new b
   const previewContentConfig = vi.fn().mockResolvedValue(plan);
   render(
     <ContentConfigDialog
-      report={report}
+      report={{ ...report, sound: { ...report.sound, status: 'read' } }}
       api={{ previewContentConfig }}
       onClose={vi.fn()}
     />,
@@ -418,7 +419,7 @@ it('discards an in-flight backend preview after editing the draft', async () => 
   const previewContentConfig = vi.fn().mockReturnValue(pending);
   render(
     <ContentConfigDialog
-      report={report}
+      report={{ ...report, sound: { ...report.sound, status: 'read' } }}
       api={{ previewContentConfig }}
       onClose={vi.fn()}
     />,
@@ -600,11 +601,12 @@ it('selects discovered resources for this instance and preserves explicit mod or
     content_id: string,
     name: string,
     dependencies: string[] = [],
-  ) => ({ content_id, name, dependencies, version: null });
+  ) => ({ content_id, name, dependencies, version: null, obsolete: false });
   render(
     <ContentConfigDialog
       report={{
         ...report,
+        sound: { ...report.sound, status: 'read' },
         discovery: {
           ...report.discovery,
           packages: [
@@ -668,4 +670,59 @@ it('selects discovered resources for this instance and preserves explicit mod or
   await user.click(screen.getByRole('button', { name: '移除 extra' }));
   expect(screen.queryByLabelText('配置草稿结果')).not.toBeInTheDocument();
   expect(report.default_mods.mod_ids).toEqual(['dda']);
+});
+
+it('disables missing-file edits and explains game initialization', async () => {
+  render(
+    <ContentConfigDialog
+      report={{
+        ...report,
+        default_mods: { ...report.default_mods, status: 'missing' },
+      }}
+      onClose={vi.fn()}
+    />,
+  );
+  await userEvent.setup().click(screen.getByRole('tab', { name: '修改配置' }));
+  expect(
+    screen.getByRole('checkbox', { name: '拟调整新世界默认模组' }),
+  ).toBeDisabled();
+  expect(screen.getByRole('checkbox', { name: '拟调整声音包' })).toBeDisabled();
+  expect(screen.getByRole('combobox', { name: '声音开关草稿' })).toBeDisabled();
+  expect(
+    screen.getByText(/请先启动游戏，在游戏中保存默认模组设置/),
+  ).toBeInTheDocument();
+});
+
+it('keeps obsolete mods visible but disables adding them to new-world defaults', async () => {
+  render(
+    <ContentConfigDialog
+      report={{
+        ...report,
+        discovery: {
+          ...report.discovery,
+          packages: [
+            {
+              path: '/mods/old',
+              kind: 'mod',
+              metadata_sha256: 'old',
+              definitions: [
+                {
+                  content_id: 'old',
+                  name: '旧模组',
+                  dependencies: [],
+                  version: null,
+                  obsolete: true,
+                },
+              ],
+            },
+          ],
+        },
+      }}
+      onClose={vi.fn()}
+    />,
+  );
+  const u = userEvent.setup();
+  await u.click(screen.getByRole('tab', { name: '修改配置' }));
+  await u.click(screen.getByRole('checkbox', { name: '拟调整新世界默认模组' }));
+  expect(screen.getByRole('option', { name: /旧模组.*过时/ })).toBeDisabled();
 });

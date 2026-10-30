@@ -11,6 +11,7 @@ const labels: Record<string, string> = {
   partial: '仅部分读取',
   changed: '目录身份变化，已丢弃该范围包记录',
   limit_exceeded: '超过读取限制',
+  obsolete_default_mod: '过时模组不能用于新世界默认组合；旧世界引用保留',
   duplicate_id: '重复 ID，未选择覆盖赢家',
   dependencies_unknown: '未声明依赖，依赖情况未知',
   dependency_not_observed: '依赖未在本次候选范围中发现',

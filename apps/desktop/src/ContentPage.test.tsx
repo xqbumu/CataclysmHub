@@ -14,6 +14,7 @@ const entry: ContentEntry = {
       name: 'Example',
       dependencies: ['dda'],
       version: null,
+      obsolete: false,
     },
   ],
   metadata_sha256: 'a'.repeat(64),

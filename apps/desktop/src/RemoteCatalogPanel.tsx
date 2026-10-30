@@ -39,21 +39,31 @@ export default function RemoteCatalogPanel({
   const [transfer, setTransfer] = useState<RemoteTransfer | null>(null);
   const [downloading, setDownloading] = useState(false);
   useEffect(() => {
-    if (!downloading) return;
     let alive = true;
-    const timer = setInterval(() => {
-      void client
-        .progress()
-        .then((p) => {
-          if (alive) setTransfer(p);
-        })
-        .catch(() => {});
-    }, 500);
+    let timer: ReturnType<typeof setTimeout>;
+    let observed = false;
+    async function poll() {
+      try {
+        const progress = await client.progress();
+        if (!alive) return;
+        setTransfer(progress);
+        if (observed && !progress) {
+          const current = await client.view();
+          if (alive) setView(current);
+        }
+        observed = !!progress;
+      } catch {
+        // Catalog errors remain visible through the existing explicit operations.
+      } finally {
+        if (alive) timer = setTimeout(() => void poll(), 500);
+      }
+    }
+    void poll();
     return () => {
       alive = false;
-      clearInterval(timer);
+      clearTimeout(timer);
     };
-  }, [client, downloading]);
+  }, [client]);
   const [extracting, setExtracting] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   useEffect(() => {
@@ -152,7 +162,7 @@ export default function RemoteCatalogPanel({
           {kind === 'game' ? '游戏分支' : '资源项目'}
           <select
             value={selected}
-            disabled={busy || !sources.length}
+            disabled={busy || !!transfer || !sources.length}
             onChange={(e) => {
               setSelected(e.target.value);
               setQuery('');
@@ -176,10 +186,26 @@ export default function RemoteCatalogPanel({
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
-        <button disabled={busy || !selected} onClick={() => void update()}>
+        <button
+          disabled={busy || !!transfer || !selected}
+          onClick={() => void update()}
+        >
           {busy ? '处理中…' : '更新版本'}
         </button>
       </div>
+      {transfer && !downloading && (
+        <div role="status">
+          正在下载：{transfer.name} · {(transfer.received / 1048576).toFixed(1)}{' '}
+          MiB / {size(transfer.total)}
+          <button
+            onClick={() =>
+              void client.cancel().catch((e) => setError(message(e)))
+            }
+          >
+            取消下载
+          </button>
+        </div>
+      )}
       {source && (
         <p className="inline-note">
           <a
@@ -262,7 +288,7 @@ export default function RemoteCatalogPanel({
                     )}
                   </small>
                   <button
-                    disabled={busy}
+                    disabled={busy || !!transfer}
                     onClick={() =>
                       setPending({ source: selected, release: r, asset: a })
                     }
@@ -305,7 +331,11 @@ export default function RemoteCatalogPanel({
                 复制下载包路径
               </button>
               <button
-                disabled={busy || !/\.(zip|tar|tar\.gz|tgz)$/i.test(d.name)}
+                disabled={
+                  busy ||
+                  !!transfer ||
+                  !/\.(zip|tar|tar\.gz|tgz)$/i.test(d.name)
+                }
                 onClick={() => setExtracting(d.id)}
               >
                 解压到独立目录
@@ -324,7 +354,10 @@ export default function RemoteCatalogPanel({
                   ? '下载时与上游摘要匹配'
                   : '本地下载摘要，上游未提供校验值'}
               </small>
-              <button disabled={busy} onClick={() => setRemoving(d.id)}>
+              <button
+                disabled={busy || !!transfer}
+                onClick={() => setRemoving(d.id)}
+              >
                 删除下载包
               </button>
             </details>
@@ -372,11 +405,14 @@ export default function RemoteCatalogPanel({
             解压后游戏通过本地导入登记；资源合集需选择单个包登记。解压不代表已安装或已启用。
           </p>
           {error && <p role="alert">{error}</p>}
-          <button disabled={busy} onClick={() => setExtracting(null)}>
+          <button
+            disabled={busy || !!transfer}
+            onClick={() => setExtracting(null)}
+          >
             取消
           </button>
           <button
-            disabled={busy}
+            disabled={busy || !!transfer}
             onClick={() => {
               setBusy(true);
               setError('');
@@ -406,11 +442,14 @@ export default function RemoteCatalogPanel({
             仅删除这份已下载的原始包与下载记录；保留已解压文件、资源登记、游戏和实例数据。
           </p>
           {error && <p role="alert">{error}</p>}
-          <button disabled={busy} onClick={() => setRemoving(null)}>
+          <button
+            disabled={busy || !!transfer}
+            onClick={() => setRemoving(null)}
+          >
             取消
           </button>
           <button
-            disabled={busy}
+            disabled={busy || !!transfer}
             onClick={() => {
               setBusy(true);
               setError('');
@@ -464,10 +503,13 @@ export default function RemoteCatalogPanel({
             </button>
           )}
           {error && <p role="alert">{error}</p>}
-          <button disabled={busy} onClick={() => setPending(null)}>
+          <button
+            disabled={busy || !!transfer}
+            onClick={() => setPending(null)}
+          >
             取消
           </button>
-          <button disabled={busy} onClick={() => void download()}>
+          <button disabled={busy || !!transfer} onClick={() => void download()}>
             {busy ? '下载并校验中…' : '确认下载'}
           </button>
         </Modal>

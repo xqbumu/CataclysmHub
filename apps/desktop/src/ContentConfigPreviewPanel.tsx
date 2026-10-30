@@ -92,6 +92,7 @@ export default function ContentConfigPreviewPanel({
         <input
           type="checkbox"
           checked={editMods}
+          disabled={report.default_mods.status !== 'read'}
           onChange={(event) => {
             setEditMods(event.target.checked);
             invalidate();
@@ -99,6 +100,14 @@ export default function ContentConfigPreviewPanel({
         />
         拟调整新世界默认模组
       </label>
+      {report.default_mods.status !== 'read' && (
+        <p role="status">
+          默认模组配置尚不可编辑：
+          {report.default_mods.status === 'missing'
+            ? '请先启动游戏，在游戏中保存默认模组设置，再重新读取。'
+            : '请检查文件读取或格式问题，再重新读取；不会覆盖异常文件。'}
+        </p>
+      )}
       {editMods && (
         <div>
           <p className="inline-note">
@@ -114,12 +123,17 @@ export default function ContentConfigPreviewPanel({
                   key={choice.id}
                   value={choice.id}
                   disabled={
+                    choice.obsolete ||
                     choice.paths.length > 1 ||
                     selectedMods(mods).includes(choice.id)
                   }
                 >
                   {choice.name} · {choice.id}
-                  {choice.paths.length > 1 ? '（重复 ID）' : ''}
+                  {choice.obsolete
+                    ? '（过时，仅供旧存档）'
+                    : choice.paths.length > 1
+                      ? '（重复 ID）'
+                      : ''}
                 </option>
               ))}
             </select>
@@ -209,6 +223,7 @@ export default function ContentConfigPreviewPanel({
         <input
           type="checkbox"
           checked={editSound}
+          disabled={report.sound.status !== 'read'}
           onChange={(event) => {
             setEditSound(event.target.checked);
             invalidate();
@@ -216,6 +231,14 @@ export default function ContentConfigPreviewPanel({
         />
         拟调整声音包
       </label>
+      {report.sound.status !== 'read' && (
+        <p role="status">
+          声音配置尚不可编辑：
+          {report.sound.status === 'missing'
+            ? '请先启动游戏并保存设置，再重新读取。'
+            : '请检查文件读取或格式问题，再重新读取；不会覆盖异常文件。'}
+        </p>
+      )}
       {editSound && (
         <div>
           <label>
@@ -262,6 +285,7 @@ export default function ContentConfigPreviewPanel({
         声音开关草稿
         <select
           value={enabled}
+          disabled={report.sound.status !== 'read'}
           onChange={(event) => {
             const value = event.target.value;
             if (value === 'keep' || value === 'true' || value === 'false')

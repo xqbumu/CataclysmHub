@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "e0230a2",
+  "scope": [
+    "F1 obsolete mods",
+    "F2 transfer recovery after remount",
+    "F3 unavailable configuration editing"
+  ],
+  "checks": {
+    "frontend_tests": {
+      "command": "npm run test -w @cataclysm-hub/desktop -- --maxWorkers=2",
+      "passed": 134,
+      "files": 19
+    },
+    "frontend_build": {
+      "command": "npm run build",
+      "exit_code": 0
+    },
+    "format": {
+      "command": "npm run format:check",
+      "exit_code": 0
+    },
+    "core_tests": {
+      "command": "cargo test -p hub-core --locked -- --test-threads=2",
+      "passed": 274
+    },
+    "clippy": {
+      "command": "cargo clippy -p hub-core --all-targets --locked -- -D warnings",
+      "exit_code": 0
+    },
+    "rust_format": {
+      "command": "cargo fmt --all -- --check",
+      "exit_code": 0
+    }
+  },
+  "initial_failures": [
+    "Old missing-file component fixtures updated to distinguish editable and unavailable configurations.",
+    "Initial concurrent runs hit frontend 5s and restore-fixture 30s deadlines; bounded concurrency passed without raising timeouts."
+  ],
+  "real_game_executed": false,
+  "player_data_modified": false,
+  "native_bundle_built": false,
+  "pending": [
+    "F4 historical releases",
+    "F5 extraction to import actions"
+  ]
+}
