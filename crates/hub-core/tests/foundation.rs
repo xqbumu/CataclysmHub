@@ -376,7 +376,7 @@ async fn schema15_upgrade_retains_legacy_directories_without_inventing_a_root() 
     ))
     .await
     .unwrap();
-    sqlx::raw_sql("ALTER TABLE workspace DROP COLUMN root_dir; PRAGMA user_version=15;")
+    sqlx::raw_sql("DROP TABLE automatic_backup_run; DROP TABLE automatic_backup_policy; ALTER TABLE workspace DROP COLUMN root_dir; PRAGMA user_version=15;")
         .execute(&pool)
         .await
         .unwrap();

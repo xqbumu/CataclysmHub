@@ -36,7 +36,7 @@ export default function HubSettings({
     <section className="panel">
       <h2>重置 Hub 配置</h2>
       <p>
-        将已保存的实例启动方案恢复为“未选择”，并清空本次界面的筛选状态。执行前自动保存
+        将实例启动方案恢复为“未选择”、自动备份策略恢复为默认关闭，并清空本次界面的筛选状态。执行前自动保存
         JSON 配置备份；备份失败不重置。
       </p>
       <p className="inline-note">
@@ -60,7 +60,7 @@ export default function HubSettings({
         >
           <p>
             将清除 {Object.keys(preview.instance_profiles).length}{' '}
-            个实例的已保存启动方案。以后启动时需重新选择；现有游戏会话和保护状态不变。
+            个实例的已保存启动方案，并重置各实例自动备份与保留规则。以后启动时需重新选择；已开始的备份任务和保护记录不变，旧策略会一同备份。
           </p>
           <details>
             <summary>查看将备份的启动偏好</summary>

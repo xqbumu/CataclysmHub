@@ -1,0 +1,11 @@
+{
+  "backup_id": "76e9f5da-cbee-4608-8359-f003aa357341",
+  "file_count": 123,
+  "entry_count": 144,
+  "total_bytes": "1588505",
+  "consistency": "best_effort",
+  "archive_sha256": "2f91c9f96dd2872eca37e1cd10ff89089c0948dd53dc4e353c6044ac923e7d19",
+  "manifest_sha256": "6ed461aecaadb3b97f6a863c423320748bedb1a994f74f45c8cee59ca5448460",
+  "verified_at": "2026-10-30T06:17:01.378172+00:00",
+  "receipt_present": true
+}

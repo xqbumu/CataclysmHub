@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     hub_core::InstallationQuarantinePlan::export_all(&cfg)?;
     hub_core::InstallationQuarantineResult::export_all(&cfg)?;
     hub_core::InstallationRecognition::export_all(&cfg)?;
+    hub_core::AutomaticBackupPolicy::export_all(&cfg)?;
     hub_core::HubPreferences::export_all(&cfg)?;
     hub_core::PreferencesReset::export_all(&cfg)?;
     hub_core::ContentConfigReport::export_all(&cfg)?;

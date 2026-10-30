@@ -465,7 +465,7 @@ async fn schema_nine_upgrade_keeps_snapshot_and_failed_schema_ten_rolls_back_cre
         if fail {
             sqlx::raw_sql("CREATE TABLE collision (id TEXT); CREATE INDEX installation_copy_created ON collision(id);").execute(&pool).await.unwrap();
         }
-        sqlx::query("ALTER TABLE workspace DROP COLUMN root_dir")
+        sqlx::raw_sql("DROP TABLE automatic_backup_run; DROP TABLE automatic_backup_policy; ALTER TABLE workspace DROP COLUMN root_dir;")
             .execute(&pool)
             .await
             .unwrap();
@@ -495,7 +495,7 @@ async fn schema_nine_upgrade_keeps_snapshot_and_failed_schema_ten_rolls_back_cre
                 .fetch_one(&pool)
                 .await
                 .unwrap(),
-            if fail { 9 } else { 16 }
+            if fail { 9 } else { 17 }
         );
         if fail {
             assert_eq!(sqlx::query_scalar::<_,i64>("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='installation_copy_task'").fetch_one(&pool).await.unwrap(),0);

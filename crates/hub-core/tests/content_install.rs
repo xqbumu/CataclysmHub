@@ -306,7 +306,7 @@ async fn schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision() {
                 .await
                 .unwrap();
         }
-        sqlx::query("ALTER TABLE workspace DROP COLUMN root_dir")
+        sqlx::raw_sql("DROP TABLE automatic_backup_run; DROP TABLE automatic_backup_policy; ALTER TABLE workspace DROP COLUMN root_dir;")
             .execute(&pool)
             .await
             .unwrap();
@@ -336,7 +336,7 @@ async fn schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision() {
                 .fetch_one(&pool)
                 .await
                 .unwrap(),
-            if fail { 11 } else { 16 }
+            if fail { 11 } else { 17 }
         );
         assert!(
             std::fs::read_dir(f.temp.path().join("metadata"))

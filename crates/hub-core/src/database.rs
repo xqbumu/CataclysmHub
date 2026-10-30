@@ -97,7 +97,7 @@ impl Hub {
             .fetch_one(&pool)
             .await
             .map_err(HubError::db)?;
-        if version > 16 {
+        if version > 17 {
             return Err(HubError::new(
                 "SCHEMA_UNSUPPORTED",
                 "元数据来自更新版本，当前应用不会修改它。",
@@ -121,7 +121,7 @@ impl Hub {
                 .map_err(HubError::db)?;
             tx.commit().await.map_err(HubError::db)?;
         }
-        if version > 0 && version < 16 {
+        if version > 0 && version < 17 {
             let backup = data_dir.join(format!("metadata-v{version}-{}.sqlite", id()));
             sqlx::query("VACUUM INTO ?")
                 .bind(paths::text(&backup)?)
@@ -162,7 +162,7 @@ impl Hub {
                     HubError::new("MIGRATION_BACKUP_FAILED", "无法持久保存元数据备份。")
                 })?;
         }
-        if version < 16 {
+        if version < 17 {
             let mut tx = pool.begin().await.map_err(HubError::db)?;
             if version < 2 {
                 sqlx::raw_sql(include_str!("migration-002.sql"))
@@ -318,7 +318,18 @@ impl Hub {
                         )
                     })?;
             }
-            sqlx::raw_sql(include_str!("migration-016.sql"))
+            if version < 16 {
+                sqlx::raw_sql(include_str!("migration-016.sql"))
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|_| {
+                        HubError::new(
+                            "DB_MIGRATION_FAILED",
+                            "元数据升级失败，原版本和备份已保留。",
+                        )
+                    })?;
+            }
+            sqlx::raw_sql(include_str!("migration-017.sql"))
                 .execute(&mut *tx)
                 .await
                 .map_err(|_| {
@@ -350,6 +361,8 @@ impl Hub {
         });
         // A previous child may still be alive. Never infer exit or a stable save from app restart.
         let mut tx = hub.pool.begin().await.map_err(HubError::db)?;
+        sqlx::query("UPDATE automatic_backup_run SET status='interrupted',error_code='AUTO_BACKUP_INTERRUPTED' WHERE status='checking'")
+            .execute(&mut *tx).await.map_err(HubError::db)?;
         let interrupted_config: Vec<String> =
             sqlx::query_scalar("SELECT id FROM config_change WHERE state='applying'")
                 .fetch_all(&mut *tx)

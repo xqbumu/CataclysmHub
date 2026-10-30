@@ -92,3 +92,6 @@ mod application_entry;
 
 mod installation_quarantine;
 pub use installation_quarantine::{InstallationQuarantinePlan, InstallationQuarantineResult};
+
+mod automatic_backup;
+pub use automatic_backup::{AutomaticBackupPolicy, AutomaticBackupSettings};

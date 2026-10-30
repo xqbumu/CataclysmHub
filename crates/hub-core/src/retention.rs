@@ -182,13 +182,29 @@ fn calculate(
 }
 impl Hub {
     pub async fn preview_retention(&self, policy: RetentionPolicy) -> Result<RetentionPreview> {
+        self.preview_retention_scope(None, policy).await
+    }
+    pub async fn preview_instance_retention(
+        &self,
+        instance_id: &str,
+        policy: RetentionPolicy,
+    ) -> Result<RetentionPreview> {
+        self.instance(instance_id).await?;
+        self.preview_retention_scope(Some(instance_id), policy)
+            .await
+    }
+    async fn preview_retention_scope(
+        &self,
+        instance_id: Option<&str>,
+        policy: RetentionPolicy,
+    ) -> Result<RetentionPreview> {
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
         let workspace: Option<String> = sqlx::query_scalar("SELECT id FROM workspace LIMIT 1")
             .fetch_optional(&mut *tx)
             .await
             .map_err(HubError::db)?;
         let workspace = workspace.ok_or(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"))?;
-        let rows=sqlx::query_as::<_,Snapshot>("SELECT b.id,b.display_name,b.created_at,b.total_bytes,b.metadata_revision,b.retention_locked,b.verification,b.consistency,COALESCE(refs.referenced,0) AS referenced FROM backup_archive b LEFT JOIN (SELECT backup_id,1 AS referenced FROM restore_task GROUP BY backup_id) refs ON refs.backup_id=b.id WHERE b.workspace_id=? AND b.play_instance_id IS NULL ORDER BY b.id LIMIT 5001").bind(workspace).fetch_all(&mut *tx).await.map_err(HubError::db)?;
+        let rows=sqlx::query_as::<_,Snapshot>("SELECT b.id,b.display_name,b.created_at,b.total_bytes,b.metadata_revision,b.retention_locked,b.verification,b.consistency,COALESCE(refs.referenced,0) AS referenced FROM backup_archive b LEFT JOIN (SELECT backup_id,1 AS referenced FROM restore_task GROUP BY backup_id) refs ON refs.backup_id=b.id WHERE b.workspace_id=? AND ((? IS NULL AND b.play_instance_id IS NULL) OR b.play_instance_id=?) ORDER BY b.id LIMIT 5001").bind(workspace).bind(instance_id).bind(instance_id).fetch_all(&mut *tx).await.map_err(HubError::db)?;
         if rows.len() > 5000 {
             return Err(HubError::new(
                 "RETENTION_LIMIT_EXCEEDED",
@@ -196,7 +212,13 @@ impl Hub {
             ));
         }
         tx.commit().await.map_err(HubError::db)?;
-        calculate(rows, policy, Utc::now())
+        let mut report = calculate(rows, policy, Utc::now())?;
+        if let Some(instance_id) = instance_id {
+            report.scope = format!("instance_data_root:{instance_id}");
+            report.warnings[2] =
+                "仅覆盖所选实例的完整数据备份，不与其他实例或工作区存档混算；未开放删除。".into();
+        }
+        Ok(report)
     }
 }
 

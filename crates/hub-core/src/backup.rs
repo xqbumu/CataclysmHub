@@ -466,6 +466,12 @@ impl Hub {
     }
     pub async fn prepare_instance_backup(&self, instance_id: &str) -> Result<BackupPlan> {
         let _guard = self.mutation.lock().await;
+        self.prepare_instance_backup_inner(instance_id).await
+    }
+    pub(crate) async fn prepare_instance_backup_inner(
+        &self,
+        instance_id: &str,
+    ) -> Result<BackupPlan> {
         let instance = self.instance(instance_id).await?;
         if !format::valid_instance_provenance(
             &instance.id,
@@ -629,6 +635,15 @@ impl Hub {
                 "请检查备份范围并确认尽力快照风险。",
             ));
         }
+        self.create_backup_inner(plan_id, digest, request_key).await
+    }
+    // Caller holds the mutation gate and has obtained explicit manual or saved policy consent.
+    pub(crate) async fn create_backup_inner(
+        self: &Arc<Self>,
+        plan_id: &str,
+        digest: &str,
+        request_key: &str,
+    ) -> Result<BackupTask> {
         let request_digest = sha(format!("create:{plan_id}:{digest}").as_bytes());
         if let Some(task) = self
             .existing_backup_task(request_key, &request_digest)

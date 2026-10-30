@@ -335,7 +335,7 @@ async fn schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot() 
     let f = Fixture::new().await;
     let data = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; PRAGMA user_version=8;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE automatic_backup_run; DROP TABLE automatic_backup_policy; ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; ALTER TABLE backup_archive DROP COLUMN source_root; PRAGMA user_version=8;").execute(&pool).await.unwrap();
     pool.close().await;
     drop(f.hub);
     let hub = Hub::open(&data).await.unwrap();
@@ -351,7 +351,7 @@ async fn schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot() 
             .fetch_one(&pool)
             .await
             .unwrap(),
-        16
+        17
     );
     let snapshot = std::fs::read_dir(&data)
         .unwrap()
@@ -391,7 +391,7 @@ async fn failed_schema_nine_migration_rolls_back_earlier_source_columns() {
     let f = Fixture::new().await;
     let data = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; PRAGMA user_version=8;").execute(&pool).await.unwrap();
+    sqlx::raw_sql("DROP TABLE automatic_backup_run; DROP TABLE automatic_backup_policy; ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; DROP TABLE config_change; DROP TABLE content_install_task; DROP TABLE content_entry; DROP TABLE installation_copy_task; ALTER TABLE backup_task DROP COLUMN play_instance_id; ALTER TABLE backup_task DROP COLUMN source_root; ALTER TABLE backup_archive DROP COLUMN play_instance_id; PRAGMA user_version=8;").execute(&pool).await.unwrap();
     pool.close().await;
     drop(f.hub);
     assert_eq!(
@@ -929,7 +929,7 @@ async fn schema_twelve_upgrade_preserves_instance_backup_and_snapshots_old_metad
     assert_eq!(backup.state, "succeeded");
     let metadata = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; DROP TABLE config_change; PRAGMA user_version=12;")
+    sqlx::raw_sql("DROP TABLE automatic_backup_run; DROP TABLE automatic_backup_policy; ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; DROP TABLE config_change; PRAGMA user_version=12;")
         .execute(&pool)
         .await
         .unwrap();
@@ -1196,7 +1196,7 @@ async fn schema_thirteen_upgrade_keeps_existing_config_history_and_snapshots_dat
     assert_eq!(config_wait(&f.hub, &started.id).await.state, "applied");
     let metadata = f.path("metadata");
     let pool = f.pool().await;
-    sqlx::raw_sql("ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; ALTER TABLE config_change DROP COLUMN rollback_of; PRAGMA user_version=13;")
+    sqlx::raw_sql("DROP TABLE automatic_backup_run; DROP TABLE automatic_backup_policy; ALTER TABLE workspace DROP COLUMN root_dir; DROP TABLE hub_preferences; ALTER TABLE config_change DROP COLUMN rollback_of; PRAGMA user_version=13;")
         .execute(&pool)
         .await
         .unwrap();
@@ -1498,5 +1498,56 @@ async fn restored_instance_registration_rechecks_bytes_and_requires_original_ins
     assert_eq!(
         std::fs::read(data.join("save/world.dat")).unwrap(),
         b"instance A world"
+    );
+}
+
+#[tokio::test]
+async fn retention_previews_keep_instance_histories_separate_and_protect_named_backups() {
+    let f = Fixture::new().await;
+    let a = f.create(&f.a).await;
+    assert_eq!(a.state, "succeeded");
+    let b = f.create(&f.b).await;
+    assert_eq!(b.state, "succeeded");
+    let policy = hub_core::RetentionPolicy {
+        keep_recent: 0,
+        daily_days: 0,
+        weekly_weeks: 0,
+    };
+    let report = f
+        .hub
+        .preview_instance_retention(&f.a, policy.clone())
+        .await
+        .unwrap();
+    assert_eq!(report.scope, format!("instance_data_root:{}", f.a));
+    assert_eq!(report.items.len(), 1);
+    assert_eq!(report.items[0].backup_id, a.backup_id);
+    assert!(!report.deletion_available);
+    let pool = f.pool().await;
+    sqlx::query("UPDATE backup_archive SET display_name='important',retention_locked=1 WHERE id=?")
+        .bind(&a.backup_id)
+        .execute(&pool)
+        .await
+        .unwrap();
+    let report = f
+        .hub
+        .preview_instance_retention(&f.a, policy.clone())
+        .await
+        .unwrap();
+    assert!(report.items[0].reasons.contains(&"locked".into()));
+    assert!(report.items[0].reasons.contains(&"named".into()));
+    let workspace = f.hub.preview_retention(policy).await.unwrap();
+    assert!(workspace.items.is_empty());
+    assert!(
+        f.hub
+            .preview_instance_retention(
+                "missing",
+                hub_core::RetentionPolicy {
+                    keep_recent: 7,
+                    daily_days: 14,
+                    weekly_weeks: 8
+                }
+            )
+            .await
+            .is_err()
     );
 }

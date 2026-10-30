@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import Modal from './Modal';
 import PathActions from './PathActions';
+import AutomaticBackupPolicyPanel from './AutomaticBackupPolicyPanel';
 import RetentionPanel from './RetentionPanel';
 import BackupDetailsEditor from './BackupDetailsEditor';
 import { RestoreButton, RestoreTasks } from './RestoreWorkflow';
@@ -208,6 +209,17 @@ export default function BackupsPage({
           <PathActions api={api} path={data.workspace.backup_dir} />
         </details>
       </section>
+      {source && (
+        <AutomaticBackupPolicyPanel
+          key={source.id}
+          api={api}
+          instanceId={source.id}
+          instanceName={source.name}
+          busy={busy}
+          blocked={blocked}
+          run={run}
+        />
+      )}
       <div className="notice">
         <CircleHelp size={18} />
         <span>
@@ -227,7 +239,7 @@ export default function BackupsPage({
         </p>
       )}
       <details className="panel disclosure">
-        <summary>保留策略与清理预览</summary>
+        <summary>工作区存档保留策略与清理预览</summary>
         <RetentionPanel api={api} busy={busy} run={run} />
       </details>
       {latest && (

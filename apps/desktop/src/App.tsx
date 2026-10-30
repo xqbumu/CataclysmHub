@@ -85,6 +85,8 @@ const actionNames: Record<string, string> = {
   'process.reconcile': '重启后状态检查',
   'process.user_acknowledged': '人工确认游戏关闭',
   'world.scan': '只读扫描存档目录',
+  'backup.policy': '保存实例备份策略',
+  'backup.automatic': '退出后自动备份',
   'backup.create': '创建独立完整备份',
   'backup.verify': '重新校验备份',
   'backup.restore_new': '恢复到新目录',

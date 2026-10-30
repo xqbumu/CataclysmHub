@@ -1,3 +1,5 @@
+import type { AutomaticBackupPolicy } from './bindings/AutomaticBackupPolicy';
+import type { AutomaticBackupSettings } from './bindings/AutomaticBackupSettings';
 import type { InstallationQuarantinePlan } from './bindings/InstallationQuarantinePlan';
 import type { InstallationQuarantineResult } from './bindings/InstallationQuarantineResult';
 import type { InstanceContentInstallPlan } from './bindings/InstanceContentInstallPlan';
@@ -74,6 +76,18 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  automaticBackupPolicy?(instanceId: string): Promise<AutomaticBackupPolicy>;
+  saveAutomaticBackupPolicy?(
+    instanceId: string,
+    revision: number,
+    settings: AutomaticBackupSettings,
+    confirmed: boolean,
+  ): Promise<AutomaticBackupPolicy>;
+  previewInstanceRetention?(
+    instanceId: string,
+    policy: RetentionPolicy,
+  ): Promise<RetentionPreview>;
+
   inspectInstallationRecognition?(id: string): Promise<InstallationRecognition>;
   registerManagedInstance(
     installationId: string,
@@ -308,6 +322,22 @@ export const api: HubApi = {
   launchPlan: (installationId, args) =>
     desktopOnly('create_launch_plan', { installationId, args }),
   launch: (planId) => desktopOnly('launch_game', { planId, confirmed: true }),
+  automaticBackupPolicy: (instanceId) =>
+    desktopOnly('automatic_backup_policy', { instanceId }),
+  saveAutomaticBackupPolicy: (
+    instanceId,
+    expectedRevision,
+    settings,
+    confirmed,
+  ) =>
+    desktopOnly('save_automatic_backup_policy', {
+      instanceId,
+      expectedRevision,
+      settings,
+      confirmed,
+    }),
+  previewInstanceRetention: (instanceId, policy) =>
+    desktopOnly('preview_instance_retention', { instanceId, policy }),
   prepareInstallationQuarantine: (installationId) =>
     desktopOnly('prepare_installation_quarantine', { installationId }),
   applyInstallationQuarantine: (planId) =>

@@ -1,0 +1,62 @@
+{
+  "schema": 17,
+  "schema16_backups": [
+    "metadata-v16-3fdf737d-22c3-4146-aff7-593b1ac6af61.sqlite"
+  ],
+  "policy": {
+    "instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+    "revision": 2,
+    "settings": "{\"enabled\":false,\"min_interval_minutes\":15,\"retention\":{\"keep_recent\":7,\"daily_days\":14,\"weekly_weeks\":8}}",
+    "updated_at": "2026-10-30T06:16:40.577601+00:00"
+  },
+  "run": {
+    "session_id": "6cdeda1a-cc6b-4766-88ce-5d71c4adb9cf",
+    "instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+    "policy_revision": 1,
+    "task_id": "76e9f5da-cbee-4608-8359-f003aa357341",
+    "status": "started",
+    "error_code": null,
+    "created_at": "2026-10-30T06:15:28.530822+00:00"
+  },
+  "backup": {
+    "id": "76e9f5da-cbee-4608-8359-f003aa357341",
+    "task_id": "76e9f5da-cbee-4608-8359-f003aa357341",
+    "workspace_id": "638c65a9-1b9b-439f-b67b-046e68212350",
+    "relative_dir": "76e9f5da-cbee-4608-8359-f003aa357341",
+    "created_at": "2026-10-30T06:15:32.489474+00:00",
+    "entry_count": 144,
+    "file_count": 123,
+    "total_bytes": "1588505",
+    "consistency": "best_effort",
+    "verification": "verified",
+    "verified_at": "2026-10-30T06:15:32.705108+00:00",
+    "archive_sha256": "2f91c9f96dd2872eca37e1cd10ff89089c0948dd53dc4e353c6044ac923e7d19",
+    "manifest_sha256": "6ed461aecaadb3b97f6a863c423320748bedb1a994f74f45c8cee59ca5448460",
+    "display_name": "",
+    "notes": "",
+    "retention_locked": 0,
+    "metadata_revision": 0,
+    "metadata_updated_at": null,
+    "play_instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+    "source_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/restore-check/restored-685eacc4-ea3e-402a-b872-211d7181153e/data"
+  },
+  "original_instance": {
+    "file_count": 121,
+    "unchanged": true
+  },
+  "target_save": {
+    "file_count": 108,
+    "unchanged": true
+  },
+  "backups_before": 1,
+  "backups_after": 2,
+  "restart_verification": {
+    "backups": 2,
+    "automatic_attempts": 1,
+    "enabled_after_restart": false,
+    "frontend_tests_passed": 165,
+    "rust_tests_passed": 317,
+    "rust_tests_ignored": 4,
+    "python_tests_passed": 28
+  }
+}

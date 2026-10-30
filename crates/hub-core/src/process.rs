@@ -254,12 +254,18 @@ impl Hub {
             hub.candidate_sessions.lock().await.remove(&watched_id);
             let _gate = hub.mutation.lock().await;
             // Preserve the earlier starting/running intent if persistence fails; restart reconciles it as unknown.
-            if hub
-                .finish_session(&watched_id, state, code, error)
-                .await
-                .is_err()
-            {
+            let recorded = hub.finish_session(&watched_id, state, code, error).await;
+            drop(_gate);
+            if recorded.is_err() {
                 eprintln!("PROCESS_RESULT_PERSIST_FAILED task_id={watched_id}");
+            } else if state == "exited_unverified"
+                && code == Some(0)
+                && let Err(error) = hub.backup_after_exit(&watched_id).await
+            {
+                eprintln!(
+                    "AUTO_BACKUP_STATUS_FAILED task_id={watched_id} code={}",
+                    error.code
+                );
             }
         });
         recorded.map_err(|_| {

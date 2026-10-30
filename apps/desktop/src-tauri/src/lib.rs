@@ -916,6 +916,38 @@ async fn preview_retention(
     state.hub.preview_retention(policy).await
 }
 
+#[tauri::command]
+async fn automatic_backup_policy(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+) -> Result<hub_core::AutomaticBackupPolicy, HubError> {
+    state.hub.automatic_backup_policy(&instance_id).await
+}
+#[tauri::command]
+async fn save_automatic_backup_policy(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+    expected_revision: i64,
+    settings: hub_core::AutomaticBackupSettings,
+    confirmed: bool,
+) -> Result<hub_core::AutomaticBackupPolicy, HubError> {
+    state
+        .hub
+        .save_automatic_backup_policy(&instance_id, expected_revision, settings, confirmed)
+        .await
+}
+#[tauri::command]
+async fn preview_instance_retention(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+    policy: hub_core::RetentionPolicy,
+) -> Result<hub_core::RetentionPreview, HubError> {
+    state
+        .hub
+        .preview_instance_retention(&instance_id, policy)
+        .await
+}
+
 pub fn run() {
     let result = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
@@ -966,6 +998,9 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            automatic_backup_policy,
+            save_automatic_backup_policy,
+            preview_instance_retention,
             inspect_installation_recognition,
             remove_remote_download,
             remote_download_progress,

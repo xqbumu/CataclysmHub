@@ -114,8 +114,9 @@ impl Hub {
             "schema_version": 1,
             "created_at": now(),
             "preferences": previous,
+            "automatic_backup_policies": sqlx::query_as::<_,(String,i64,String,String)>("SELECT instance_id,revision,settings,updated_at FROM automatic_backup_policy ORDER BY instance_id").fetch_all(&self.pool).await.map_err(HubError::db)?,
             "workspace_reference_only": self.dashboard().await?.workspace,
-            "reset_scope": "instance_launch_preferences_only"
+            "reset_scope": "instance_launch_and_automatic_backup_preferences"
         });
         let bytes = serde_json::to_vec_pretty(&snapshot)
             .map_err(|_| HubError::new("CONFIG_BACKUP_FAILED", "配置备份编码失败，未执行重置。"))?;
@@ -138,6 +139,10 @@ impl Hub {
         .execute(&mut *tx)
         .await
         .map_err(HubError::db)?;
+        sqlx::query("DELETE FROM automatic_backup_policy")
+            .execute(&mut *tx)
+            .await
+            .map_err(HubError::db)?;
         sqlx::query("INSERT INTO operation_log VALUES (?,?,?,?,?,?)")
             .bind(id())
             .bind(&name)
