@@ -1,0 +1,15 @@
+Starting log.
+18:05:52.102 INFO : Cataclysm DDA version cdda-0.I-2026-09-19-2324 7b2efa5
+18:05:52.102 INFO : [main] C locale set to C.UTF-8
+18:05:52.102 INFO : [main] C++ locale set to 
+18:05:52.102 INFO : SDL version used during compile is 2.30.11
+18:05:52.104 INFO : SDL version used during linking and in runtime is 2.30.11
+18:05:52.406 INFO : SDL render devices: software, metal, opengl, opengles2
+18:05:52.412 INFO : [options] C locale set to zh_CN.UTF-8
+18:05:52.412 INFO : [options] C++ locale set to zh_CN.UTF-8
+18:05:52.412 INFO : Setting language to: 'zh_CN'
+18:05:52.412 INFO : [i18n] Scanning mod translations from /private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/mods/
+18:05:52.412 INFO : [i18n] Scanning core translations from lang/mo/
+18:05:53.854 INFO : Active renderer: 3/software
+18:05:54.035 INFO : USE_COLOR_MODULATED_TEXTURES is set to 0
+18:05:54.381 INFO : Setting language to: 'zh_CN'

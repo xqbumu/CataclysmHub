@@ -1,0 +1,35 @@
+{
+  "change": {
+    "id": "84722834-7a82-4b4f-9681-c6a48777bc84",
+    "request_key": "4117cc91-e2b1-4402-a340-9b3a4f02357b",
+    "request_digest": "4181566fc8e0406036f088a994f68d4ea59e13ff5553f1846607284676570cf2",
+    "instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+    "backup_id": "5188d09a-8372-40f0-966c-237527ae7565",
+    "data_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data",
+    "path": "config/options.json",
+    "before_sha256": "c6e4e7fbce0121b2a49c579fce21f01dabc7c091f33d4779c5be6d82c05554d7",
+    "after_sha256": "b29ac91eb687e6dc3f4431ff8aa69a05a3c05b1a9db26fe692b9cae944159165",
+    "state": "applied",
+    "error_code": null,
+    "created_at": "2026-10-30T10:05:18.870564+00:00",
+    "finished_at": "2026-10-30T10:05:21.296671+00:00",
+    "rollback_of": null
+  },
+  "session": {
+    "id": "640558a6-a8ff-4114-9b75-2e758641a232",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "running",
+    "pid": 67059,
+    "started_at": "2026-10-30T10:05:52.023894+00:00",
+    "finished_at": null,
+    "exit_code": null,
+    "play_instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data"
+  },
+  "language_value": "zh_CN",
+  "only_option_value_changed": "USE_LANG: empty -> zh_CN",
+  "save_files_unchanged_before_launch": 193,
+  "translation_file_present": true,
+  "phase": "game selected zh_CN; menu observation and normal exit pending"
+}
