@@ -1,0 +1,11 @@
+{
+  "metadata_unchanged": true,
+  "restored_source_124_files_unchanged": true,
+  "native_observation": {
+    "restored_instance_latest_verified_backup": "2026/10/30 15:22:21",
+    "restored_instance_last_automatic_result": "备份任务已完成",
+    "all_four_policies": "未开启",
+    "other_three_automatic_results": "尚无自动备份记录"
+  },
+  "negative_cases": "deterministic frontend regression only; no native failure injection or game launch"
+}

@@ -1,3 +1,4 @@
+import InstanceProtectionSummary from './InstanceProtectionSummary';
 import InstallationQuarantineAction from './InstallationQuarantineAction';
 import PathActions from './PathActions';
 import type { InstallationRecognition } from './bindings/InstallationRecognition';
@@ -408,19 +409,13 @@ export default function PlayInstancesPanel({
                 ?.version ?? '版本未知'}
             </p>
             {home && (
-              <p className="environment-backup">
-                {(() => {
-                  const backup = data.backups
-                    .filter((b) => b.play_instance_id === item.id)
-                    .sort(
-                      (a, b) =>
-                        Date.parse(b.created_at) - Date.parse(a.created_at),
-                    )[0];
-                  return backup
-                    ? `最近保护副本：${new Date(backup.created_at).toLocaleString('zh-CN')} · ${backup.verification === 'verified' ? '上次文件校验通过' : '需要核对文件状态'}`
-                    : '尚无保护副本';
-                })()}
-              </p>
+              <InstanceProtectionSummary
+                api={api}
+                data={data}
+                instanceId={item.id}
+                onOpenBackups={onOpenBackups}
+                onOpenActivity={onOpenActivity}
+              />
             )}
             <details className="inline-details">
               <summary>数据目录</summary>

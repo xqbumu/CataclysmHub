@@ -830,12 +830,20 @@ it.each([
     );
     if (state === 'running' || state === 'starting') {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
-      expect(screen.getByRole('status')).toHaveTextContent('不代表已进入游戏');
+      expect(
+        screen
+          .getAllByRole('status')
+          .some((e) => e.textContent?.includes('不代表已进入游戏')),
+      ).toBe(true);
       expect(
         screen.getByRole('button', { name: /^(运行中|启动中) QA$/ }),
       ).toBeDisabled();
       await userEvent.setup().click(screen.getByText('macOS 启动与授权检查'));
-      expect(screen.getByRole('status')).toHaveTextContent('Touch ID');
+      expect(
+        screen
+          .getAllByRole('status')
+          .some((e) => e.textContent?.includes('Touch ID')),
+      ).toBe(true);
       expect(
         screen.queryByText('高级排障：隔离属性（绕过首次隔离检查）'),
       ).not.toBeInTheDocument();

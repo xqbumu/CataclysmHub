@@ -1,3 +1,4 @@
+import { automaticBackupFeedback } from './automaticBackupFeedback';
 import { useEffect, useState } from 'react';
 import { errorMessage, type HubApi } from './api';
 import type { AutomaticBackupPolicy } from './bindings/AutomaticBackupPolicy';
@@ -249,23 +250,9 @@ export default function AutomaticBackupPolicyPanel({
       {policy && (
         <p role="status">
           最近自动备份：
-          {{
-            checking: '核对中',
-            started: '已创建任务',
-            running: '备份中',
-            succeeded: '已完成',
-            failed: '失败',
-            cancelled: '已取消',
-            cancelling: '取消中',
-            skipped: '已跳过',
-            interrupted: '已中断',
-            recovery_required: '中断待检查',
-          }[policy.last_status ?? ''] ??
-            policy.last_status ??
-            '尚无记录'}
-          {policy.last_error_code
-            ? ` · ${{ AUTO_BACKUP_MIN_INTERVAL: '尚未到最小间隔', AUTO_BACKUP_EMPTY_SAVE: 'save 为空，未生成进度副本', AUTO_BACKUP_PROFILE_UNVERIFIED: '启动方案不在支持范围', AUTO_BACKUP_CONTEXT_CHANGED: '实例来源已变化', AUTO_BACKUP_INTERRUPTED: '应用中断，未自动补做' }[policy.last_error_code] ?? '未完成，请查看任务记录'}`
-            : ''}
+          {automaticBackupFeedback(policy).label}
+          {automaticBackupFeedback(policy).detail &&
+            ` · ${automaticBackupFeedback(policy).detail}`}
           {policy.last_task_id ? ` · 任务 ${policy.last_task_id}` : ''}
           ；归档结果请在备份列表及任务记录中核对。
         </p>

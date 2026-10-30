@@ -564,3 +564,7 @@ P0 已在隔离 macOS QA 完成真实已有角色读档、保存退出、自动�
 ## 2026-10-30：联网调研后的备份管理优化
 
 对照CDDA/BN存档源码、CDDA Game Launcher/Catapult及restic/Borg一手资料，落实来源历史跳转、恢复来源关联、锁/命名筛选、校验时间与逻辑容量标识；明确最近100副本/20恢复的载入边界。保持原自动备份和独立恢复保护机制。研究见research/save-backup-management-2026-10-30.md，检查与原生验收见quality/backup-management-research-2026-10-30.md。
+
+## 2026-10-30：首页保护概览与自动备份结果反馈
+
+首页显示按实例最近校验通过的副本、策略和最近结果；首页/策略页共用原因翻译，异常提供进入手动备份与记录入口，不重放退出事件。172项前端测试与类型/构建通过。详见quality/instance-protection-feedback-2026-10-30.md。
