@@ -829,7 +829,7 @@ it.each([null, 1, 0])(
       expect(screen.getByRole('alert')).toHaveTextContent('不代表存档稳定');
       await userEvent.setup().click(screen.getByText('macOS 启动与授权检查'));
       expect(screen.getByRole('alert')).toHaveTextContent(
-        '如果没有“仍要打开”，不要反复重试',
+        '如果仍没有“仍要打开”，不要反复重试',
       );
       expect(screen.getByRole('alert')).toHaveTextContent(
         '直接双击原 .app 可能忽略独立存档参数',
