@@ -1,0 +1,56 @@
+{
+  "session": {
+    "id": "7feb12c0-4ed0-4e73-a360-904d07066d0a",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "exited_unverified",
+    "pid": 54172,
+    "started_at": "2026-10-30T09:48:22.790396+00:00",
+    "finished_at": "2026-10-30T09:56:45.969088+00:00",
+    "exit_code": 0,
+    "play_instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data"
+  },
+  "user_observation": "heard changed new sound; saved and exited; confirmed whole game exited",
+  "world": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/save/HUB-CONTENT-QA2",
+  "world_mods": [
+    "dda",
+    "no_npc_food",
+    "personal_portal_storms",
+    "hub_qa_npc_needs"
+  ],
+  "world_files": 79,
+  "character_files_sha256": {
+    "#RGFuYSBNYXRzb24=.sav.zzip": "5547fbaa20125de6183d2c51aa902efc4a59405f44c8fb98655ff4010fa06d3c"
+  },
+  "resource_copy_checks": [
+    {
+      "task_id": "cff13ecc-915b-417f-ad98-a98e04a722e9",
+      "source_root": "/private/tmp/hub-content-native-20261030/Hub-QA-NPC-Needs",
+      "payload_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/mods/hub-0cddfeb8-479c-4703-b5b3-3eb3f1a270a7",
+      "matching_files": 1
+    },
+    {
+      "task_id": "e968d338-35ec-4c76-86e7-5e5d6b745f2c",
+      "source_root": "/private/tmp/hub-content-native-20261030/Hub-QA-Basic",
+      "payload_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/sound/hub-b5725bf6-948c-40a1-b747-832f2285d8e5",
+      "matching_files": 5
+    },
+    {
+      "task_id": "3975a513-526b-42c1-9571-920ed4a92e7a",
+      "source_root": "/private/tmp/hub-content-native-20261030/Hub-QA-TwoTone",
+      "payload_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/sound/hub-8d154dd4-b68b-4c12-a368-acd0ee1ded11",
+      "matching_files": 4
+    }
+  ],
+  "sound_options": {
+    "SOUNDPACKS": "hub_qa_twotone",
+    "SOUND_ENABLED": "true",
+    "SOUND_EFFECT_VOLUME": "100"
+  },
+  "unchanged_original_world_files": 108,
+  "unchanged_main_instance_files": 121,
+  "unchanged_restored_source_files": 124,
+  "binding_status": "unverified",
+  "scope": "CDDA identified macOS sample; QA mod and menu sound playback only, no background music, other resources, platforms or cross-version certification"
+}
