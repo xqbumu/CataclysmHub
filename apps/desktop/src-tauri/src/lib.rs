@@ -957,6 +957,12 @@ pub fn run() {
                 selected: Mutex::new(HashSet::new()),
                 managed_root,
             });
+            // On macOS, WebKit can commit the page without painting until the
+            // main window becomes active. Focus once at startup, never on polling.
+            #[cfg(target_os = "macos")]
+            if let Some(window) = app.get_webview_window("main") {
+                window.set_focus()?;
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
