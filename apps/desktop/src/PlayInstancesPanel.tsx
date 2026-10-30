@@ -371,6 +371,14 @@ export default function PlayInstancesPanel({
           (lastSession.state === 'failed' ||
             (lastSession.state === 'exited_unverified' &&
               lastSession.exit_code !== 0));
+        const isMacOS = data.installations.some(
+          (game) =>
+            game.id === item.installation_id && game.platform === 'macos',
+        );
+        const macOSPending =
+          isMacOS &&
+          (activeSession?.state === 'starting' ||
+            activeSession?.state === 'running');
         const launchLabel = activeSession
           ? activeSession.state === 'starting'
             ? '启动中'
@@ -436,39 +444,68 @@ export default function PlayInstancesPanel({
                     {new Date(session.started_at).toLocaleString('zh-CN')}
                   </p>
                 ))}
-            {home && abnormalExit && (
-              <div className="alert" role="alert">
+            {home && (abnormalExit || macOSPending) && (
+              <div
+                className={abnormalExit ? 'alert' : 'inline-note'}
+                role={abnormalExit ? 'alert' : 'status'}
+              >
                 <div>
-                  <strong>上次启动或运行需要检查</strong>
-                  <p>
-                    {lastSession.exit_code == null
-                      ? '未取得正常退出码；请检查系统拦截提示或游戏日志。'
-                      : `进程退出码：${lastSession.exit_code}。请检查游戏日志与运行记录。`}
-                    此状态不代表存档稳定。
-                  </p>
-                  {data.installations.some(
-                    (game) =>
-                      game.id === item.installation_id &&
-                      game.platform === 'macos',
-                  ) && (
+                  {abnormalExit && lastSession ? (
+                    <>
+                      <strong>上次启动或运行需要检查</strong>
+                      <p>
+                        {lastSession.exit_code == null
+                          ? '未取得正常退出码；请检查系统拦截提示或游戏日志。'
+                          : `进程退出码：${lastSession.exit_code}。请检查游戏日志与运行记录。`}
+                        此状态不代表存档稳定。
+                      </p>
+                    </>
+                  ) : (
+                    <p>
+                      已检测到启动进程，不代表已进入游戏。若没有游戏窗口，请检查系统拦截提示；当前继续保护资源，请勿重复启动。
+                    </p>
+                  )}
+                  {isMacOS && (
                     <details className="inline-details">
                       <summary>macOS 启动与授权检查</summary>
+                      <ol>
+                        <li>
+                          关闭系统拦截弹窗，选择“完成”或“好”，不要移到废纸篓。
+                        </li>
+                        <li>
+                          打开“系统设置 →
+                          隐私与安全性”，在“安全性”中核对当前游戏名称；仅对你确认来源可信的游戏点击“仍要打开”。
+                        </li>
+                        <li>
+                          亲自完成 Touch ID
+                          或管理员验证。若系统另有确认提示，请核对游戏；若明确提示恶意软件，请停止。
+                        </li>
+                        <li>
+                          确认原进程已退出、此环境恢复可启动后，返回这里点击“启动”。若系统自动打开游戏，先正常退出并核对目录。
+                        </li>
+                      </ol>
                       <p>
-                        若系统提示阻止运行，请在“系统设置 →
-                        隐私与安全性”核对该游戏的授权提示。先关闭拦截弹窗（不要移到废纸篓），再查看“仍要打开”。
                         如果仍没有“仍要打开”，不要反复重试；请保留系统与游戏日志进一步检查。
-                      </p>
-                      <p>
                         直接双击原 .app
-                        可能忽略独立存档参数。完成系统授权后，请返回此游玩环境启动；若系统自动打开游戏，先退出并核对目录。Hub
+                        可能忽略独立存档参数，请从此游玩环境启动。 Hub
                         不会自动移除隔离属性、更改签名或关闭系统保护。
                       </p>
-                      <InstallationQuarantineAction
-                        api={api}
-                        installationId={item.installation_id}
-                        disabled={busy || data.resource_claims.length > 0}
-                        onRefresh={onRefresh}
-                      />
+                      {!activeSession && (
+                        <details>
+                          <summary>
+                            高级排障：隔离属性（绕过首次隔离检查）
+                          </summary>
+                          <p>
+                            优先完成系统正常授权。仅在正常入口无法处理、已核对来源且了解风险时考虑此项；它不是正常授权，也不适用于恶意软件警告。
+                          </p>
+                          <InstallationQuarantineAction
+                            api={api}
+                            installationId={item.installation_id}
+                            disabled={busy || data.resource_claims.length > 0}
+                            onRefresh={onRefresh}
+                          />
+                        </details>
+                      )}
                     </details>
                   )}
                   {onOpenActivity && (

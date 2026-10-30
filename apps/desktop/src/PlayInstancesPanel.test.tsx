@@ -765,9 +765,15 @@ it.each([
   },
 );
 
-it.each([null, 1, 0])(
-  'surfaces abnormal home termination (%s) without claiming save health or relaunching',
-  async (exit_code) => {
+it.each([
+  [null, 'exited_unverified'],
+  [1, 'exited_unverified'],
+  [0, 'exited_unverified'],
+  [null, 'running'],
+  [null, 'starting'],
+] as const)(
+  'offers macOS authorization help for exit %s and state %s without relaunching',
+  async (exit_code, state) => {
     const onOpenActivity = vi.fn();
     const launch = vi.fn();
     render(
@@ -814,19 +820,32 @@ it.each([null, 1, 0])(
               started_at: '2026-10-30T00:00:00Z',
               finished_at: '2026-10-30T00:01:00Z',
               exit_code,
-              state: 'exited_unverified',
+              state,
             },
           ],
         }}
       />,
     );
-    if (exit_code === 0) {
+    if (state === 'running' || state === 'starting') {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('不代表已进入游戏');
+      expect(
+        screen.getByRole('button', { name: /^(运行中|启动中) QA$/ }),
+      ).toBeDisabled();
+      await userEvent.setup().click(screen.getByText('macOS 启动与授权检查'));
+      expect(screen.getByRole('status')).toHaveTextContent('Touch ID');
+      expect(
+        screen.queryByText('高级排障：隔离属性（绕过首次隔离检查）'),
+      ).not.toBeInTheDocument();
+    } else if (exit_code === 0) {
       expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     } else {
       expect(screen.getByRole('alert')).toHaveTextContent(
         '上次启动或运行需要检查',
       );
       expect(screen.getByRole('alert')).toHaveTextContent('不代表存档稳定');
+      const prepare = vi.spyOn(api, 'prepareInstallationQuarantine');
+      expect(prepare).not.toHaveBeenCalled();
       await userEvent.setup().click(screen.getByText('macOS 启动与授权检查'));
       expect(screen.getByRole('alert')).toHaveTextContent(
         '如果仍没有“仍要打开”，不要反复重试',
@@ -838,6 +857,12 @@ it.each([null, 1, 0])(
         .setup()
         .click(screen.getByRole('button', { name: '查看运行记录 QA' }));
       expect(onOpenActivity).toHaveBeenCalledOnce();
+      const advanced = screen
+        .getByText('高级排障：隔离属性（绕过首次隔离检查）')
+        .closest('details');
+      expect(advanced).not.toHaveAttribute('open');
+      expect(prepare).not.toHaveBeenCalled();
+      prepare.mockRestore();
     }
     expect(launch).not.toHaveBeenCalled();
   },
