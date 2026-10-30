@@ -743,6 +743,27 @@ async fn create_launch_plan(
     state.hub.launch_plan(&installation_id, args).await
 }
 #[tauri::command]
+async fn prepare_installation_quarantine(
+    state: tauri::State<'_, AppState>,
+    installation_id: String,
+) -> Result<hub_core::InstallationQuarantinePlan, HubError> {
+    state
+        .hub
+        .prepare_installation_quarantine(&installation_id)
+        .await
+}
+#[tauri::command]
+async fn apply_installation_quarantine(
+    state: tauri::State<'_, AppState>,
+    plan_id: String,
+    confirmed: bool,
+) -> Result<hub_core::InstallationQuarantineResult, HubError> {
+    state
+        .hub
+        .apply_installation_quarantine(&plan_id, confirmed)
+        .await
+}
+#[tauri::command]
 async fn launch_game(
     state: tauri::State<'_, AppState>,
     plan_id: String,
@@ -987,6 +1008,8 @@ pub fn run() {
             create_instance_launch_plan,
             preview_instance_resources,
             launch_game,
+            prepare_installation_quarantine,
+            apply_installation_quarantine,
             acknowledge_interrupted,
             start_world_scan,
             cancel_world_scan,

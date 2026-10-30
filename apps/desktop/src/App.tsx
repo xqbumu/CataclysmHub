@@ -75,6 +75,7 @@ const actionNames: Record<string, string> = {
   'workspace.initialize': '工作区初始化',
   'workspace.update': '更新工作区目录',
   'installation.import': '导入游戏安装',
+  'installation.quarantine': '处理安装隔离属性',
   'installation.copy': '复制独立安装',
   'installation.copy_cancel': '取消安装复制',
   'installation.copy_register': '登记已核验副本',

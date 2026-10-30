@@ -22,6 +22,8 @@ pub struct Hub {
     pub(crate) candidate_sessions:
         Mutex<HashMap<String, Arc<crate::candidate_launch::CandidateBinding>>>,
     pub(crate) plans: Mutex<HashMap<String, crate::process::PreparedLaunch>>,
+    #[cfg(target_os = "macos")]
+    pub(crate) quarantine_plans: Mutex<HashMap<String, crate::installation_quarantine::Prepared>>,
     pub(crate) config_change_running: Mutex<std::collections::HashSet<String>>,
     pub(crate) config_change_plans:
         Mutex<HashMap<String, crate::config_change::PreparedConfigChange>>,
@@ -335,6 +337,8 @@ impl Hub {
             config_change_plans: Mutex::new(HashMap::new()),
             content_install_plans: Mutex::new(HashMap::new()),
             plans: Mutex::new(HashMap::new()),
+            #[cfg(target_os = "macos")]
+            quarantine_plans: Mutex::new(HashMap::new()),
             candidate_sessions: Mutex::new(HashMap::new()),
             backup_plans: Mutex::new(HashMap::new()),
             restore_plans: Mutex::new(HashMap::new()),

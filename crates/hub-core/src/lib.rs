@@ -89,3 +89,6 @@ mod installation_recognition;
 pub use installation_recognition::InstallationRecognition;
 
 mod application_entry;
+
+mod installation_quarantine;
+pub use installation_quarantine::{InstallationQuarantinePlan, InstallationQuarantineResult};

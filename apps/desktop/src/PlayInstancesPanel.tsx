@@ -1,3 +1,4 @@
+import InstallationQuarantineAction from './InstallationQuarantineAction';
 import PathActions from './PathActions';
 import type { InstallationRecognition } from './bindings/InstallationRecognition';
 import ContentConfigDialog from './ContentConfigDialog';
@@ -462,6 +463,12 @@ export default function PlayInstancesPanel({
                         可能忽略独立存档参数，请仍从此游玩环境启动。 Hub
                         不会自动移除隔离属性、更改签名或关闭系统保护。
                       </p>
+                      <InstallationQuarantineAction
+                        api={api}
+                        installationId={item.installation_id}
+                        disabled={busy || data.resource_claims.length > 0}
+                        onRefresh={onRefresh}
+                      />
                     </details>
                   )}
                   {onOpenActivity && (

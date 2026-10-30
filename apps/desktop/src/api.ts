@@ -1,3 +1,5 @@
+import type { InstallationQuarantinePlan } from './bindings/InstallationQuarantinePlan';
+import type { InstallationQuarantineResult } from './bindings/InstallationQuarantineResult';
 import type { InstanceContentInstallPlan } from './bindings/InstanceContentInstallPlan';
 import type { InstallationRecognition } from './bindings/InstallationRecognition';
 import type { HubPreferences } from './bindings/HubPreferences';
@@ -172,6 +174,12 @@ export interface HubApi {
   ): Promise<LaunchPlan>;
   launchPlan(installationId: string, args: string[]): Promise<LaunchPlan>;
   launch(planId: string): Promise<Session>;
+  prepareInstallationQuarantine?(
+    installationId: string,
+  ): Promise<InstallationQuarantinePlan>;
+  applyInstallationQuarantine?(
+    planId: string,
+  ): Promise<InstallationQuarantineResult>;
   acknowledge(sessionId: string): Promise<void>;
   scanWorlds(requestKey: string): Promise<ScanTask>;
   cancelScan(taskId: string): Promise<ScanTask>;
@@ -300,6 +308,10 @@ export const api: HubApi = {
   launchPlan: (installationId, args) =>
     desktopOnly('create_launch_plan', { installationId, args }),
   launch: (planId) => desktopOnly('launch_game', { planId, confirmed: true }),
+  prepareInstallationQuarantine: (installationId) =>
+    desktopOnly('prepare_installation_quarantine', { installationId }),
+  applyInstallationQuarantine: (planId) =>
+    desktopOnly('apply_installation_quarantine', { planId, confirmed: true }),
   acknowledge: (sessionId) =>
     desktopOnly('acknowledge_interrupted', { sessionId }),
   scanWorlds: (requestKey) => desktopOnly('start_world_scan', { requestKey }),

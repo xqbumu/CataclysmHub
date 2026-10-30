@@ -5,6 +5,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/desktop/src/bindings");
     let cfg = Config::new().with_out_dir(directory);
     Dashboard::export_all(&cfg)?;
+    hub_core::InstallationQuarantinePlan::export_all(&cfg)?;
+    hub_core::InstallationQuarantineResult::export_all(&cfg)?;
     hub_core::InstallationRecognition::export_all(&cfg)?;
     hub_core::HubPreferences::export_all(&cfg)?;
     hub_core::PreferencesReset::export_all(&cfg)?;
