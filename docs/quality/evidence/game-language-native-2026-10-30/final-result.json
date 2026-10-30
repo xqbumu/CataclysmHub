@@ -1,0 +1,24 @@
+{
+  "session": {
+    "id": "640558a6-a8ff-4114-9b75-2e758641a232",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "exited_unverified",
+    "pid": 67059,
+    "started_at": "2026-10-30T10:05:52.023894+00:00",
+    "finished_at": "2026-10-30T10:07:11.832258+00:00",
+    "exit_code": 0,
+    "play_instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data"
+  },
+  "user_observation": "菜单已中文并退出",
+  "process_ended": true,
+  "save_files_unchanged": 193,
+  "option_value_changes": {
+    "USE_LANG": [
+      "",
+      "zh_CN"
+    ]
+  },
+  "scope": "P1 isolated macOS CDDA sample; simplified Chinese main menu; no full translation or other platform certification"
+}
