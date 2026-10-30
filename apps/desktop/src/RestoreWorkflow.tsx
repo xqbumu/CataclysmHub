@@ -173,6 +173,10 @@ export function RestoreTasks({
       <h3>新目录恢复任务</h3>
       {tasks.map((task) => {
         const active = ['running', 'cancelling'].includes(task.state);
+        const backup = data?.backups.find((b) => b.id === task.backup_id);
+        const source = data?.play_instances.find(
+          (i) => i.id === backup?.play_instance_id,
+        );
         return (
           <article className="backup-record" key={task.id}>
             <div className="row-between">
@@ -193,6 +197,14 @@ export function RestoreTasks({
                 </button>
               )}
             </div>
+            <p>
+              来源副本：{backup?.display_name || task.backup_id} ·{' '}
+              {backup
+                ? backup.play_instance_id
+                  ? `原环境：${source?.name ?? backup.play_instance_id}`
+                  : '工作区存档根目录'
+                : '来源记录未在当前列表载入'}
+            </p>
             <p className="file-path">{task.destination}</p>
             <small>
               任务 {task.id.slice(0, 8)} · 文件位于 data/ · 不自动切换存档

@@ -637,3 +637,90 @@ it('opens a focused instance with its own source, history and directory actions'
   expect(api.backupPlan).not.toHaveBeenCalled();
   expect(api.createBackup).not.toHaveBeenCalled();
 });
+
+it('links source history explicitly, filters completed restores, and keeps active restores visible', async () => {
+  const api = client();
+  const instance = {
+    id: 'a',
+    installation_id: 'game',
+    installation_sha256: 'hash',
+    name: '环境 A',
+    data_root: '/a',
+    binding_status: 'unverified',
+    created_at: workspace.created_at,
+  };
+  const restore = {
+    id: 'restore-a',
+    request_key: 'req',
+    workspace_id: workspace.id,
+    backup_id: 'copy-a',
+    destination: '/restored-a',
+    state: 'succeeded',
+    phase: 'finished',
+    revision: 1,
+    error_code: null,
+    created_at: workspace.created_at,
+    finished_at: workspace.created_at,
+  };
+  show(api, {
+    ...emptyDashboard,
+    workspace,
+    play_instances: [instance],
+    backups: [
+      {
+        ...record,
+        id: 'copy-a',
+        display_name: 'A保护点',
+        play_instance_id: 'a',
+        source_root: '/a',
+        retention_locked: true,
+      },
+      { ...record, id: 'copy-workspace', display_name: '工作区副本' },
+    ],
+    restore_tasks: [
+      restore,
+      {
+        ...restore,
+        id: 'restore-other',
+        backup_id: 'copy-workspace',
+        destination: '/restored-workspace',
+      },
+      {
+        ...restore,
+        id: 'active-other',
+        backup_id: 'copy-workspace',
+        destination: '/active-workspace',
+        state: 'running',
+        phase: 'extracting',
+        finished_at: null,
+      },
+      {
+        ...restore,
+        id: 'unknown',
+        backup_id: 'not-loaded',
+        destination: '/unknown-restore',
+      },
+    ],
+  });
+  const user = userEvent.setup();
+  await user.selectOptions(screen.getByLabelText('备份来源'), 'a');
+  expect(screen.getByLabelText('副本来源')).toHaveValue('all');
+  await user.click(
+    screen.getByRole('button', { name: '查看此来源的副本与恢复记录' }),
+  );
+  expect(screen.getByLabelText('副本来源')).toHaveValue('a');
+  expect(screen.getByText('/restored-a')).toBeInTheDocument();
+  expect(screen.getByText('/active-workspace')).toBeInTheDocument();
+  expect(screen.queryByText('/restored-workspace')).not.toBeInTheDocument();
+  expect(screen.queryByText('/unknown-restore')).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText('保留标记'), 'locked');
+  expect(screen.getByRole('heading', { name: 'A保护点' })).toBeInTheDocument();
+  expect(
+    screen.queryByRole('heading', { name: '工作区副本' }),
+  ).not.toBeInTheDocument();
+  await user.selectOptions(screen.getByLabelText('副本来源'), 'all');
+  expect(screen.getByText('/unknown-restore')).toBeInTheDocument();
+  expect(screen.getByLabelText('备份来源')).toHaveValue('a');
+  expect(api.createBackup).not.toHaveBeenCalled();
+  expect(api.startRestore).not.toHaveBeenCalled();
+});

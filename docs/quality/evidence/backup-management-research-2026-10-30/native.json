@@ -1,0 +1,32 @@
+{
+  "metadata_tables_unchanged": [
+    "play_instance",
+    "backup_archive",
+    "restore_task",
+    "automatic_backup_policy",
+    "automatic_backup_run",
+    "session"
+  ],
+  "table_counts": {
+    "play_instance": 4,
+    "backup_archive": 3,
+    "restore_task": 2,
+    "automatic_backup_policy": 1,
+    "automatic_backup_run": 2,
+    "session": 10
+  },
+  "original_121_files_unchanged": true,
+  "restored_source_124_files_unchanged": true,
+  "native_observation": {
+    "focused_source": "恢复读档验收",
+    "focused_history_backups": 2,
+    "focused_completed_restores": 1,
+    "all_history_backups": 3,
+    "all_completed_restores": 2,
+    "locked_filter_backups": 0,
+    "restore_still_visible_under_locked_filter": true,
+    "explicit_history_jump_retains_creation_source": true,
+    "successful_verification_time_visible": true,
+    "logical_size_and_history_limits_visible": true
+  }
+}

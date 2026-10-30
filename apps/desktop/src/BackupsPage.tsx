@@ -41,6 +41,11 @@ function size(value: string) {
       ? `${(bytes / 1024).toFixed(1)} KiB`
       : `${(bytes / 1024 ** 2).toFixed(1)} MiB`;
 }
+function verificationTime(value: string) {
+  return Number.isFinite(Date.parse(value))
+    ? new Date(value).toLocaleString('zh-CN')
+    : '无有效时间记录';
+}
 export default function BackupsPage({
   api,
   data,
@@ -68,6 +73,20 @@ export default function BackupsPage({
   );
   const [query, setQuery] = useState('');
   const [verification, setVerification] = useState('all');
+  const [protection, setProtection] = useState('all');
+  const historyRef = useRef<HTMLElement>(null);
+  const matchesSource = (id: string | null | undefined) =>
+    historySource === 'all' ||
+    (historySource === 'workspace' ? !id : id === historySource);
+  const sourceBackups = data.backups.filter((b) =>
+    matchesSource(b.play_instance_id),
+  );
+  const restoreTasks = data.restore_tasks.filter((task) => {
+    if (['running', 'cancelling'].includes(task.state)) return true;
+    if (historySource === 'all') return true;
+    const backup = data.backups.find((b) => b.id === task.backup_id);
+    return !!backup && matchesSource(backup.play_instance_id);
+  });
   const source = data.play_instances.find((i) => i.id === sourceInstance);
   const visibleBackups = data.backups
     .filter((backup) => {
@@ -75,10 +94,11 @@ export default function BackupsPage({
         (i) => i.id === backup.play_instance_id,
       );
       return (
-        (historySource === 'all' ||
-          (historySource === 'workspace'
-            ? !backup.play_instance_id
-            : backup.play_instance_id === historySource)) &&
+        matchesSource(backup.play_instance_id) &&
+        (protection === 'all' ||
+          (protection === 'locked'
+            ? backup.retention_locked
+            : !!backup.display_name)) &&
         (verification === 'all' || backup.verification === verification) &&
         [
           backup.display_name,
@@ -212,6 +232,18 @@ export default function BackupsPage({
           <p>独立备份目录</p>
           <PathActions api={api} path={data.workspace.backup_dir} />
         </details>
+        <button
+          className="secondary"
+          onClick={() => {
+            setHistorySource(sourceInstance || 'workspace');
+            setVerification('all');
+            setProtection('all');
+            setQuery('');
+            historyRef.current?.scrollIntoView?.({ block: 'start' });
+          }}
+        >
+          查看此来源的副本与恢复记录
+        </button>
       </section>
       {source && (
         <AutomaticBackupPolicyPanel
@@ -315,17 +347,7 @@ export default function BackupsPage({
           查看此实例存档
         </button>
       )}
-      <RestoreTasks
-        data={data}
-        onRegistered={onRegistered}
-        api={api}
-        tasks={data.restore_tasks}
-        inspections={data.inspection_tasks}
-        blocked={blocked}
-        busy={busy}
-        run={run}
-      />
-      <section className="panel" aria-label="筛选保护副本">
+      <section className="panel" aria-label="筛选保护副本" ref={historyRef}>
         <div className="backup-filters">
           <label>
             副本来源
@@ -355,6 +377,17 @@ export default function BackupsPage({
             </select>
           </label>
           <label>
+            保留标记
+            <select
+              value={protection}
+              onChange={(e) => setProtection(e.target.value)}
+            >
+              <option value="all">全部保留标记</option>
+              <option value="locked">保留锁</option>
+              <option value="named">已命名</option>
+            </select>
+          </label>
+          <label>
             搜索保护副本
             <input
               value={query}
@@ -363,11 +396,34 @@ export default function BackupsPage({
             />
           </label>
         </div>
+        <p>
+          当前历史来源已载入 {sourceBackups.length} 份，其中{' '}
+          {sourceBackups.filter((b) => b.verification === 'verified').length}{' '}
+          份上次校验通过、
+          {sourceBackups.filter((b) => b.retention_locked).length}{' '}
+          份有保留锁。历史状态不能保证归档当前可用。
+        </p>
         <p role="status">
           显示 {visibleBackups.length} / {data.backups.length}{' '}
-          个保护副本；筛选只影响历史列表，不改变上方备份来源。
+          个保护副本；来源筛选也作用于已结束的恢复记录，运行中的恢复始终可见。不改变上方备份来源。
         </p>
       </section>
+      <p className="muted">
+        当前仅载入最近 100
+        份保护副本；筛选和计数基于已载入记录，未找到不代表完整历史中不存在。恢复记录最多载入最近
+        20
+        条；来源无法关联的已结束记录请切换“全部来源”查看。保留预览独立读取所选范围，不受本列表截断影响。
+      </p>
+      <RestoreTasks
+        data={data}
+        onRegistered={onRegistered}
+        api={api}
+        tasks={restoreTasks}
+        inspections={data.inspection_tasks}
+        blocked={blocked}
+        busy={busy}
+        run={run}
+      />
       {data.backups.length > 0 && visibleBackups.length === 0 && (
         <section className="panel">
           <h3>没有符合条件的保护副本</h3>
@@ -375,6 +431,7 @@ export default function BackupsPage({
             onClick={() => {
               setHistorySource('all');
               setVerification('all');
+              setProtection('all');
               setQuery('');
             }}
           >
@@ -445,7 +502,7 @@ export default function BackupsPage({
                 <span>
                   {backup.file_count} 个文件 / {backup.entry_count} 个条目
                 </span>
-                <span>{size(backup.total_bytes)}</span>
+                <span>原始文件 {size(backup.total_bytes)}（非归档占用）</span>
                 <span className="pill warning">尽力快照 · 一致性未保证</span>
                 {backup.display_name && (
                   <span className="pill neutral">命名保留标记</span>
@@ -454,6 +511,11 @@ export default function BackupsPage({
                   <span className="pill neutral">保留已锁定</span>
                 )}
               </div>
+              <p className="muted">
+                上次成功文件校验：
+                {verificationTime(backup.verified_at)}
+                ；恢复前会重新校验归档。
+              </p>
               <p className="file-path">
                 {data.workspace?.backup_dir}/{backup.relative_dir}
               </p>
@@ -478,9 +540,7 @@ export default function BackupsPage({
                   <dt>清单 SHA-256</dt>
                   <dd className="hash">{backup.manifest_sha256}</dd>
                   <dt>上次成功验证时间</dt>
-                  <dd>
-                    {new Date(backup.verified_at).toLocaleString('zh-CN')}
-                  </dd>
+                  <dd>{verificationTime(backup.verified_at)}</dd>
                 </dl>
               </details>
               <div className="backup-actions">

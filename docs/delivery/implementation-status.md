@@ -560,3 +560,7 @@ P0 已在隔离 macOS QA 完成真实已有角色读档、保存退出、自动�
 增加按实例只读列出 save 世界目录候选；恢复成功后可直接登记独立游玩环境，继续使用原安装和现有恢复检查，不覆盖原存档、不自动启动、不继承自动备份策略。方案见 design/instance-save-and-restored-environment.md，原生验收及检查结果在本批交付记录中单独列出。
 
 本批最终检查：前端168项、Rust322项（4项忽略）、全特性Clippy通过；核心最终调整49项及空恢复目录回归通过。普通macOS Debug 68.17 MiB打包及原生实例查询/恢复登记/交互复验通过。新环境本轮未再次进地图；记录见 quality/instance-save-environment-2026-10-30.md。
+
+## 2026-10-30：联网调研后的备份管理优化
+
+对照CDDA/BN存档源码、CDDA Game Launcher/Catapult及restic/Borg一手资料，落实来源历史跳转、恢复来源关联、锁/命名筛选、校验时间与逻辑容量标识；明确最近100副本/20恢复的载入边界。保持原自动备份和独立恢复保护机制。研究见research/save-backup-management-2026-10-30.md，检查与原生验收见quality/backup-management-research-2026-10-30.md。
