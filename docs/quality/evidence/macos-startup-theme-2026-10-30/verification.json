@@ -1,0 +1,20 @@
+{
+  "theme_color": "#111715",
+  "qa_identifier": "com.cataclysmhub.qa.blank-window",
+  "finder_copy": {
+    "root": "/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-startup-theme-finder-20261030-afacd65q",
+    "app": "/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-startup-theme-finder-20261030-afacd65q/Cataclysm Hub QA.app"
+  },
+  "preserved_instances": {
+    "original": {
+      "files": 121,
+      "unchanged": true
+    },
+    "restored": {
+      "files": 127,
+      "unchanged": true
+    }
+  },
+  "frontend_tests_passed": 159,
+  "native_observation": "Background direct launch and Finder double-click both displayed the dark home without additional activation. Screenshot sampling only, not a continuous frame recording."
+}
