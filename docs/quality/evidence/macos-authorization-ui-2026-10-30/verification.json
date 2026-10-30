@@ -1,0 +1,34 @@
+{
+  "metadata_fixture": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-auth-ui-native-20261030-smy7utxg/metadata",
+  "fixture_note": "Copied SQLite metadata with last successful session omitted to display prior real failure; original metadata retained. New run executed normally through Hub.",
+  "preview_plan": "3fea2fad-8fc2-405e-90b1-b0a43b09f0b5",
+  "preview_attribute_count": 8986,
+  "preview_cancelled": true,
+  "session": {
+    "id": "a67c757e-1684-4c9f-a82e-2e7aea141dae",
+    "installation_id": "c4d5a1b2-fe5f-4c05-825a-2c4f61540eaa",
+    "state": "exited_unverified",
+    "pid": 14505,
+    "started_at": "2026-10-30T05:22:34.796118+00:00",
+    "finished_at": "2026-10-30T05:23:01.562620+00:00",
+    "exit_code": 0,
+    "play_instance_id": "b0e77d0d-078b-48d6-a223-f760b0747d8a",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/metadata.workspace/instances/f51331e9-ac0c-4b6f-ba53-9122ebc7f36c"
+  },
+  "game_process_exists": false,
+  "security_journal_exists": false,
+  "quarantine_operations": 0,
+  "preserved_instances": {
+    "original": {
+      "files": 121,
+      "unchanged": true
+    },
+    "restored": {
+      "files": 127,
+      "unchanged": true
+    }
+  },
+  "binary_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+  "quarantine": "00c1;6ae41233;;01A08DA5-8B52-4FB0-8B36-787C29BB7F6A"
+}
