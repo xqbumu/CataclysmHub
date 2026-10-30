@@ -1,0 +1,59 @@
+{
+  "root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-gatekeeper-normal-20261030-y5m81f80",
+  "original_layout_bundle": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-gatekeeper-normal-20261030-y5m81f80/Game-Quarantined.app",
+  "source": "/Volumes/Cataclysm DDA/Cataclysm.app",
+  "package_signature": {
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-gatekeeper-normal-20261030-y5m81f80/Game-Quarantined.app: code object is not signed at all\n"
+  },
+  "body_signature": {
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "body_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+  "original_bundle_quarantine": {
+    "exit_code": 0,
+    "stdout": "0081;00000000;;01A08DA5-8B52-4FB0-8B36-787C29BB7F6A\n",
+    "stderr": ""
+  },
+  "native_fixture_quarantine": {
+    "exit_code": 0,
+    "stdout": "0081;00000000;;01A08DA5-8B52-4FB0-8B36-787C29BB7F6A\n",
+    "stderr": ""
+  },
+  "native_fixture_changes": [
+    "moved unchanged binary from Resources to MacOS",
+    "changed only CFBundleExecutable in Info.plist"
+  ],
+  "native_fixture_nsworkspace_result": {
+    "callback_completed": true,
+    "pid": -1,
+    "executable": null,
+    "error": null
+  },
+  "finder_copy": {
+    "result": "failed with -36; destination was removed by Finder",
+    "valid_acceptance_sample": false
+  },
+  "finder_native_partial_copy": {
+    "valid_acceptance_sample": false,
+    "reason": "copied before Finder source-copy failure was observed; excluded"
+  },
+  "gatekeeper": {
+    "exit_code": 0,
+    "stdout": "assessments enabled\n",
+    "stderr": ""
+  },
+  "enrollment": {
+    "exit_code": 0,
+    "stdout": "Enrolled via DEP: No\nMDM enrollment: No\n",
+    "stderr": ""
+  },
+  "normal_authorization_verified": false,
+  "production_code_changed": false,
+  "quarantine_removed": false,
+  "signing_changed": false,
+  "previous_original_instance_files_unchanged": true
+}

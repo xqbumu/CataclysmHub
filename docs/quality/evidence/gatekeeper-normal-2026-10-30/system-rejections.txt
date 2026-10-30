@@ -1,0 +1,4 @@
+2026-10-30 11:46:49.419 E  syspolicyd[494:116c95] [com.apple.syspolicy.exec:default] Terminating process due to Gatekeeper rejection: 48240, <private>
+2026-10-30 11:46:49.419 Df kernel[0:11749b] (AppleSystemPolicy) ASP: Security policy would not allow process: 48240, /private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-gatekeeper-normal-20261030-y5m81f80/Game-Native-Entry.app/Contents/MacOS/cataclysm-tiles
+2026-10-30 11:47:13.797 E  syspolicyd[494:11752f] [com.apple.syspolicy.exec:default] Terminating process due to Gatekeeper rejection: 48260, <private>
+2026-10-30 11:47:13.797 Df kernel[0:117777] (AppleSystemPolicy) ASP: Security policy would not allow process: 48260, /private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-gatekeeper-normal-20261030-y5m81f80/Game-Native-Entry.app/Contents/MacOS/cataclysm-tiles

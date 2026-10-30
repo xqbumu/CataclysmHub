@@ -1,0 +1,1 @@
+Scan completed, but failed because the software is not signed by a distributor that meets the system Gatekeeper requirements.
