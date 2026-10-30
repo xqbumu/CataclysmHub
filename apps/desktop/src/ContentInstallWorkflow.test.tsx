@@ -245,3 +245,82 @@ it('rejects a deployment response for a different instance before confirmation',
   ).not.toBeInTheDocument();
   expect(api.startContentInstall).not.toHaveBeenCalled();
 });
+
+it.each(['succeeded', 'failed'])(
+  'continues only successful deployment to the exact instance configuration (%s)',
+  async (state) => {
+    const api = client();
+    const deployPlan = {
+      ...plan,
+      parent_dir: '/a',
+      payload_root: '/a/sound/hub-plan',
+    };
+    api.prepareInstanceContentInstall = vi.fn().mockResolvedValue({
+      instance_id: 'a',
+      instance_name: '实例 A',
+      installation_id: 'g',
+      plan: deployPlan,
+    });
+    api.contentInstallTasks = vi.fn().mockResolvedValue([
+      {
+        id: 'task',
+        entry_id: 'entry',
+        source_root: plan.source_root,
+        destination: plan.destination,
+        payload_root: deployPlan.payload_root,
+        manifest_sha256: plan.manifest_sha256,
+        state,
+        phase: 'finished',
+        revision: 1,
+        error_code: null,
+        created_at: 'now',
+        finished_at: 'now',
+      },
+    ]);
+    api.inspectContentConfig = vi
+      .fn()
+      .mockResolvedValue({ instance_id: 'wrong', data_root: '/wrong' });
+    render(
+      <ContentInstallButton
+        api={api}
+        entryId="entry"
+        unavailable={false}
+        onStarted={vi.fn()}
+        instances={[
+          {
+            id: 'a',
+            name: '实例 A',
+            installation_id: 'g',
+            installation_sha256: 'hash',
+            data_root: '/a',
+            binding_status: 'unverified',
+            created_at: 'now',
+          },
+        ]}
+      />,
+    );
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: '部署到游玩实例' }));
+    await user.selectOptions(screen.getByLabelText('目标游玩实例'), 'a');
+    await user.click(screen.getByRole('button', { name: '预览实例部署' }));
+    const modal = await screen.findByRole('dialog', {
+      name: '确认实例资源部署',
+    });
+    await user.click(within(modal).getByRole('checkbox'));
+    await user.click(
+      within(modal).getByRole('button', { name: '确认部署到此实例' }),
+    );
+    const next = await screen.findByRole('button', { name: '配置此实例' });
+    if (state !== 'succeeded') {
+      expect(next).toBeDisabled();
+      expect(api.inspectContentConfig).not.toHaveBeenCalled();
+      return;
+    }
+    await user.click(next);
+    expect(api.inspectContentConfig).toHaveBeenCalledWith('a');
+    expect(
+      await screen.findByText('配置报告与部署目标不一致。'),
+    ).toBeInTheDocument();
+    expect(api.applyConfigChange).not.toHaveBeenCalled();
+  },
+);

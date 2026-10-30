@@ -1,3 +1,5 @@
+import ContentConfigDialog from './ContentConfigDialog';
+import type { ContentConfigReport } from './bindings/ContentConfigReport';
 import type { PlayInstance } from './bindings/PlayInstance';
 import type { Installation } from './bindings/Installation';
 import type { InstanceContentInstallPlan } from './bindings/InstanceContentInstallPlan';
@@ -32,6 +34,10 @@ export function ContentInstallButton({
   const [deployment, setDeployment] =
     useState<InstanceContentInstallPlan | null>(null);
   const requestKey = useRef('');
+  const [continuation, setContinuation] = useState<{
+    taskId: string;
+    target: InstanceContentInstallPlan;
+  } | null>(null);
   async function preview() {
     setBusy(true);
     setError('');
@@ -132,6 +138,15 @@ export function ContentInstallButton({
           </button>
         </Modal>
       )}
+      {continuation && (
+        <InstalledContentConfiguration
+          key={continuation.taskId}
+          api={api}
+          taskId={continuation.taskId}
+          target={continuation.target}
+          instances={instances}
+        />
+      )}
       {plan && (
         <Modal
           title={deployment ? '确认实例资源部署' : '确认资源包安装'}
@@ -193,7 +208,9 @@ export function ContentInstallButton({
                   requestKey.current,
                   true,
                 )
-                .then(() => {
+                .then((taskId) => {
+                  if (deployment)
+                    setContinuation({ taskId, target: deployment });
                   setPlan(null);
                   onStarted();
                 })
@@ -308,6 +325,127 @@ export function ContentInstallTasks({
           )}
         </article>
       ))}
+    </section>
+  );
+}
+
+function InstalledContentConfiguration({
+  api,
+  taskId,
+  target,
+  instances,
+}: {
+  api: HubApi;
+  taskId: string;
+  target: InstanceContentInstallPlan;
+  instances: PlayInstance[];
+}) {
+  const [task, setTask] = useState<ContentInstallTask | null>(null);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [report, setReport] = useState<ContentConfigReport | null>(null);
+  const request = useRef(0);
+  const instance = instances.find(
+    (i) =>
+      i.id === target.instance_id &&
+      i.installation_id === target.installation_id &&
+      i.data_root === target.plan.parent_dir,
+  );
+  const root = instance?.data_root;
+  useEffect(() => {
+    let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setError('');
+    setTask(null);
+    async function poll() {
+      try {
+        const rows = await api.contentInstallTasks();
+        if (!alive) return;
+        const result = rows.find((t) => t.id === taskId);
+        if (!result)
+          throw new Error('安装任务未在当前列表中，刷新任务记录后核对。');
+        if (
+          result.entry_id !== target.plan.entry_id ||
+          result.payload_root !== target.plan.payload_root ||
+          result.manifest_sha256 !== target.plan.manifest_sha256
+        )
+          throw new Error('安装结果与目标计划不一致，不能继续配置。');
+        setTask(result);
+        if (['running', 'cancelling'].includes(result.state))
+          timer = setTimeout(() => void poll(), 1000);
+      } catch (e) {
+        if (alive) setError(errorMessage(e));
+      }
+    }
+    void poll();
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [api, taskId, target, retry]);
+  useEffect(() => {
+    request.current++;
+    setReport(null);
+    setBusy(false);
+    return () => {
+      request.current++;
+    };
+  }, [api, root, instance?.installation_sha256]);
+  async function configure() {
+    if (!instance || task?.state !== 'succeeded') return;
+    const token = ++request.current;
+    setBusy(true);
+    setError('');
+    try {
+      const next = await api.inspectContentConfig(instance.id);
+      if (token !== request.current) return;
+      if (
+        next.instance_id !== instance.id ||
+        next.data_root !== instance.data_root
+      )
+        throw new Error('配置报告与部署目标不一致。');
+      setReport(next);
+    } catch (e) {
+      if (token === request.current) setError(errorMessage(e));
+    } finally {
+      if (token === request.current) setBusy(false);
+    }
+  }
+  return (
+    <section className="panel" aria-label="安装后配置">
+      <strong>{target.instance_name} · 安装后配置</strong>
+      <p>
+        {task?.state === 'succeeded'
+          ? '资源文件已安装。下一步读取此实例配置；启用状态以配置和游戏实际加载为准。'
+          : task && !['running', 'cancelling'].includes(task.state)
+            ? `安装未完成（${task.state}），请查看安装任务；不能进入配置。`
+            : '等待资源安装与校验完成…'}
+      </p>
+      <button
+        disabled={busy || task?.state !== 'succeeded' || !instance}
+        onClick={() => void configure()}
+      >
+        {busy ? '正在读取此实例配置…' : '配置此实例'}
+      </button>
+      {error && (
+        <p role="alert">
+          {error}
+          <button onClick={() => setRetry((n) => n + 1)}>
+            重新读取安装结果
+          </button>
+        </p>
+      )}
+      {report && instance && (
+        <ContentConfigDialog
+          title={instance.name + ' · 安装后配置'}
+          report={report}
+          api={api}
+          protectionApi={api}
+          changeApi={api}
+          onClose={() => setReport(null)}
+        />
+      )}
     </section>
   );
 }

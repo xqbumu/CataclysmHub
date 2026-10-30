@@ -1,0 +1,101 @@
+{
+  "content_install_task": [
+    {
+      "id": "e968d338-35ec-4c76-86e7-5e5d6b745f2c",
+      "request_key": "ea763991-fc2a-4f0d-945c-579e062a1aed",
+      "request_digest": "84bd8b30ee39e60f72bcd405812ab42344c041cfb1b51029d3ee4bbc1efd4bb2",
+      "entry_id": "0a39ecb0-46de-4e78-9e93-fa60aa1f0923",
+      "source_root": "/private/tmp/hub-content-native-20261030/Hub-QA-Basic",
+      "destination": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/.hub-content-b5725bf6-948c-40a1-b747-832f2285d8e5",
+      "payload_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/sound/hub-b5725bf6-948c-40a1-b747-832f2285d8e5",
+      "manifest_sha256": "d48e2601cd7765cbe96a7c8555c0732e14725928c0de8e1b7b6614ca789528c3",
+      "state": "succeeded",
+      "phase": "finished",
+      "revision": 2,
+      "error_code": null,
+      "created_at": "2026-10-30T09:27:00.663071+00:00",
+      "finished_at": "2026-10-30T09:27:00.790156+00:00"
+    },
+    {
+      "id": "cff13ecc-915b-417f-ad98-a98e04a722e9",
+      "request_key": "58c0b5a1-1a68-483a-9c6f-4223fe52f779",
+      "request_digest": "1d892cdc6fb4e68414db15fe8551deb464c992fd16bf9c54841d556792d69ed0",
+      "entry_id": "33b3cc9b-0025-490a-8a0f-cf8f2bb2128e",
+      "source_root": "/private/tmp/hub-content-native-20261030/Hub-QA-NPC-Needs",
+      "destination": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/.hub-content-0cddfeb8-479c-4703-b5b3-3eb3f1a270a7",
+      "payload_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/mods/hub-0cddfeb8-479c-4703-b5b3-3eb3f1a270a7",
+      "manifest_sha256": "62ec5020ec63aa85abacbfcc20dacdf38f411f1ee94938277a7ecac7bdb5afba",
+      "state": "succeeded",
+      "phase": "finished",
+      "revision": 2,
+      "error_code": null,
+      "created_at": "2026-10-30T09:25:38.622134+00:00",
+      "finished_at": "2026-10-30T09:25:39.008937+00:00"
+    }
+  ],
+  "config_change": [
+    {
+      "id": "5397e142-f68f-4e87-9a92-7daf519f81a7",
+      "request_key": "c783b4fd-eee5-4435-992a-9e3813345b36",
+      "request_digest": "fb2791e712d03651dcee929fef6ba376b1cdadbce3cee7934e1aad498ec81486",
+      "instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+      "backup_id": "c0bd6ef6-bb8d-43fb-bad5-796852f777c5",
+      "data_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data",
+      "path": "config/options.json",
+      "before_sha256": "c19cab0b0eeaaf71492fcc8975a932f0fe17dad43645ddc2614c2e09dd149e24",
+      "after_sha256": "d4fadcab3db65e2be2be82154b9ec69b5dba78839dcbe6e54376e2424371d161",
+      "state": "applied",
+      "error_code": null,
+      "created_at": "2026-10-30T09:28:12.410046+00:00",
+      "finished_at": "2026-10-30T09:28:12.631487+00:00",
+      "rollback_of": null
+    }
+  ],
+  "backup_archive": [
+    {
+      "id": "c0bd6ef6-bb8d-43fb-bad5-796852f777c5",
+      "task_id": "c0bd6ef6-bb8d-43fb-bad5-796852f777c5",
+      "workspace_id": "638c65a9-1b9b-439f-b67b-046e68212350",
+      "relative_dir": "c0bd6ef6-bb8d-43fb-bad5-796852f777c5",
+      "created_at": "2026-10-30T09:27:41.082742+00:00",
+      "entry_count": 159,
+      "file_count": 134,
+      "total_bytes": "1543144",
+      "consistency": "best_effort",
+      "verification": "verified",
+      "verified_at": "2026-10-30T09:27:41.381805+00:00",
+      "archive_sha256": "16f3a48db85e27f426d9ad84ce9727ec6ab7a555785f07d66171a2d9339a0404",
+      "manifest_sha256": "5e85a6e2e154b0ea51b3e57ff355729120e41ce23f9e13ef719d27116226bf50",
+      "display_name": "",
+      "notes": "",
+      "retention_locked": 0,
+      "metadata_revision": 0,
+      "metadata_updated_at": null,
+      "play_instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+      "source_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data"
+    },
+    {
+      "id": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+      "task_id": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+      "workspace_id": "638c65a9-1b9b-439f-b67b-046e68212350",
+      "relative_dir": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+      "created_at": "2026-10-30T07:22:21.262024+00:00",
+      "entry_count": 145,
+      "file_count": 124,
+      "total_bytes": "1526626",
+      "consistency": "best_effort",
+      "verification": "verified",
+      "verified_at": "2026-10-30T07:22:22.311308+00:00",
+      "archive_sha256": "95f69f23a4d6456bbb86088c90e4e75f790454399268fd82016264b0f809d25d",
+      "manifest_sha256": "5b00e952f809d73f577fa35edf663c9b64a49e36428f940ab14a07a613a0c9c6",
+      "display_name": "",
+      "notes": "",
+      "retention_locked": 0,
+      "metadata_revision": 0,
+      "metadata_updated_at": null,
+      "play_instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+      "source_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/restore-check/restored-685eacc4-ea3e-402a-b872-211d7181153e/data"
+    }
+  ],
+  "phase": "installed_and_configured_game_acceptance_pending"
+}

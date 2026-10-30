@@ -1,0 +1,27 @@
+npm warn Unknown user config "phantomjs_cdnurl". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown user config "auto-install-peers". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> cataclysm-hub@0.1.0 test
+> npm run test -w @cataclysm-hub/desktop
+
+npm warn Unknown env config "auto-install-peers". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown env config "phantomjs-cdnurl". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown user config "phantomjs_cdnurl". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+npm warn Unknown user config "auto-install-peers". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> @cataclysm-hub/desktop@0.1.0 test
+> vitest run
+
+
+ RUN  v5.0.5 /opt/src/github.com/xqbumu/CataclysmHub/apps/desktop
+
+
+ Test Files  25 passed (25)
+      Tests  174 passed (174)
+   Start at  17:21:07
+   Duration  38.99s (environment 42%, tests 41%, import 8%, setup 7%, transform 1%)
+
+Environment  jsdom was created 25 times · 100.54s total, 42% of tracked time
+             create it once per worker with pool: 'vmThreads' (keeps per-file isolation) or isolate: false (shares it across files)
+             learn more: https://vitest.dev/guide/improving-performance#test-environments
+
