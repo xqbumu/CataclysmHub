@@ -103,7 +103,7 @@ it('limits instances to their installation and discards late reports from a prev
   await user.selectOptions(screen.getByLabelText('目标游玩实例'), 'b');
   await user.click(screen.getByRole('button', { name: '读取并配置此实例' }));
   expect(
-    await screen.findByRole('dialog', { name: 'B · 模组与声音' }),
+    await screen.findByRole('dialog', { name: 'B · 游戏、模组与声音配置' }),
   ).toBeVisible();
   expect(inspectContentConfig).toHaveBeenNthCalledWith(2, 'b');
 });

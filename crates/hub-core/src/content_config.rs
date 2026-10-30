@@ -21,6 +21,8 @@ pub struct SoundConfiguration {
     pub sha256: Option<String>,
     pub soundpack: Option<String>,
     pub sound_enabled: Option<String>,
+    #[ts(optional)]
+    pub game_options: Option<BTreeMap<String, String>>,
 }
 #[derive(Debug, Clone, Serialize, TS)]
 pub struct ContentReference {
@@ -212,6 +214,7 @@ fn sound(root: &Dir, remaining: &mut usize) -> SoundConfiguration {
         sha256: None,
         soundpack: None,
         sound_enabled: None,
+        game_options: Some(BTreeMap::new()),
     };
     match document(root, &result.path, remaining) {
         Ok((json, hash)) => {
@@ -226,6 +229,21 @@ fn sound(root: &Dir, remaining: &mut usize) -> SoundConfiguration {
                     result.status = "unsupported_format".into();
                     break;
                 };
+                if crate::game_options::KEYS.contains(&name) {
+                    let Some((setting, options)) = value
+                        .get("value")
+                        .and_then(Value::as_str)
+                        .zip(result.game_options.as_mut())
+                    else {
+                        result.status = "unsupported_format".into();
+                        break;
+                    };
+                    if !seen.insert(name) {
+                        result.status = "unsupported_format".into();
+                        break;
+                    }
+                    options.insert(name.into(), setting.into());
+                }
                 if matches!(name, "SOUNDPACKS" | "SOUND_ENABLED") {
                     let setting = value.get("value").and_then(identifier);
                     if !seen.insert(name) || setting.is_none() {
@@ -240,6 +258,7 @@ fn sound(root: &Dir, remaining: &mut usize) -> SoundConfiguration {
                 }
             }
             if result.status != "read" {
+                result.game_options = None;
                 result.soundpack = None;
                 result.sound_enabled = None;
             }

@@ -1,3 +1,4 @@
+import GameOptionsFields from './GameOptionsFields';
 import { contentChoices } from './contentChoices';
 import ConfigChangePanel, { type ConfigChangeApi } from './ConfigChangePanel';
 import ContentConfigProtectionPanel, {
@@ -22,6 +23,7 @@ export default function ContentConfigPreviewPanel({
   protectionApi?: ProtectionApi;
   changeApi?: ConfigChangeApi;
 }) {
+  const [gameOptions, setGameOptions] = useState<Record<string, string>>({});
   const modChoices = contentChoices(report, 'mod');
   const soundChoices = contentChoices(report, 'soundpack');
   const [addMod, setAddMod] = useState('');
@@ -61,6 +63,9 @@ export default function ContentConfigPreviewPanel({
     setError('');
     try {
       const input: ContentConfigInput = {
+        ...(Object.keys(gameOptions).length
+          ? { game_options: gameOptions }
+          : {}),
         default_mods: editMods
           ? mods
               .split(/\r?\n/u)
@@ -84,6 +89,14 @@ export default function ContentConfigPreviewPanel({
   return (
     <section>
       <h3>1. 选择要修改的配置</h3>
+      <GameOptionsFields
+        configuration={report.sound}
+        draft={gameOptions}
+        onChange={(next) => {
+          setGameOptions(next);
+          invalidate();
+        }}
+      />
       <p>
         基于本次报告（{report.checked_at}
         ）在内存中比较，不重新读取文件，也不写入。关闭即丢弃；无差异或无提示都不代表兼容验证通过。
@@ -302,6 +315,7 @@ export default function ContentConfigPreviewPanel({
         onClick={() =>
           setPreview(
             previewContentConfig(report, {
+              gameOptions,
               defaultMods: editMods
                 ? mods
                     .split(/\r?\n/u)

@@ -66,6 +66,12 @@ export interface RemoteTransfer {
   total: number;
 }
 export interface RemoteApi {
+  lookup(id: string, tag: string): Promise<RemoteView>;
+  openExtraction(id: string): Promise<void>;
+  pickExtraction(
+    id: string,
+    kind: 'directory' | 'executable',
+  ): Promise<string | null>;
   extract(id: string): Promise<RemoteExtraction>;
   progress(): Promise<RemoteTransfer | null>;
   cancel(): Promise<void>;
@@ -79,6 +85,10 @@ export interface RemoteApi {
   ): Promise<RemoteDownload>;
 }
 export const remoteApi: RemoteApi = {
+  lookup: (id, tag) => invoke('lookup_remote_release', { id, tag }),
+  openExtraction: (id) => invoke('open_remote_extraction', { id }),
+  pickExtraction: (extractionId, kind) =>
+    invoke('pick_path', { kind, extractionId }),
   extract: (id) => invoke('extract_remote_download', { id }),
   progress: () =>
     isTauri() ? invoke('remote_download_progress') : Promise.resolve(null),

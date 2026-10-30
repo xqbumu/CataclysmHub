@@ -1,6 +1,8 @@
+import { commonGameOptions, languages } from './gameOptions';
 import type { ContentConfigReport } from './bindings/ContentConfigReport';
 
 export interface ContentConfigDraft {
+  gameOptions?: Record<string, string>;
   defaultMods: string[] | null;
   soundpack: string | null;
   soundEnabled: 'true' | 'false' | null;
@@ -58,6 +60,28 @@ export function previewContentConfig(
     report.discovery.packages
       .filter((pkg) => pkg.kind === kind)
       .flatMap((pkg) => pkg.definitions.filter((def) => def.content_id === id));
+  for (const [key, value] of Object.entries(draft.gameOptions ?? {})) {
+    const field = commonGameOptions.find((f) => f.key === key);
+    if (!field) {
+      addIssue(`${key}：不支持的通用配置项。`);
+      continue;
+    }
+    if (field.kind === 'boolean' && !['true', 'false'].includes(value))
+      addIssue(`${key}：只能选择开启或关闭。`);
+    if (field.kind === 'language' && !languages.some(([id]) => id === value))
+      addIssue(`${key}：不支持写入该语言代码；取消勾选可保留原声明。`);
+    const current = report.sound.game_options ?? {};
+    const known = report.sound.status === 'read' && Object.hasOwn(current, key);
+    change(report.sound.path, key, known ? current[key] : null, value, known);
+    if (
+      field.kind === 'number' &&
+      (!/^[0-9]+$/.test(value) ||
+        Number(value) < field.min ||
+        Number(value) > field.max ||
+        String(Number(value)) !== value)
+    )
+      addIssue(`${key}：数值超出允许范围或不是整数。`);
+  }
   if (draft.defaultMods !== null) {
     const ids = draft.defaultMods;
     if (ids.length > 256 || ids.some((id) => !validId(id))) {

@@ -314,6 +314,7 @@ async fn fresh_config_preview_preserves_other_fields_and_never_writes() {
     f.write("save/W/mods.json", br#"["dda"]"#);
     let before = f.hub.dashboard().await.unwrap().operations.len();
     let input = hub_core::ContentConfigInput {
+        game_options: None,
         default_mods: Some(vec![]),
         soundpack: Some("new".into()),
         sound_enabled: Some(true),
@@ -347,6 +348,7 @@ async fn fresh_config_preview_preserves_other_fields_and_never_writes() {
         .preview_content_config(
             "p",
             hub_core::ContentConfigInput {
+                game_options: None,
                 default_mods: None,
                 soundpack: None,
                 sound_enabled: Some(false),
@@ -363,16 +365,19 @@ async fn config_preview_rejects_unknown_baselines_and_invalid_drafts() {
     let f = Fixture::new().await;
     for input in [
         hub_core::ContentConfigInput {
+            game_options: None,
             default_mods: Some(vec!["a".into(), "a".into()]),
             soundpack: None,
             sound_enabled: None,
         },
         hub_core::ContentConfigInput {
+            game_options: None,
             default_mods: Some(vec![]),
             soundpack: None,
             sound_enabled: None,
         },
         hub_core::ContentConfigInput {
+            game_options: None,
             default_mods: None,
             soundpack: Some("music".into()),
             sound_enabled: None,
@@ -389,6 +394,7 @@ async fn config_preview_rejects_unknown_baselines_and_invalid_drafts() {
             .preview_content_config(
                 "p",
                 hub_core::ContentConfigInput {
+                    game_options: None,
                     default_mods: None,
                     soundpack: None,
                     sound_enabled: Some(true)
@@ -402,6 +408,7 @@ async fn config_preview_rejects_unknown_baselines_and_invalid_drafts() {
         .preview_content_config(
             "p",
             hub_core::ContentConfigInput {
+                game_options: None,
                 default_mods: None,
                 soundpack: None,
                 sound_enabled: None,
@@ -421,6 +428,7 @@ async fn config_preview_rejects_duplicate_json_keys_and_preserves_noop_bytes() {
         br#"[{"name":"SOUND_ENABLED","value":"true","value":"false"}]"#,
     );
     let input = hub_core::ContentConfigInput {
+        game_options: None,
         default_mods: None,
         soundpack: None,
         sound_enabled: Some(false),
@@ -467,6 +475,7 @@ async fn obsolete_mods_remain_visible_for_old_worlds_but_diagnose_new_defaults()
         .preview_content_config(
             "p",
             hub_core::ContentConfigInput {
+                game_options: None,
                 default_mods: Some(vec!["old".into()]),
                 soundpack: None,
                 sound_enabled: None,
@@ -483,5 +492,85 @@ async fn obsolete_mods_remain_visible_for_old_worlds_but_diagnose_new_defaults()
     assert_eq!(
         std::fs::read(f.root.join("save/Legacy/mods.json")).unwrap(),
         br#"["old"]"#
+    );
+}
+
+#[tokio::test]
+async fn common_options_preview_is_bounded_preserves_unknown_fields_and_never_invents_options() {
+    let f = Fixture::new().await;
+    let original = br#"[{"name":"USE_LANG","value":"","custom":42},{"name":"AUTOSAVE","value":"true"},{"name":"AUTOSAVE_TURNS","value":"50"},{"name":"AUTOSAVE_MINUTES","value":"5"},{"name":"OTHER","value":"untouched"}]"#;
+    f.write("config/options.json", original);
+    let report = f.hub.inspect_content_config("p").await.unwrap();
+    assert_eq!(report.sound.game_options.unwrap()["USE_LANG"], "");
+    let draft = |key: &str, value: &str| hub_core::ContentConfigInput {
+        game_options: Some([(key.to_owned(), value.to_owned())].into()),
+        default_mods: None,
+        soundpack: None,
+        sound_enabled: None,
+    };
+    let plan = f
+        .hub
+        .preview_content_config("p", draft("USE_LANG", "zh_CN"))
+        .await
+        .unwrap();
+    assert!(plan.proposed_discovery.scopes.is_empty());
+    assert!(plan.proposed_discovery.findings.is_empty());
+    let json: serde_json::Value = serde_json::from_str(&plan.files[0].proposed_json).unwrap();
+    assert_eq!(json[0]["value"], "zh_CN");
+    assert_eq!(json[0]["custom"], 42);
+    assert_eq!(json[4]["value"], "untouched");
+    for (key, value) in [
+        ("AUTOSAVE_TURNS", "9"),
+        ("AUTOSAVE_TURNS", "1001"),
+        ("AUTOSAVE_MINUTES", "128"),
+        ("AUTOSAVE_MINUTES", "-1"),
+        ("AUTOSAVE", "yes"),
+        ("USE_LANG", "../../x"),
+        ("OTHER", "changed"),
+    ] {
+        assert!(
+            f.hub
+                .preview_content_config("p", draft(key, value))
+                .await
+                .is_err()
+        );
+    }
+    for (key, value) in [
+        ("AUTOSAVE_TURNS", "10"),
+        ("AUTOSAVE_TURNS", "1000"),
+        ("AUTOSAVE_MINUTES", "0"),
+        ("AUTOSAVE_MINUTES", "127"),
+        ("AUTOSAVE", "false"),
+    ] {
+        assert!(
+            f.hub
+                .preview_content_config("p", draft(key, value))
+                .await
+                .is_ok()
+        );
+    }
+    assert_eq!(
+        std::fs::read(f.root.join("config/options.json")).unwrap(),
+        original
+    );
+    f.write(
+        "config/options.json",
+        br#"[{"name":"AUTOSAVE","value":"true"}]"#,
+    );
+    assert!(
+        f.hub
+            .preview_content_config("p", draft("USE_LANG", "en"))
+            .await
+            .is_err()
+    );
+    f.write(
+        "config/options.json",
+        br#"[{"name":"USE_LANG","value":"en"},{"name":"USE_LANG","value":"zh_CN"}]"#,
+    );
+    assert!(
+        f.hub
+            .preview_content_config("p", draft("USE_LANG", "en"))
+            .await
+            .is_err()
     );
 }

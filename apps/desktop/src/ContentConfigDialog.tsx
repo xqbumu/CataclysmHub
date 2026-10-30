@@ -1,3 +1,4 @@
+import { commonGameOptions, languages } from './gameOptions';
 import WorkspaceTabs from './WorkspaceTabs';
 import { ConfigChangeHistory } from './ConfigChangePanel';
 import type { ConfigChangeApi } from './ConfigChangePanel';
@@ -53,7 +54,7 @@ export default function ContentConfigDialog({
   onClose: () => void;
 }) {
   return (
-    <Modal title={title ?? '模组与声音配置引用'} onClose={onClose} wide>
+    <Modal title={title ?? '游戏与资源配置'} onClose={onClose} wide>
       <p className="inline-note">
         配置读取不代表游戏实际加载。已有世界与新世界默认组合分别管理。
       </p>
@@ -85,6 +86,31 @@ export default function ContentConfigDialog({
             content: (
               <div className="config-section">
                 {' '}
+                <h3>常用游戏配置</h3>
+                <dl className="launch-details">
+                  {commonGameOptions.map((field) => {
+                    const value = report.sound.game_options?.[field.key];
+                    return (
+                      <div key={field.key}>
+                        <dt>{field.label}</dt>
+                        <dd>
+                          {report.sound.status !== 'read' || value === undefined
+                            ? '未声明或不可读'
+                            : field.kind === 'language'
+                              ? (languages.find(([id]) => id === value)?.[1] ??
+                                value)
+                              : field.kind === 'boolean'
+                                ? value === 'true'
+                                  ? '开启'
+                                  : value === 'false'
+                                    ? '关闭'
+                                    : value
+                                : value}
+                        </dd>
+                      </div>
+                    );
+                  })}
+                </dl>
                 <h3>声音设置声明</h3>
                 <p>
                   {report.sound.path} ·{' '}

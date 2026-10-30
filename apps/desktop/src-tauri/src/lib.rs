@@ -54,6 +54,39 @@ async fn sync_remote_source(
     store.store()?.sync(&id, manual).await
 }
 #[tauri::command]
+async fn lookup_remote_release(
+    store: tauri::State<'_, RemoteState>,
+    id: String,
+    tag: String,
+) -> Result<catalog::View, String> {
+    store.store()?.lookup(&id, &tag).await
+}
+#[tauri::command]
+async fn open_remote_extraction(
+    store: tauri::State<'_, RemoteState>,
+    id: String,
+) -> Result<(), HubError> {
+    let path = extraction_directory(&store, &id).await?;
+    open_directory(&path)
+}
+async fn extraction_directory(
+    store: &RemoteState,
+    id: &str,
+) -> Result<std::path::PathBuf, HubError> {
+    let view = store.store().map_err(|_| selection_error())?.view().await;
+    let record = view
+        .catalog
+        .extractions
+        .iter()
+        .find(|e| e.id == id)
+        .ok_or_else(selection_error)?;
+    let p = std::fs::canonicalize(&record.path).map_err(|_| selection_error())?;
+    if p != std::path::Path::new(&record.path) || !p.is_dir() {
+        return Err(selection_error());
+    }
+    Ok(p)
+}
+#[tauri::command]
 async fn remove_remote_download(
     store: tauri::State<'_, RemoteState>,
     state: tauri::State<'_, AppState>,
@@ -244,6 +277,8 @@ async fn pick_path(
     app: tauri::AppHandle,
     state: tauri::State<'_, AppState>,
     kind: String,
+    extraction_id: Option<String>,
+    remote: tauri::State<'_, RemoteState>,
 ) -> Result<Option<String>, HubError> {
     let executable = match kind.as_str() {
         "directory" => false,
@@ -255,12 +290,21 @@ async fn pick_path(
             ));
         }
     };
+    let initial = match extraction_id {
+        Some(id) => Some(extraction_directory(&remote, &id).await?),
+        None => None,
+    };
     let selected = tauri::async_runtime::spawn_blocking(move || {
         let picker = app.dialog().file().set_title(if executable {
             "选择游戏程序或 .app 应用"
         } else {
             "选择现有目录"
         });
+        let picker = if let Some(path) = initial {
+            picker.set_directory(path)
+        } else {
+            picker
+        };
         if executable {
             picker.blocking_pick_file()
         } else {
@@ -640,6 +684,9 @@ async fn open_workspace_path(
     if !p.is_dir() {
         return Err(selection_error());
     }
+    open_directory(&p)
+}
+fn open_directory(p: &std::path::Path) -> Result<(), HubError> {
     #[cfg(target_os = "macos")]
     let mut command = std::process::Command::new("open");
     #[cfg(target_os = "windows")]
@@ -898,6 +945,8 @@ pub fn run() {
             cancel_remote_download,
             remote_catalog,
             sync_remote_source,
+            lookup_remote_release,
+            open_remote_extraction,
             download_remote_asset,
             extract_remote_download,
             register_managed_instance,

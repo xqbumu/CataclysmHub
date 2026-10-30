@@ -1,0 +1,58 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "b8e842f",
+  "scope": [
+    "per-instance centralized game language and autosave settings",
+    "manual historical release tag lookup",
+    "open extraction and begin native selection for import"
+  ],
+  "checks": {
+    "frontend": {
+      "tests_passed": 139,
+      "files": 20,
+      "workers": 2,
+      "format": true,
+      "typecheck_and_production_build": true
+    },
+    "rust_workspace_all_features": {
+      "command": "task check:rust",
+      "passed": 299,
+      "ignored": 4,
+      "note": "Before final catalog byte-limit addition; refreshed catalog tests and workspace Clippy follow."
+    },
+    "final_catalog_regression": {
+      "passed": 15,
+      "ignored": 3,
+      "note": "Includes new oversized cache refusal test; overlaps workspace cases."
+    },
+    "final_workspace_clippy": true,
+    "rust_format": true,
+    "core_config_and_backup_targeted": {
+      "passed": 39
+    },
+    "official_historical_lookup": {
+      "source": "dda",
+      "tag": "0.H-RELEASE",
+      "passed": true,
+      "reopened_cache_verified": true,
+      "attachments_downloaded": false,
+      "initial_0_H_name_query": "404; preserved cache; corrected example to full release tag"
+    },
+    "debug_bundle": {
+      "command": "task build:debug",
+      "exit_code": 0,
+      "path": "/opt/src/github.com/xqbumu/CataclysmHub/target/debug/bundle/macos/Cataclysm Hub.app",
+      "size_mib_reported": 67.15
+    }
+  },
+  "schema_migration_added": false,
+  "real_game_executed": false,
+  "player_data_modified": false,
+  "app_installed": false,
+  "not_certified": [
+    "native selector manual end-to-end interaction",
+    "language rendering and autosave timing in actual games",
+    "all game forks and builds",
+    "cross-instance global default propagation"
+  ]
+}

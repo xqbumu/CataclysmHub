@@ -9,6 +9,7 @@ use std::{
     time::Duration,
 };
 use tokio::sync::Mutex;
+const CATALOG_LIMIT: usize = 16 * 1024 * 1024;
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct Source {
@@ -84,6 +85,25 @@ pub struct View {
     pub host_arch: String,
     pub sources: Vec<Source>,
     pub catalog: Catalog,
+}
+fn release_tag_url(repo: &str, tag: &str) -> Result<reqwest::Url, String> {
+    if tag.is_empty()
+        || tag.len() > 256
+        || tag.trim() != tag
+        || tag.chars().any(char::is_control)
+        || matches!(tag, "." | "..")
+    {
+        return Err("发布标签无效或超过限制".into());
+    }
+    let mut url = reqwest::Url::parse(&format!(
+        "https://api.github.com/repos/{repo}/releases/tags/"
+    ))
+    .map_err(failure)?;
+    url.path_segments_mut()
+        .map_err(|_| "发布地址无效")?
+        .pop_if_empty()
+        .push(tag);
+    Ok(url)
 }
 pub fn sources() -> Vec<Source> {
     [
@@ -178,7 +198,9 @@ impl Store {
                 .read(true)
                 .follow(cap_fs_ext::FollowSymlinks::No),
         ) {
-            Ok(file) => serde_json::from_reader(file.take(16 * 1024 * 1024)).map_err(failure)?,
+            Ok(file) => {
+                serde_json::from_reader(file.take(CATALOG_LIMIT as u64)).map_err(failure)?
+            }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Catalog::default(),
             Err(e) => return Err(failure(e)),
         };
@@ -223,13 +245,16 @@ impl Store {
         }
     }
     fn persist(&self, value: &Catalog) -> Result<(), String> {
+        let bytes = serde_json::to_vec(value).map_err(failure)?;
+        if bytes.len() > CATALOG_LIMIT {
+            return Err("目录缓存超过 16 MiB，保留原有记录；请更新近期列表后重试。".into());
+        }
         let name = format!("catalog-{}.tmp", uuid::Uuid::new_v4());
         let mut f = self
             .dir
             .open_with(&name, OpenOptions::new().write(true).create_new(true))
             .map_err(failure)?;
-        f.write_all(&serde_json::to_vec(value).map_err(failure)?)
-            .map_err(failure)?;
+        f.write_all(&bytes).map_err(failure)?;
         f.sync_all().map_err(failure)?;
         self.dir
             .rename(&name, &self.dir, "remote-catalog.json")
@@ -273,6 +298,57 @@ impl Store {
             }
             Err(error) => listing.error = Some(error),
         }
+        self.persist(&next)?;
+        *state = next;
+        Ok(View {
+            host_os: std::env::consts::OS.into(),
+            host_arch: std::env::consts::ARCH.into(),
+            sources: sources(),
+            catalog: state.clone(),
+        })
+    }
+    pub async fn lookup(&self, id: &str, tag: &str) -> Result<View, String> {
+        let source = sources()
+            .into_iter()
+            .find(|s| s.id == id && s.kind == "game")
+            .ok_or("仅支持官方游戏发布来源")?;
+        let url = release_tag_url(&source.repo, tag)?;
+        let mut state = self
+            .state
+            .try_lock()
+            .map_err(|_| "另一项同步、下载或解压正在进行")?;
+        let response = self
+            .client
+            .get(url)
+            .header("Accept", "application/vnd.github+json")
+            .timeout(Duration::from_secs(45))
+            .send()
+            .await
+            .map_err(failure)?;
+        if response.status() == reqwest::StatusCode::NOT_FOUND {
+            return Err("未找到该发布标签，请核对完整 tag；普通 Git 标签不一定有发行附件。".into());
+        }
+        let body = bounded_body(
+            response.error_for_status().map_err(failure)?,
+            8 * 1024 * 1024,
+        )
+        .await?;
+        let mut array = vec![b'['];
+        array.extend(body);
+        array.push(b']');
+        let releases = parse_releases(&array, &source.repo)?;
+        if releases.len() != 1 || releases[0].tag != tag {
+            return Err("上游返回的发布标签不匹配".into());
+        }
+        let mut next = state.clone();
+        let listing = next.listings.entry(id.into()).or_default();
+        if listing.releases.len() >= 200 && !listing.releases.iter().any(|r| r.tag == tag) {
+            return Err("缓存发布已达 200 项，请手动更新近期目录后再查询。".into());
+        }
+        listing.releases.retain(|r| r.tag != tag);
+        listing
+            .releases
+            .insert(0, releases.into_iter().next().ok_or("发布记录缺失")?);
         self.persist(&next)?;
         *state = next;
         Ok(View {
@@ -831,6 +907,72 @@ fn parse_releases(bytes: &[u8], repo: &str) -> Result<Vec<Release>, String> {
 }
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn oversized_catalog_cannot_replace_the_readable_cache() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::open(temp.path()).unwrap();
+        let mut state = Catalog::default();
+        store.persist(&state).unwrap();
+        let before = std::fs::read(temp.path().join("remote-catalog.json")).unwrap();
+        state.listings.insert(
+            "dda".into(),
+            Listing {
+                releases: vec![Release {
+                    tag: "x".repeat(CATALOG_LIMIT),
+                    prerelease: false,
+                    published: String::new(),
+                    assets: vec![],
+                }],
+                ..Default::default()
+            },
+        );
+        assert!(store.persist(&state).is_err());
+        assert_eq!(
+            std::fs::read(temp.path().join("remote-catalog.json")).unwrap(),
+            before
+        );
+        assert!(Store::open(temp.path()).is_ok());
+    }
+    #[tokio::test]
+    async fn historical_lookup_invalid_requests_preserve_catalog_without_network() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::open(temp.path()).unwrap();
+        let before = serde_json::to_value(store.view().await.catalog).unwrap();
+        assert!(store.lookup("sound", "0.H").await.is_err());
+        assert!(store.lookup("dda", "..").await.is_err());
+        assert_eq!(
+            serde_json::to_value(store.view().await.catalog).unwrap(),
+            before
+        );
+    }
+    #[tokio::test]
+    #[ignore = "manual upstream network acceptance; temporary metadata only"]
+    async fn manual_historical_release_lookup() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::open(temp.path()).unwrap();
+        let view = store.lookup("dda", "0.H-RELEASE").await.unwrap();
+        assert_eq!(view.catalog.listings["dda"].releases[0].tag, "0.H-RELEASE");
+        assert!(!view.catalog.listings["dda"].releases[0].assets.is_empty());
+        assert!(view.catalog.downloads.is_empty());
+        assert!(view.catalog.extractions.is_empty());
+        let reopened = Store::open(temp.path()).unwrap();
+        assert_eq!(
+            reopened.view().await.catalog.listings["dda"].releases[0].tag,
+            "0.H-RELEASE"
+        );
+    }
+    #[test]
+    fn historical_release_url_keeps_tag_inside_one_path_segment() {
+        let url = super::release_tag_url("CleverRaven/Cataclysm-DDA", "build/old?#x").unwrap();
+        assert_eq!(url.host_str(), Some("api.github.com"));
+        assert_eq!(url.query(), None);
+        assert_eq!(url.fragment(), None);
+        assert!(url.as_str().ends_with("build%2Fold%3F%23x"));
+        for tag in ["", "..", ".", " x", "x\n"] {
+            assert!(super::release_tag_url("CleverRaven/Cataclysm-DDA", tag).is_err());
+        }
+    }
+
     use super::*;
     #[test]
     fn rejects_foreign_urls_and_paths() {

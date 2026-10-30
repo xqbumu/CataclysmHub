@@ -60,9 +60,9 @@ export default function InstanceContentPanel({
   }
   return (
     <section className="panel">
-      <h2>按实例管理模组与声音</h2>
+      <h2>集中游戏配置</h2>
       <p>
-        先选择游戏安装和游玩实例。安装内置资源随该版本发现，用户资源和声音配置按实例读取；已有世界的模组组合单独展示。
+        先选择游戏安装和游玩实例，集中管理语言、自动保存、模组与声音。只修改所选实例；安装内置资源随版本发现，已有世界模组组合单独展示。
       </p>
       <div className="task-center-filters">
         <label>
@@ -125,7 +125,7 @@ export default function InstanceContentPanel({
       {error && <p role="alert">{error}</p>}
       {report && instance && report.instance_id === instance.id && (
         <ContentConfigDialog
-          title={instance.name + ' · 模组与声音'}
+          title={instance.name + ' · 游戏、模组与声音配置'}
           report={report}
           api={api}
           protectionApi={api}

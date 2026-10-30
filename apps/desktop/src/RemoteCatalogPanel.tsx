@@ -21,13 +21,16 @@ const size = (n: number) =>
 export default function RemoteCatalogPanel({
   kind,
   client = remoteApi,
+  onImport,
 }: {
   kind: 'game' | 'resource';
   client?: RemoteApi;
+  onImport?: (path: string, kind: 'mod' | 'soundpack') => Promise<void> | void;
 }) {
   const [view, setView] = useState<RemoteView | null>(null);
   const [selected, setSelected] = useState('');
   const [query, setQuery] = useState('');
+  const [tag, setTag] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [pending, setPending] = useState<{
@@ -206,6 +209,39 @@ export default function RemoteCatalogPanel({
           </button>
         </div>
       )}
+      {kind === 'game' && (
+        <div className="catalog-toolbar">
+          <label>
+            查找历史发布标签
+            <input
+              value={tag}
+              maxLength={256}
+              placeholder="完整 tag，例如 0.H-RELEASE"
+              onChange={(e) => setTag(e.target.value)}
+            />
+          </label>
+          <button
+            disabled={busy || !!transfer || !tag.trim() || !selected}
+            onClick={() =>
+              void (async () => {
+                setBusy(true);
+                setError('');
+                try {
+                  setView(await client.lookup(selected, tag.trim()));
+                  setQuery('');
+                  setNotice('已读取该历史发布；不会自动下载。');
+                } catch (e) {
+                  setError(message(e));
+                } finally {
+                  setBusy(false);
+                }
+              })()
+            }
+          >
+            查找历史版本
+          </button>
+        </div>
+      )}
       {source && (
         <p className="inline-note">
           <a
@@ -219,7 +255,8 @@ export default function RemoteCatalogPanel({
           {listing?.updated
             ? `同步于 ${new Date(listing.updated).toLocaleString()}`
             : '尚无成功同步'}{' '}
-          · 近期 30 个发布及最新正式发布；提交源展示固定提交。之后仅手动更新
+          · 近期 30 个发布及最新正式发布；游戏可按完整 tag
+          手动查找历史版本，近期更新会重建列表。之后仅手动更新
         </p>
       )}
       <p className="inline-note">
@@ -375,6 +412,47 @@ export default function RemoteCatalogPanel({
               {e.name} · {e.tag} · {size(e.bytes)}
             </summary>
             <p className="file-path">{e.path}</p>
+            <button
+              disabled={busy || !!transfer}
+              onClick={() =>
+                void client
+                  .openExtraction(e.id)
+                  .catch((error) => setError(message(error)))
+              }
+            >
+              打开解压目录
+            </button>
+            {onImport && (
+              <button
+                disabled={busy || !!transfer}
+                onClick={() =>
+                  void (async () => {
+                    setBusy(true);
+                    setError('');
+                    try {
+                      const path = await client.pickExtraction(
+                        e.id,
+                        kind === 'game' ? 'executable' : 'directory',
+                      );
+                      if (path)
+                        await onImport(
+                          path,
+                          sources.find((s) => s.id === e.source)?.kind ===
+                            'soundpack'
+                            ? 'soundpack'
+                            : 'mod',
+                        );
+                    } catch (error) {
+                      setError(message(error));
+                    } finally {
+                      setBusy(false);
+                    }
+                  })()
+                }
+              >
+                {kind === 'game' ? '选择并导入游戏' : '选择并登记单个资源包'}
+              </button>
+            )}
             <small>
               {e.entries} 项 · {e.extracted_at}
             </small>

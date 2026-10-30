@@ -19,6 +19,7 @@ export default function ContentPage({
   api: HubApi;
   data?: Dashboard;
 }) {
+  const [view, setView] = useState('instance');
   const [entries, setEntries] = useState<ContentEntry[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -254,6 +255,8 @@ export default function ContentPage({
   return (
     <WorkspaceTabs
       label="模组与声音视图"
+      value={view}
+      onChange={setView}
       items={[
         {
           id: 'instance',
@@ -263,7 +266,16 @@ export default function ContentPage({
         {
           id: 'download',
           label: '下载资源',
-          content: <RemoteCatalogPanel kind="resource" />,
+          content: (
+            <RemoteCatalogPanel
+              kind="resource"
+              onImport={async (path, kind) => {
+                await api.registerContent(path, kind);
+                setEntries(await api.contentEntries());
+                setView('library');
+              }}
+            />
+          ),
         },
         { id: 'library', label: '资源来源库', content: library },
       ]}

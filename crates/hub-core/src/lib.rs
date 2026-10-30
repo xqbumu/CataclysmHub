@@ -1,4 +1,5 @@
 mod database;
+mod game_options;
 mod installation;
 mod paths;
 mod process;

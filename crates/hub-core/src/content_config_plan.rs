@@ -11,6 +11,9 @@ use ts_rs::TS;
 #[derive(Debug, Clone, Deserialize, Serialize, TS)]
 #[serde(deny_unknown_fields)]
 pub struct ContentConfigInput {
+    #[serde(default)]
+    #[ts(optional)]
+    pub game_options: Option<std::collections::BTreeMap<String, String>>,
     pub default_mods: Option<Vec<String>>,
     pub soundpack: Option<String>,
     pub sound_enabled: Option<bool>,
@@ -33,6 +36,14 @@ fn invalid(message: &'static str) -> HubError {
     HubError::new("CONTENT_CONFIG_PREVIEW_UNAVAILABLE", message)
 }
 fn validate(input: &ContentConfigInput) -> Result<()> {
+    if input.game_options.as_ref().is_some_and(|options| {
+        options.len() > crate::game_options::KEYS.len()
+            || options
+                .iter()
+                .any(|(key, value)| !crate::game_options::valid(key, value))
+    }) {
+        return Err(invalid("通用游戏配置包含不支持的字段或值。"));
+    }
     let valid = |id: &str| !id.is_empty() && id.len() <= 256 && !id.chars().any(char::is_control);
     if let Some(ids) = &input.default_mods {
         let unique: std::collections::HashSet<_> = ids.iter().collect();
@@ -106,7 +117,7 @@ impl Hub {
             .map_err(|_| invalid("实例目录不可访问。"))?;
         let report = self.inspect_content_config_locked(instance_id).await?;
         tokio::task::spawn_blocking(move || {
-            let sound_only = input.default_mods.is_none();
+            let no_mod_edits = input.default_mods.is_none();
             let mut budget = 2 * 1024 * 1024;
             let mut files = vec![];
             let mut proposed = report.clone();
@@ -137,7 +148,8 @@ impl Hub {
                     });
                 }
             }
-            if input.soundpack.is_some() || input.sound_enabled.is_some() {
+            let edits_sound = input.soundpack.is_some() || input.sound_enabled.is_some();
+            if edits_sound || input.game_options.as_ref().is_some_and(|o| !o.is_empty()) {
                 let original = &report.sound;
                 let (before, hash) = source(
                     &root,
@@ -147,7 +159,8 @@ impl Hub {
                     &mut budget,
                 )?;
                 // A switch change still uses the retained soundpack, when declared.
-                if input.soundpack.is_none()
+                if edits_sound
+                    && input.soundpack.is_none()
                     && let Some(id) = &original.soundpack
                 {
                     proposed.references.push(ContentReference {
@@ -182,6 +195,22 @@ impl Hub {
                         }
                     }
                 }
+                for (name, value) in input.game_options.into_iter().flatten() {
+                    let entry = after
+                        .as_array_mut()
+                        .and_then(|items| {
+                            items.iter_mut().find(|item| {
+                                item.get("name").and_then(Value::as_str) == Some(name.as_str())
+                            })
+                        })
+                        .ok_or_else(|| {
+                            invalid("目标游戏尚未声明该配置项；请先在游戏中保存设置。")
+                        })?;
+                    if entry.get("value").and_then(Value::as_str).is_none() {
+                        return Err(invalid("目标游戏配置值格式不支持。"));
+                    }
+                    entry["value"] = Value::String(value);
+                }
                 proposal(&original.path, before, after, hash, &mut files)?;
             }
             let held = same_file::Handle::from_file(root.into_std_file())
@@ -197,12 +226,22 @@ impl Hub {
             }
             let mut discovery = report.discovery.clone();
             discovery.findings.clear();
-            // Keep all observed packages and scan status as evidence. Only sound
-            // diagnostics govern sound-only edits; unrelated mod warnings remain
-            // visible in the original report and do not authorize mod changes.
+            // Game-only edits have no resource references to authorize. Preserve
+            // resource observations in report, without gating language/autosave on them.
+            if no_mod_edits && !edits_sound {
+                discovery = ContentDiscovery {
+                    scopes: vec![],
+                    packages: vec![],
+                    findings: vec![],
+                    truncated: false,
+                };
+            }
+            // Sound and mod changes retain their existing resource scan guards.
             let mut diagnostic_scope = discovery.clone();
-            if sound_only {
-                diagnostic_scope.packages.retain(|p| p.kind == "soundpack");
+            if no_mod_edits {
+                diagnostic_scope
+                    .packages
+                    .retain(|p| edits_sound && p.kind == "soundpack");
             }
             crate::content_discovery::diagnose(&proposed, &mut diagnostic_scope);
             discovery.findings = diagnostic_scope.findings;

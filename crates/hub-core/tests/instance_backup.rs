@@ -453,6 +453,7 @@ async fn invalid_persisted_instance_identity_is_rejected_before_any_staging_writ
 
 fn sound_draft() -> hub_core::ContentConfigInput {
     hub_core::ContentConfigInput {
+        game_options: None,
         default_mods: None,
         soundpack: None,
         sound_enabled: Some(true),
@@ -579,6 +580,7 @@ async fn configuration_protection_rejects_no_changes_and_unknown_sessions() {
             .prepare_content_config_protection(
                 &f.a,
                 hub_core::ContentConfigInput {
+                    game_options: None,
                     default_mods: None,
                     soundpack: None,
                     sound_enabled: Some(false)
@@ -887,6 +889,7 @@ async fn config_apply_rechecks_session_admission_and_rejects_multiple_files() {
             .prepare_config_change(
                 &f.a,
                 hub_core::ContentConfigInput {
+                    game_options: None,
                     default_mods: Some(vec![]),
                     soundpack: None,
                     sound_enabled: Some(true)
@@ -1273,6 +1276,7 @@ async fn sound_change_ignores_unrelated_mod_diagnostics_but_preserves_mod_guard(
         .prepare_config_change(
             &f.a,
             hub_core::ContentConfigInput {
+                game_options: None,
                 default_mods: Some(vec!["dda".into()]),
                 soundpack: None,
                 sound_enabled: None,
@@ -1335,4 +1339,65 @@ async fn sound_switch_keeps_retained_pack_and_scan_integrity_guards() {
         "CONFIG_CHANGE_DIAGNOSTICS"
     );
     assert!(f.hub.config_changes().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn common_options_apply_and_rollback_use_the_existing_protected_single_file_flow() {
+    let f = Fixture::new().await;
+    let original =
+        br#"[{"name":"USE_LANG","value":"en","unknown":7},{"name":"AUTOSAVE","value":"true"}]"#;
+    std::fs::write(f.path("a/config/options.json"), original).unwrap();
+    let backup = f.create(&f.a).await;
+    let input = hub_core::ContentConfigInput {
+        game_options: Some(
+            [
+                ("USE_LANG".into(), "zh_CN".into()),
+                ("AUTOSAVE".into(), "false".into()),
+            ]
+            .into(),
+        ),
+        default_mods: None,
+        soundpack: None,
+        sound_enabled: None,
+    };
+    let plan = f
+        .hub
+        .prepare_config_change(&f.a, input, &backup.backup_id)
+        .await
+        .unwrap();
+    let change = f
+        .hub
+        .apply_config_change(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &change.id).await.state, "applied");
+    let json: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(f.path("a/config/options.json")).unwrap()).unwrap();
+    assert_eq!(json[0]["value"], "zh_CN");
+    assert_eq!(json[0]["unknown"], 7);
+    assert_eq!(
+        std::fs::read(f.path("a/save/world.dat")).unwrap(),
+        b"instance A world"
+    );
+    let rollback = f.hub.prepare_config_rollback(&change.id).await.unwrap();
+    let reverted = f
+        .hub
+        .apply_config_change(
+            &rollback.id,
+            &rollback.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    assert_eq!(config_wait(&f.hub, &reverted.id).await.state, "applied");
+    assert_eq!(
+        std::fs::read(f.path("a/config/options.json")).unwrap(),
+        original
+    );
 }

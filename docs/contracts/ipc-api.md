@@ -164,3 +164,9 @@ create_instance_launch_plan 的 profileId 新增 cdda-0h-release-macos-native-tr
 ### 资源过时标记（2026-10-30）
 
 `ContentDefinition.obsolete: boolean` 保留 MOD_INFO 的过时标记；缺省为 false，旧资源登记 JSON 缺少该字段仍可读取。声音包为 false。新世界默认组合若引用现场扫描中标记过时的模组，后端配置预览产生 `obsolete_default_mod`，现有配置发布诊断门禁拒绝应用；手写 ID 不绕过此检查。已有世界引用继续只读展示，不因该标记自动删除。该字段不表示游戏版本兼容认证。
+
+### 通用游戏配置与历史发布（2026-10-30）
+
+`ContentConfigInput.game_options?` 为可选键值映射，仅接受 USE_LANG、AUTOSAVE、AUTOSAVE_TURNS、AUTOSAVE_MINUTES。`SoundConfiguration.game_options?` 返回已观察声明；空语言与缺失值区分。新鲜预览、保护备份、应用与回滚复用原接口。格式、范围和边界见 `docs/design/common-game-configuration.md`。
+
+桌面新增 `lookup_remote_release(id, tag)`、`open_remote_extraction(id)`。`pick_path` 可选 extraction_id 由后端定位记录起始目录，选择结果继续进入既有原生选择授权集合；省略保持旧行为。查询不自动下载，选目录不自动启动。

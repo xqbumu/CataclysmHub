@@ -1,3 +1,4 @@
+import InstanceContentPanel from './InstanceContentPanel';
 import WorkspaceSettings from './WorkspaceSettings';
 import RemoteCatalogPanel from './RemoteCatalogPanel';
 import { syncInitialGameCatalog } from './remoteCatalog';
@@ -657,6 +658,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
               {page === 'settings' && (
                 <div className="settings-layout">
                   {setup}
+                  <InstanceContentPanel api={api} data={data} />
                   <HubSettings
                     api={api}
                     onReset={() => {
@@ -728,7 +730,16 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                     {
                       id: 'remote',
                       label: '获取游戏',
-                      content: <RemoteCatalogPanel kind="game" />,
+                      content: (
+                        <RemoteCatalogPanel
+                          kind="game"
+                          onImport={(path) => {
+                            setExecutable(path);
+                            setName('');
+                            setImporting(true);
+                          }}
+                        />
+                      ),
                     },
                     {
                       id: 'copies',
