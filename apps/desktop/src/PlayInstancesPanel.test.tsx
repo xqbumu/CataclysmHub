@@ -778,6 +778,20 @@ it.each([null, 1, 0])(
         onRefresh={vi.fn()}
         data={{
           ...emptyDashboard,
+          installations: [
+            {
+              id: 'g',
+              name: 'Game',
+              executable: '/Game.app/Contents/Resources/cataclysm-tiles',
+              working_dir: '/Game.app/Contents/Resources',
+              sha256: 'hash',
+              version: '0.I-1',
+              branch: 'DDA',
+              platform: 'macos',
+              arch: 'aarch64',
+              imported_at: '2026-10-30T00:00:00Z',
+            },
+          ],
           play_instances: [
             {
               id: 'i',
@@ -813,6 +827,13 @@ it.each([null, 1, 0])(
         '上次启动或运行需要检查',
       );
       expect(screen.getByRole('alert')).toHaveTextContent('不代表存档稳定');
+      await userEvent.setup().click(screen.getByText('macOS 启动与授权检查'));
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '如果没有“仍要打开”，不要反复重试',
+      );
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '直接双击原 .app 可能忽略独立存档参数',
+      );
       await userEvent
         .setup()
         .click(screen.getByRole('button', { name: '查看运行记录 QA' }));

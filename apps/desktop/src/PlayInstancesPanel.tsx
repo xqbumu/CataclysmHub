@@ -445,6 +445,25 @@ export default function PlayInstancesPanel({
                       : `进程退出码：${lastSession.exit_code}。请检查游戏日志与运行记录。`}
                     此状态不代表存档稳定。
                   </p>
+                  {data.installations.some(
+                    (game) =>
+                      game.id === item.installation_id &&
+                      game.platform === 'macos',
+                  ) && (
+                    <details className="inline-details">
+                      <summary>macOS 启动与授权检查</summary>
+                      <p>
+                        若系统提示阻止运行，请在“系统设置 →
+                        隐私与安全性”核对该游戏的授权提示。
+                        如果没有“仍要打开”，不要反复重试；请保留系统与游戏日志进一步检查。
+                      </p>
+                      <p>
+                        直接双击原 .app
+                        可能忽略独立存档参数，请仍从此游玩环境启动。 Hub
+                        不会自动移除隔离属性、更改签名或关闭系统保护。
+                      </p>
+                    </details>
+                  )}
                   {onOpenActivity && (
                     <button
                       className="secondary"

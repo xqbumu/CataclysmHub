@@ -393,3 +393,37 @@ async fn schema15_upgrade_retains_legacy_directories_without_inventing_a_root() 
             .starts_with("metadata-v15-")
     }));
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn signal_termination_is_recorded_without_claiming_a_security_cause() {
+    let fixture = Fixture::new().await;
+    fixture.hub.initialize(fixture.input.clone()).await.unwrap();
+    let script = fixture.script("signal-probe", "#!/bin/sh\nkill -KILL $$\n");
+    let install = fixture
+        .hub
+        .import_installation(script.to_str().unwrap(), "Signal probe")
+        .await
+        .unwrap();
+    let plan = fixture.hub.launch_plan(&install.id, vec![]).await.unwrap();
+    let session = fixture.hub.launch(&plan.id, true).await.unwrap();
+    for _ in 0..100 {
+        let data = fixture.hub.dashboard().await.unwrap();
+        if let Some(result) = data
+            .operations
+            .iter()
+            .find(|op| op.task_id == session.id && op.action == "game.process_result")
+        {
+            assert_eq!(
+                result.error_code.as_deref(),
+                Some("PROCESS_TERMINATED_BY_SIGNAL")
+            );
+            let recorded = data.sessions.iter().find(|s| s.id == session.id).unwrap();
+            assert_eq!(recorded.state, "exited_unverified");
+            assert_eq!(recorded.exit_code, None);
+            return;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+    }
+    panic!("signal termination was not recorded");
+}

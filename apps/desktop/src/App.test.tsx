@@ -209,6 +209,34 @@ describe('workspace and launch safety', () => {
     for (const bad of ['"--flag"', '{}', '[1]', '["\\u0000"]'])
       expect(() => parseArguments(bad)).toThrow();
   });
+  it('explains signal termination without asserting Gatekeeper rejection', async () => {
+    render(
+      <App
+        api={client({
+          ...emptyDashboard,
+          workspace,
+          operations: [
+            {
+              id: 'signal',
+              task_id: 'session',
+              action: 'game.process_result',
+              status: 'exited_unverified',
+              error_code: 'PROCESS_TERMINATED_BY_SIGNAL',
+              created_at: workspace.created_at,
+            },
+          ],
+        })}
+      />,
+    );
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('button', { name: '任务与记录' }));
+    const table = screen.getByRole('table');
+    expect(
+      within(table).getByText('进程被信号终止；原因需核对系统或游戏日志'),
+    ).toBeVisible();
+    expect(within(table).queryByText(/Gatekeeper/)).not.toBeInTheDocument();
+  });
   it('does not label a failed directory inspection as a failed game launch', async () => {
     render(
       <App

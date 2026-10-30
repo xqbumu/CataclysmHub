@@ -838,7 +838,10 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                                   {actionNames[op.action] ?? op.action}
                                   {op.error_code && (
                                     <small className="error-code">
-                                      {op.error_code}
+                                      {op.error_code ===
+                                      'PROCESS_TERMINATED_BY_SIGNAL'
+                                        ? '进程被信号终止；原因需核对系统或游戏日志'
+                                        : op.error_code}
                                     </small>
                                   )}
                                 </td>

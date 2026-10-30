@@ -239,6 +239,13 @@ impl Hub {
                     exit.code().map(i64::from),
                     Some("CANDIDATE_EXIT_UNKNOWN"),
                 ),
+                // A signal has no numeric exit code. Preserve that fact in the
+                // operation log; SIGKILL alone does not prove Gatekeeper rejection.
+                Ok(exit) if exit.code().is_none() => (
+                    "exited_unverified",
+                    None,
+                    Some("PROCESS_TERMINATED_BY_SIGNAL"),
+                ),
                 Ok(exit) => ("exited_unverified", exit.code().map(i64::from), None),
                 Err(_) => ("interrupted_unknown", None, Some("PROCESS_WAIT_FAILED")),
             };
