@@ -1,0 +1,23 @@
+{
+  "counts": {
+    "workspace": 1,
+    "installation": 1,
+    "play_instance": 1,
+    "session": 2,
+    "backup_archive": 0
+  },
+  "session": {
+    "id": "61712c2d-8f3b-48a2-87aa-a4442cfc5764",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "exited_unverified",
+    "pid": 80937,
+    "started_at": "2026-10-30T02:56:19.914747+00:00",
+    "finished_at": "2026-10-30T02:56:22.027185+00:00",
+    "exit_code": null,
+    "play_instance_id": "47af6752-cc2a-4f69-856f-5bcd7d5508a0",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/metadata.workspace/instances/e3e10168-0e93-43c0-85ed-494b53c17b65"
+  },
+  "save_files": [],
+  "game_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a"
+}
