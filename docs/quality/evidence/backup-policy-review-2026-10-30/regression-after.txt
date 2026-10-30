@@ -1,0 +1,17 @@
+   Compiling hub-core v0.1.0 (/opt/src/github.com/xqbumu/CataclysmHub/crates/hub-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.04s
+     Running unittests src/lib.rs (target/debug/deps/hub_core-d55456449105cf00)
+
+running 9 tests
+test automatic_backup::tests::active_sessions_block_enabling_but_allow_disabling ... ok
+test automatic_backup::tests::enabling_a_policy_does_not_backfill_a_prior_exit ... ok
+test automatic_backup::tests::other_running_session_blocks_automatic_work_and_retries ... ok
+test automatic_backup::tests::disabled_unknown_exit_and_unrecognized_program_never_create_archives_or_retry ... ok
+test automatic_backup::tests::failed_schema_seventeen_upgrade_rolls_back_and_keeps_schema_sixteen_backup ... ok
+test automatic_backup::tests::policy_requires_consent_revision_and_bounds_and_resets_with_backup ... ok
+test automatic_backup::tests::interval_uses_only_verified_backups_of_this_instance_and_source ... ok
+test automatic_backup::tests::schema_sixteen_upgrade_backs_up_and_preserves_instance_identity ... ok
+test automatic_backup::tests::reset_never_reuses_policy_revisions_for_old_drafts ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 67 filtered out; finished in 0.32s
+

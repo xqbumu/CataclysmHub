@@ -62,16 +62,15 @@ impl Hub {
         instance_id: &str,
     ) -> Result<AutomaticBackupPolicy> {
         self.instance(instance_id).await?;
-        let stored: Option<(i64, String, String)> = sqlx::query_as(
-            "SELECT revision,settings,updated_at FROM automatic_backup_policy WHERE instance_id=?",
-        )
-        .bind(instance_id)
-        .fetch_optional(&self.pool)
-        .await
-        .map_err(HubError::db)?;
-        let (revision, settings, updated_at) = match stored {
-            Some((r, s, t)) => (r, serde_json::from_str(&s).map_err(|_| invalid())?, t),
-            None => (0, AutomaticBackupSettings::default(), String::new()),
+        // Read the policy and absent-policy epoch in one SQLite snapshot.
+        // Separate reads could return an old default with a newly created policy's token.
+        let (revision, encoded, updated, epoch): (Option<i64>, Option<String>, Option<String>, i64) =
+            sqlx::query_as("SELECT p.revision,p.settings,p.updated_at,h.revision FROM hub_preferences h LEFT JOIN automatic_backup_policy p ON p.instance_id=? WHERE h.id=1")
+                .bind(instance_id).fetch_one(&self.pool).await.map_err(HubError::db)?;
+        let (revision, settings, updated_at) = match (revision, encoded, updated) {
+            (Some(r), Some(s), Some(t)) => (r, serde_json::from_str(&s).map_err(|_| invalid())?, t),
+            (None, None, None) => (epoch, AutomaticBackupSettings::default(), String::new()),
+            _ => return Err(invalid()),
         };
         let last: Option<(String,Option<String>,Option<String>)> = sqlx::query_as("SELECT COALESCE(t.state,r.status),r.task_id,COALESCE(t.error_code,r.error_code) FROM automatic_backup_run r LEFT JOIN backup_task t ON t.id=r.task_id WHERE r.instance_id=? ORDER BY r.created_at DESC,r.session_id DESC LIMIT 1").bind(instance_id).fetch_optional(&self.pool).await.map_err(HubError::db)?;
         settings.validate()?;
@@ -125,9 +124,21 @@ impl Hub {
                 "策略已变化，请重新读取后保存。",
             ));
         }
+        // Use the existing global epoch so reset/recreation cannot reuse a draft token.
+        let next_revision = self
+            .preferences()
+            .await?
+            .revision
+            .max(old.revision)
+            .checked_add(1)
+            .ok_or(HubError::new(
+                "PREFERENCES_INVALID",
+                "配置版本号无效，未保存策略。",
+            ))?;
         let mut tx = self.pool.begin().await.map_err(HubError::db)?;
-        sqlx::query("INSERT INTO automatic_backup_policy VALUES (?,?,?,?) ON CONFLICT(instance_id) DO UPDATE SET revision=excluded.revision,settings=excluded.settings,updated_at=excluded.updated_at").bind(instance_id).bind(old.revision+1).bind(serde_json::to_string(&settings).map_err(|_|invalid())?).bind(now()).execute(&mut *tx).await.map_err(HubError::db)?;
-        sqlx::query("UPDATE hub_preferences SET revision=revision+1 WHERE id=1")
+        sqlx::query("INSERT INTO automatic_backup_policy VALUES (?,?,?,?) ON CONFLICT(instance_id) DO UPDATE SET revision=excluded.revision,settings=excluded.settings,updated_at=excluded.updated_at").bind(instance_id).bind(next_revision).bind(serde_json::to_string(&settings).map_err(|_|invalid())?).bind(now()).execute(&mut *tx).await.map_err(HubError::db)?;
+        sqlx::query("UPDATE hub_preferences SET revision=? WHERE id=1")
+            .bind(next_revision)
             .execute(&mut *tx)
             .await
             .map_err(HubError::db)?;
@@ -180,6 +191,18 @@ impl Hub {
         };
         let policy = self.automatic_backup_policy(&instance_id).await?;
         if !policy.settings.enabled {
+            return Ok(());
+        }
+        // A policy saved after this exit must not authorize a historical event.
+        let finished = session
+            .finished_at
+            .as_deref()
+            .and_then(|t| chrono::DateTime::parse_from_rfc3339(t).ok());
+        let configured = chrono::DateTime::parse_from_rfc3339(&policy.updated_at).ok();
+        if !finished
+            .zip(configured)
+            .is_some_and(|(exit, saved)| exit > saved)
+        {
             return Ok(());
         }
         let inserted =
@@ -390,7 +413,7 @@ mod tests {
         )
         .unwrap();
         assert!(before.enabled);
-        assert_eq!(hub.automatic_backup_policy(&i).await.unwrap().revision, 0);
+        assert!(hub.automatic_backup_policy(&i).await.unwrap().revision > saved.revision);
         assert!(t.path().join("instance").is_dir());
     }
     async fn seed_enabled(hub: &Hub, instance_id: &str, settings: AutomaticBackupSettings) {
@@ -423,6 +446,7 @@ mod tests {
             ..Default::default()
         };
         seed_enabled(&hub, &i, settings).await;
+        let session = seed_session(&hub, &i, Some(0), "exited_unverified").await;
         let unknown = seed_session(&hub, &i, None, "exited_unverified").await;
         hub.backup_after_exit(&unknown).await.unwrap();
         hub.backup_after_exit(&session).await.unwrap();
@@ -601,5 +625,110 @@ mod tests {
         hub.check_automatic_backup_interval(&i, &source, 60)
             .await
             .unwrap();
+    }
+    #[tokio::test]
+    async fn reset_never_reuses_policy_revisions_for_old_drafts() {
+        for existing in [false, true] {
+            let (_temp, hub, i) = fixture().await;
+            if existing {
+                hub.save_automatic_backup_policy(&i, 0, AutomaticBackupSettings::default(), true)
+                    .await
+                    .unwrap();
+            }
+            let old = hub.automatic_backup_policy(&i).await.unwrap();
+            let prefs = hub.preferences().await.unwrap();
+            hub.reset_preferences(prefs.revision, true).await.unwrap();
+            if existing {
+                let fresh = hub.automatic_backup_policy(&i).await.unwrap();
+                hub.save_automatic_backup_policy(
+                    &i,
+                    fresh.revision,
+                    AutomaticBackupSettings::default(),
+                    true,
+                )
+                .await
+                .unwrap();
+            }
+            let mut stale = old.settings;
+            stale.min_interval_minutes = 999;
+            assert_eq!(
+                hub.save_automatic_backup_policy(&i, old.revision, stale, true)
+                    .await
+                    .unwrap_err()
+                    .code,
+                "AUTO_BACKUP_POLICY_CHANGED"
+            );
+        }
+    }
+    #[tokio::test]
+    async fn enabling_a_policy_does_not_backfill_a_prior_exit() {
+        let (_temp, hub, i) = fixture().await;
+        let session = seed_session(&hub, &i, Some(0), "exited_unverified").await;
+        seed_enabled(
+            &hub,
+            &i,
+            AutomaticBackupSettings {
+                enabled: true,
+                ..Default::default()
+            },
+        )
+        .await;
+        hub.backup_after_exit(&session).await.unwrap();
+        assert_eq!(
+            sqlx::query_scalar::<_, i64>("SELECT count(*) FROM automatic_backup_run")
+                .fetch_one(&hub.pool)
+                .await
+                .unwrap(),
+            0
+        );
+        assert!(hub.dashboard().await.unwrap().backup_tasks.is_empty());
+    }
+    #[tokio::test]
+    async fn policy_reads_keep_reset_epochs_and_settings_in_one_snapshot() {
+        let (_temp, hub, i) = fixture().await;
+        let writer = Arc::clone(&hub);
+        let instance_id = i.clone();
+        let settings = serde_json::to_string(&AutomaticBackupSettings::default()).unwrap();
+        tokio::join!(
+            async {
+                for epoch in 1_i64..=32 {
+                    let mut tx = writer.pool.begin().await.unwrap();
+                    sqlx::query("UPDATE hub_preferences SET revision=? WHERE id=1")
+                        .bind(epoch)
+                        .execute(&mut *tx)
+                        .await
+                        .unwrap();
+                    if epoch % 2 == 1 {
+                        sqlx::query("INSERT INTO automatic_backup_policy VALUES (?,?,?,?)")
+                            .bind(&instance_id)
+                            .bind(epoch)
+                            .bind(&settings)
+                            .bind(now())
+                            .execute(&mut *tx)
+                            .await
+                            .unwrap();
+                    } else {
+                        sqlx::query("DELETE FROM automatic_backup_policy WHERE instance_id=?")
+                            .bind(&instance_id)
+                            .execute(&mut *tx)
+                            .await
+                            .unwrap();
+                    }
+                    tx.commit().await.unwrap();
+                    tokio::task::yield_now().await;
+                }
+            },
+            async {
+                for _ in 0..64 {
+                    let p = hub.automatic_backup_policy(&i).await.unwrap();
+                    assert_eq!(
+                        p.updated_at.is_empty(),
+                        p.revision % 2 == 0,
+                        "mixed policy and epoch snapshot"
+                    );
+                    tokio::task::yield_now().await;
+                }
+            }
+        );
     }
 }

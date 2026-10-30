@@ -1,0 +1,15 @@
+{
+  "scope": [
+    "9bbfa92",
+    "9b2bda1"
+  ],
+  "frontend_passed": 165,
+  "rust": {
+    "passed": 320,
+    "failed": 0,
+    "ignored": 4
+  },
+  "python_passed": 28,
+  "player_files_operated": false,
+  "schema_changed": false
+}
