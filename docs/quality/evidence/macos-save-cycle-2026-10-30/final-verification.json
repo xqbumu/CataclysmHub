@@ -1,0 +1,90 @@
+{
+  "gameplay_observation": "user confirmed existing restored character loaded into map and saved/exited",
+  "original_instance_files_unchanged": true,
+  "restored_session": {
+    "id": "126ed3ba-ee95-47f9-bb7c-319c6d4dd2a5",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "exited_unverified",
+    "pid": 40014,
+    "started_at": "2026-10-30T03:36:00.763950+00:00",
+    "finished_at": "2026-10-30T03:37:36.198837+00:00",
+    "exit_code": 0,
+    "play_instance_id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/restore-check/restored-685eacc4-ea3e-402a-b872-211d7181153e/data"
+  },
+  "restored_files_after_play": 127,
+  "restored_modified_or_added_files": [
+    "config/debug.log",
+    "config/cache/options.json.1793330735394.fb",
+    "config/cache/imgui_style.json.1793330735389.fb",
+    "config/cache/base_colors.json.1793330735361.fb",
+    "config/cache/fonts.json.1793330735386.fb",
+    "config/cache/lastworld.json.1793330735393.fb",
+    "config/cache/lastworld.json.1793331453425.fb",
+    "save/Mount Andrew/uistate.json",
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.pt",
+    "save/Mount Andrew/master.gsav",
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.seen.1.0",
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.ano.json",
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.sav.zzip",
+    "save/Mount Andrew/maps/11.1.0.zzip",
+    "save/Mount Andrew/maps/10.1.0.zzip",
+    "save/Mount Andrew/maps/11.0.-1.zzip",
+    "save/Mount Andrew/maps/10.0.0.zzip",
+    "save/Mount Andrew/maps/11.0.0.zzip",
+    "save/Mount Andrew/maps/11.0.1.zzip",
+    "save/Mount Andrew/overmaps/o.2.0.zzip",
+    "save/Mount Andrew/overmaps/o.0.0.zzip",
+    "save/Mount Andrew/overmaps/o.1.0.zzip",
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.mm1/#RGFuYSBNYXRzb24=.mm1.warm.zzip"
+  ],
+  "restored_removed_files": [],
+  "active_sessions": 0,
+  "instances": [
+    {
+      "id": "47af6752-cc2a-4f69-856f-5bcd7d5508a0",
+      "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+      "installation_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+      "name": "主力验收",
+      "data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/metadata.workspace/instances/e3e10168-0e93-43c0-85ed-494b53c17b65",
+      "binding_status": "unverified",
+      "created_at": "2026-10-30T02:31:39.637859+00:00"
+    },
+    {
+      "id": "3d1d890f-7f24-4378-baf7-96f3fd89dd50",
+      "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+      "installation_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+      "name": "恢复读档验收",
+      "data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/restore-check/restored-685eacc4-ea3e-402a-b872-211d7181153e/data",
+      "binding_status": "unverified",
+      "created_at": "2026-10-30T03:35:23.515997+00:00"
+    }
+  ],
+  "restore_tasks": [
+    {
+      "id": "fb9f3047-97aa-4d2a-99b5-6514f506cd50",
+      "request_key": "2280647d-4159-434e-944b-1fb3585294e3",
+      "request_digest": "0c0fb1dfa946b4cd0301d8c40502f6e84b3b3ad8d44e0ba167bcf7b320cbfdd6",
+      "workspace_id": "638c65a9-1b9b-439f-b67b-046e68212350",
+      "backup_id": "3a96d80c-e541-4e9b-8739-d4bd089a78a0",
+      "destination": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/restore-check/restored-685eacc4-ea3e-402a-b872-211d7181153e",
+      "state": "succeeded",
+      "phase": "finished",
+      "revision": 7,
+      "error_code": null,
+      "created_at": "2026-10-30T03:25:35.189230+00:00",
+      "finished_at": "2026-10-30T03:25:35.883540+00:00"
+    }
+  ],
+  "inspection_results": [
+    {
+      "id": "0cf2c4ee-cea4-45de-a897-6ff19bb1bd15",
+      "state": "succeeded",
+      "result_json": "{\"schema_version\":1,\"inspected_at\":\"2026-10-30T03:26:07.623613+00:00\",\"verification\":{\"schema_version\":1,\"state\":\"verified\",\"backup\":{\"backup_id\":\"3a96d80c-e541-4e9b-8739-d4bd089a78a0\",\"file_count\":121,\"entry_count\":142,\"total_bytes\":\"1216619\",\"consistency\":\"best_effort\",\"archive_sha256\":\"63318d2342ceb5ba005bc4ca2af78bc8ca8631a25b326e51b9e31a84ae395ffe\",\"manifest_sha256\":\"48dab58e5416e2ef08201e403cdc4b3b0734170bc54bfa8930c427ed9cca3d47\",\"verified_at\":\"2026-10-30T03:26:07.497125+00:00\",\"receipt_present\":true},\"restored_files\":121,\"restored_entries\":142,\"restored_bytes\":\"1216619\"},\"incomplete_marker_present\":false,\"historical_report_present\":true}"
+    }
+  ],
+  "binding_certified": false,
+  "concurrency_certified": false,
+  "hub_normally_quit": true
+}

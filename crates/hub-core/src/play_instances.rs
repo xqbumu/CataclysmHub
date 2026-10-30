@@ -179,9 +179,8 @@ impl Hub {
                 "游戏程序已变化，请重新检查安装。",
             ));
         }
-        let workspace = self
-            .dashboard()
-            .await?
+        let data = self.dashboard().await?;
+        let workspace = data
             .workspace
             .ok_or(HubError::new("WORKSPACE_REQUIRED", "请先配置工作区。"))?;
         let existing = self.play_instances().await?;
@@ -189,6 +188,7 @@ impl Hub {
             .fetch_all(&self.pool)
             .await
             .map_err(HubError::db)?;
+        let backup_root = workspace.backup_dir.clone();
         let mut protected = vec![
             self.data_dir.clone(),
             PathBuf::from(workspace.save_dir),
@@ -201,7 +201,34 @@ impl Hub {
                 .map(|item| paths::installation_scope(&item.working_dir)),
         );
         let root_input = input.data_root.clone();
+        // Look up the durable task directly: dashboard history is intentionally
+        // capped and must not decide whether an older restore is usable.
+        let canonical_root = paths::canonical(&root_input, true)?;
+        let restored_record = if canonical_root.file_name().is_some_and(|n| n == "data") {
+            let destination = paths::text(
+                canonical_root
+                    .parent()
+                    .ok_or(HubError::new("PATH_INVALID", "实例目录没有父目录。"))?,
+            )?;
+            let task: Option<crate::RestoreTask> = sqlx::query_as(&format!(
+                "SELECT {} FROM restore_task WHERE destination=? AND state='succeeded' ORDER BY created_at DESC,id LIMIT 1", crate::managed_restore::COLUMNS,
+            )).bind(destination).fetch_optional(&self.pool).await.map_err(HubError::db)?;
+            if let Some(task) = task {
+                let record: Option<crate::BackupRecord> =
+                    sqlx::query_as("SELECT * FROM backup_archive WHERE id=?")
+                        .bind(&task.backup_id)
+                        .fetch_optional(&self.pool)
+                        .await
+                        .map_err(HubError::db)?;
+                record.map(|record| (task, record))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         let prior = existing.clone();
+        let install_identity = (installation.id.clone(), installation.sha256.clone());
         let root = tokio::task::spawn_blocking(move || {
             let root = paths::canonical(&root_input, true)?;
             for item in &prior {
@@ -231,10 +258,47 @@ impl Hub {
                 .next()
                 .is_some()
             {
-                return Err(HubError::new(
+                // Only a completed, registered instance restore can admit a
+                // nonempty root. Re-read its bytes now, not a stale inspection.
+                let restored = restored_record.as_ref().ok_or(HubError::new(
                     "INSTANCE_ROOT_NOT_EMPTY",
-                    "请选择现有的空目录；不会迁移或覆盖文件。",
-                ));
+                    "请选择空目录或由 Hub 成功恢复且可重新核验的实例 data 目录。",
+                ))?;
+                if Path::new(&restored.0.destination).join("data") != root {
+                    return Err(HubError::new(
+                        "PATH_CHANGED",
+                        "恢复目录路径已变化，请重新选择。",
+                    ));
+                }
+                let original = prior
+                    .iter()
+                    .find(|item| Some(&item.id) == restored.1.play_instance_id.as_ref())
+                    .ok_or(HubError::new(
+                        "RESTORED_INSTALLATION_MISMATCH",
+                        "恢复来源没有可核对的原实例。",
+                    ))?;
+                if original.installation_id != install_identity.0
+                    || original.installation_sha256 != install_identity.1
+                    || restored.1.source_root.as_deref() != Some(original.data_root.as_str())
+                {
+                    return Err(HubError::new(
+                        "RESTORED_INSTALLATION_MISMATCH",
+                        "恢复数据须关联原实例的同一游戏安装及程序摘要。",
+                    ));
+                }
+                let checked = crate::managed_inspection::inspect_registered(
+                    &restored.1,
+                    &restored.0,
+                    &backup_root,
+                    &std::sync::atomic::AtomicBool::new(false),
+                    &std::sync::atomic::AtomicU8::new(0),
+                )?;
+                if checked.incomplete_marker_present {
+                    return Err(HubError::new(
+                        "RESTORE_NOT_READY",
+                        "恢复目录含未完成标记，请先检查，不能登记为实例。",
+                    ));
+                }
             }
             Ok((root, None))
         })

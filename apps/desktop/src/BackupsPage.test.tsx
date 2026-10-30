@@ -432,48 +432,68 @@ describe('full backup confirmation and integrity display', () => {
   });
 });
 
-it('previews the selected instance data root without using workspace saves or creating on cancel', async () => {
-  const api = client();
-  const user = userEvent.setup();
-  vi.mocked(api.instanceBackupPlan).mockResolvedValue({
-    ...plan,
-    play_instance_id: 'instance-a',
-    source_root: '/isolated/a',
-    warnings: ['包含存档和配置，不含安装缓存。'],
-  });
-  show(api, {
-    ...emptyDashboard,
-    workspace,
-    play_instances: [
-      {
-        id: 'instance-a',
-        installation_id: 'game',
-        installation_sha256: 'a'.repeat(64),
-        name: '实例 A',
-        data_root: '/isolated/a',
-        binding_status: 'unverified',
-        created_at: workspace.created_at,
-      },
-    ],
-  });
-  await user.selectOptions(screen.getByLabelText('备份来源'), 'instance-a');
-  await user.click(screen.getByRole('button', { name: '预览备份范围' }));
-  expect(api.instanceBackupPlan).toHaveBeenCalledWith('instance-a');
-  expect(api.backupPlan).not.toHaveBeenCalled();
-  const modal = await screen.findByRole('dialog');
-  expect(within(modal).getByText('/isolated/a')).toBeInTheDocument();
-  expect(
-    within(modal).getByText('源实例数据根（存档、配置及其他普通文件）'),
-  ).toBeInTheDocument();
-  await user.click(within(modal).getByRole('button', { name: '取消' }));
-  expect(api.createBackup).not.toHaveBeenCalled();
-  await user.selectOptions(screen.getByLabelText('备份来源'), '');
-  await user.click(screen.getByRole('button', { name: '预览备份范围' }));
-  expect(api.backupPlan).toHaveBeenCalledOnce();
-  expect(
-    within(await screen.findByRole('dialog')).getByText('/chosen/saves'),
-  ).toBeInTheDocument();
-});
+it.each([false, true])(
+  'previews the selected instance data root (save files: %s) without creating on cancel',
+  async (hasSave) => {
+    const api = client();
+    const user = userEvent.setup();
+    vi.mocked(api.instanceBackupPlan).mockResolvedValue({
+      ...plan,
+      play_instance_id: 'instance-a',
+      source_root: '/isolated/a',
+      warnings: ['包含存档和配置，不含安装缓存。'],
+      entries: [
+        {
+          ...plan.entries[0],
+          relative_path: hasSave
+            ? 'save/world/character.sav.zzip'
+            : 'config/options.json',
+        },
+      ],
+    });
+    show(api, {
+      ...emptyDashboard,
+      workspace,
+      play_instances: [
+        {
+          id: 'instance-a',
+          installation_id: 'game',
+          installation_sha256: 'a'.repeat(64),
+          name: '实例 A',
+          data_root: '/isolated/a',
+          binding_status: 'unverified',
+          created_at: workspace.created_at,
+        },
+      ],
+    });
+    await user.selectOptions(screen.getByLabelText('备份来源'), 'instance-a');
+    await user.click(screen.getByRole('button', { name: '预览备份范围' }));
+    expect(api.instanceBackupPlan).toHaveBeenCalledWith('instance-a');
+    expect(api.backupPlan).not.toHaveBeenCalled();
+    const modal = await screen.findByRole('dialog');
+    expect(within(modal).getByText('/isolated/a')).toBeInTheDocument();
+    expect(
+      within(modal).getByText('源实例数据根（存档、配置及其他普通文件）'),
+    ).toBeInTheDocument();
+    if (hasSave) {
+      expect(
+        within(modal).queryByText(/save 目录中没有普通文件/),
+      ).not.toBeInTheDocument();
+    } else {
+      expect(
+        within(modal).getByText(/save 目录中没有普通文件/),
+      ).toBeInTheDocument();
+    }
+    await user.click(within(modal).getByRole('button', { name: '取消' }));
+    expect(api.createBackup).not.toHaveBeenCalled();
+    await user.selectOptions(screen.getByLabelText('备份来源'), '');
+    await user.click(screen.getByRole('button', { name: '预览备份范围' }));
+    expect(api.backupPlan).toHaveBeenCalledOnce();
+    expect(
+      within(await screen.findByRole('dialog')).getByText('/chosen/saves'),
+    ).toBeInTheDocument();
+  },
+);
 
 it('offers instance backup and restore previews while keeping verification blocked for candidates', async () => {
   const api = client();

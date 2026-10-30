@@ -54,7 +54,7 @@ it('requires a native selection and keeps binding uncertainty explicit', async (
   await user.selectOptions(screen.getByLabelText('关联安装'), 'game');
   await user.type(screen.getByLabelText('实例名称'), '独立世界');
   await user.selectOptions(screen.getByLabelText('实例目录方式'), 'custom');
-  await user.click(screen.getByRole('button', { name: '选择实例空目录' }));
+  await user.click(screen.getByRole('button', { name: '选择实例目录' }));
   await user.click(screen.getByRole('button', { name: '登记实例' }));
   expect(registerPlayInstance).toHaveBeenCalledWith({
     installation_id: 'game',

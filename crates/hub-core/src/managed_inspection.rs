@@ -49,7 +49,7 @@ fn phase_name(phase: u8) -> &'static str {
         _ => "preflight",
     }
 }
-fn inspect_registered(
+pub(crate) fn inspect_registered(
     record: &BackupRecord,
     restore: &RestoreTask,
     backup_root: &str,

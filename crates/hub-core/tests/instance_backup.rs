@@ -1418,3 +1418,85 @@ async fn common_options_apply_and_rollback_use_the_existing_protected_single_fil
         original
     );
 }
+
+#[tokio::test]
+async fn restored_instance_registration_rechecks_bytes_and_requires_original_installation() {
+    let f = Fixture::new().await;
+    let backup = f.create(&f.a).await;
+    std::fs::create_dir(f.path("recovery")).unwrap();
+    let plan = f
+        .hub
+        .prepare_restore(&backup.backup_id, f.path("recovery").to_str().unwrap())
+        .await
+        .unwrap();
+    let task = f
+        .hub
+        .start_restore(
+            &plan.id,
+            &plan.plan_digest,
+            &uuid::Uuid::new_v4().to_string(),
+            true,
+        )
+        .await
+        .unwrap();
+    for _ in 0..1500 {
+        if f.hub.restore_task(&task.id).await.unwrap().state == "succeeded" {
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+    }
+    assert_eq!(
+        f.hub.restore_task(&task.id).await.unwrap().state,
+        "succeeded"
+    );
+    let data = PathBuf::from(&task.destination).join("data");
+    let input = || PlayInstanceInput {
+        installation_id: f.installation.clone(),
+        name: "Restored A".into(),
+        data_root: data.to_str().unwrap().into(),
+    };
+    std::fs::write(data.join("save/world.dat"), b"tampered").unwrap();
+    assert!(f.hub.register_play_instance(input()).await.is_err());
+    assert_eq!(f.hub.play_instances().await.unwrap().len(), 2);
+    std::fs::write(data.join("save/world.dat"), b"instance A world").unwrap();
+    let other_program = f.path("game/other.exe");
+    std::fs::copy(f.path("game/test.exe"), &other_program).unwrap();
+    std::fs::write(&other_program, b"different game build").unwrap();
+    let other = f
+        .hub
+        .import_installation(other_program.to_str().unwrap(), "Other build")
+        .await
+        .unwrap();
+    let mut wrong = input();
+    wrong.installation_id = other.id;
+    assert_eq!(
+        f.hub.register_play_instance(wrong).await.unwrap_err().code,
+        "RESTORED_INSTALLATION_MISMATCH"
+    );
+    let marker = PathBuf::from(&task.destination).join("RESTORE_INCOMPLETE.json");
+    std::fs::write(&marker, b"{}").unwrap();
+    assert_eq!(
+        f.hub
+            .register_play_instance(input())
+            .await
+            .unwrap_err()
+            .code,
+        "RESTORE_NOT_READY"
+    );
+    std::fs::remove_file(marker).unwrap();
+    let restored = f.hub.register_play_instance(input()).await.unwrap();
+    assert_eq!(restored.binding_status, "unverified");
+    assert_ne!(restored.id, f.a);
+    assert_eq!(
+        f.hub.register_play_instance(input()).await.unwrap().id,
+        restored.id
+    );
+    assert_eq!(
+        std::fs::read(f.path("a/save/world.dat")).unwrap(),
+        b"instance A world"
+    );
+    assert_eq!(
+        std::fs::read(data.join("save/world.dat")).unwrap(),
+        b"instance A world"
+    );
+}

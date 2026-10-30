@@ -1,0 +1,512 @@
+{
+  "root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/metadata.workspace/instances/e3e10168-0e93-43c0-85ed-494b53c17b65",
+  "files": {
+    "achievements/Dana Matson-20261030032238522264000-1.json": {
+      "size": 80,
+      "sha256": "13f3195eee87f7b6737176b0dab739e46749e1b96389dcbe5f860c39130b9a6d"
+    },
+    "config/base_colors.json": {
+      "size": 512,
+      "sha256": "68f1d347eab0721f45764af08902f0cef3e698e3f2291b05ce3b13ba7bfa2fae"
+    },
+    "config/cache/base_colors.json.1793329612218.fb": {
+      "size": 377,
+      "sha256": "609c8c8da0e9110243460ba81d01f23e2c431e2b46bf5fc225d1b8b560794579"
+    },
+    "config/cache/fonts.json.1793329610915.fb": {
+      "size": 542,
+      "sha256": "2f75a0b866f2bfbb7816e866c1954e1644a40690a3975b176ec8b0f06e1ee4e8"
+    },
+    "config/cache/imgui_style.json.1793329612330.fb": {
+      "size": 3824,
+      "sha256": "3c69f94554678e8f5c05cd6b4e93a9e7cc8d5dc08bfb4ef2bbda05eda6c5c280"
+    },
+    "config/cache/lastworld.json.1793330586281.fb": {
+      "size": 66,
+      "sha256": "a180010cee30afe4cd0789cc8c6096f5a9b16cd0637b8421d0ef126b9fb2e0bf"
+    },
+    "config/cache/options.json.1793329612289.fb": {
+      "size": 31222,
+      "sha256": "efba8f586eef7330dd69cf242a3b974937e27e1b425d037c8d149ae5584f7321"
+    },
+    "config/debug.log": {
+      "size": 2699,
+      "sha256": "5916c18b0517cdb8ba47acbe92e53cc59e9b666d5741568e0d3d2f39cc628f9d"
+    },
+    "config/fonts.json": {
+      "size": 644,
+      "sha256": "733b161e8ae5503021c87e4261db352a81dee6f0d2a81930c121e8662070f663"
+    },
+    "config/imgui_style.json": {
+      "size": 3070,
+      "sha256": "75305d88d7fb52c587047fee924c4a2e3891da100c0b6a92744ad0539ad7089e"
+    },
+    "config/lastworld.json": {
+      "size": 69,
+      "sha256": "d8e6657a15aa5f8f342871dfb0947cc5cea11a238198dd801abb7e59ce6ee92f"
+    },
+    "config/options.json": {
+      "size": 35586,
+      "sha256": "c19cab0b0eeaaf71492fcc8975a932f0fe17dad43645ddc2614c2e09dd149e24"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.ano.json": {
+      "size": 881,
+      "sha256": "a747394ccfacf17ccc0f8eae0b6075bb5347507115ba1a8feb5a490e7f7b8174"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.log": {
+      "size": 244,
+      "sha256": "1d260a43e76cc3bd907cbad3eddf48903a209d8032b886891c71fb49b62f2551"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.mm1/#RGFuYSBNYXRzb24=.mm1.cold.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.mm1/#RGFuYSBNYXRzb24=.mm1.hot.zzip": {
+      "size": 95,
+      "sha256": "99a4ae49e4abe243388d5454172ad203ab813077b0f342a93d27e854850caff0"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.mm1/#RGFuYSBNYXRzb24=.mm1.warm.zzip": {
+      "size": 4096,
+      "sha256": "8b9258a964e2b0bc9ff6daec505b7d6b1ea48aab271f8afd0961b49244caaf51"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.pt": {
+      "size": 1,
+      "sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.sav.zzip": {
+      "size": 20480,
+      "sha256": "20224b464466a734707cce7884c3ec8e9f179c15467bff19859daddd93affe36"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.seen.0.0": {
+      "size": 816,
+      "sha256": "56233f0f68a30c652610d8db6c6388f253bfdb7958d4a3e2b45b747a20c98672"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.seen.1.0": {
+      "size": 1505,
+      "sha256": "f31201d2d08e499530e1249ee4a2132b7f32b69b6942fa82e018fea44f9c1bc4"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.seen.2.0": {
+      "size": 1159,
+      "sha256": "bb0f2c0b8fa54d2fd02fa666561481c5de8dd29f4b4950699419e6a4ca24e11b"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.zones.json": {
+      "size": 248,
+      "sha256": "2ae9b1dc32cab9ee0fa9c070fbc563b3ab7ce6114b26c3a10611f012fe6fce1a"
+    },
+    "save/Mount Andrew/#RGFuYSBNYXRzb25fZGlhcnk=.json": {
+      "size": 45,
+      "sha256": "f29f55398e426869dd9bcb95985d55b43387610b6b800ff190ba6a59156b7d93"
+    },
+    "save/Mount Andrew/maps/10.0.-1.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.-9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.0.zzip": {
+      "size": 4096,
+      "sha256": "fcbe8663e538aeab5b252cd4ce7bb40e9629070819e4691e8f8fda0cf2963d18"
+    },
+    "save/Mount Andrew/maps/10.0.1.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.0.9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-1.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.-9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.0.zzip": {
+      "size": 4096,
+      "sha256": "a9f6db4dad4c5acf3c53436d1d729c2dd46771d2f1b85ecd4ac7365d60fb8def"
+    },
+    "save/Mount Andrew/maps/10.1.1.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/10.1.9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-1.zzip": {
+      "size": 4096,
+      "sha256": "7ec85873e0a403a7b62dcc729a03c09387dfe3f8b72456f963f48fa42461a5f6"
+    },
+    "save/Mount Andrew/maps/11.0.-10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.-9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.0.zzip": {
+      "size": 16384,
+      "sha256": "7aceb5e5c3cd5551c6d63b7fb2c67b56fcfffbde0f529789c240fe6cd2be14b0"
+    },
+    "save/Mount Andrew/maps/11.0.1.zzip": {
+      "size": 4096,
+      "sha256": "7a83fa53df892abb1deebc390939d5f07cd3c62b788ae34b753904f0bf7b036a"
+    },
+    "save/Mount Andrew/maps/11.0.10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.0.9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-1.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.-9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.0.zzip": {
+      "size": 4096,
+      "sha256": "72dad95359e2dfc735887d653e95cc7e02564004e3c3edcea8915ec2d7923b70"
+    },
+    "save/Mount Andrew/maps/11.1.1.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.10.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.2.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.3.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.4.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.5.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.6.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.7.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.8.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps/11.1.9.zzip": {
+      "size": 4096,
+      "sha256": "515b4556e7101f6021fe7c2ae186a46b63de70d6e8b10d765406c549ce40361b"
+    },
+    "save/Mount Andrew/maps.dict": {
+      "size": 102400,
+      "sha256": "46bf73b3f5d7e95ba965a8aba0fca8d1f6c4777e20556f560679d1a71fd326cb"
+    },
+    "save/Mount Andrew/master.gsav": {
+      "size": 6130,
+      "sha256": "e21e6435ea572ac86211b5ff5f734d2b455bfbb5b049e46ed08fe6aa713a009f"
+    },
+    "save/Mount Andrew/mmr.dict": {
+      "size": 102400,
+      "sha256": "4c64126c55e9eddc8f18887e666b99333f5776dba6c4e76136bc869d2182fd80"
+    },
+    "save/Mount Andrew/mods.json": {
+      "size": 56,
+      "sha256": "9b494bba6bcd3cc2e37012dd403e8c12c03b5b107180255320260e7cc79b6c93"
+    },
+    "save/Mount Andrew/overmaps/o.0.0.zzip": {
+      "size": 135168,
+      "sha256": "1590665d64a2fad084062638a26e9dd66e4228645e248b428f30f9ec143ac063"
+    },
+    "save/Mount Andrew/overmaps/o.1.0.zzip": {
+      "size": 114688,
+      "sha256": "35566b377af8ef5eed7dcb59088057367193eeee7d6cf967f0dc795d72e17769"
+    },
+    "save/Mount Andrew/overmaps/o.2.0.zzip": {
+      "size": 163840,
+      "sha256": "c10869a55becad2d37b088247d70c2640b5459bca0b687773067e0f505ac7145"
+    },
+    "save/Mount Andrew/overmaps.dict": {
+      "size": 102400,
+      "sha256": "b4247d75e3e8c6d50909b8d4a8c610cd448b2060ef4a415e066997ea247b7d5c"
+    },
+    "save/Mount Andrew/uistate.json": {
+      "size": 2473,
+      "sha256": "61123c8cb63158384da05fa5ab5aa6ac0d72c831f85ac90f116f7f151253c0b3"
+    },
+    "save/Mount Andrew/world_timestamp.json": {
+      "size": 25,
+      "sha256": "89d07b7c76330c671313b0029867f96e5b019c43ecdd7f19cde097ab9c086f4a"
+    },
+    "save/Mount Andrew/worldoptions.json": {
+      "size": 2614,
+      "sha256": "77fc7649bf35967012df216acc7b320301083c524f6f624c6b937795c1233417"
+    },
+    "save/Mount Andrew/zones.json": {
+      "size": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    "templates/Last Character.template": {
+      "size": 15714,
+      "sha256": "90fd36cd1f7c9536750db7e79311b6ff79e3b49844eae671a83a87a824a69f98"
+    }
+  },
+  "directories": [
+    ".hub-runtime",
+    ".hub-runtime/cache",
+    ".hub-runtime/config",
+    ".hub-runtime/data",
+    ".hub-runtime/home",
+    ".hub-runtime/state",
+    ".hub-runtime/tmp",
+    "achievements",
+    "config",
+    "config/cache",
+    "font",
+    "gfx",
+    "memorial",
+    "mods",
+    "save",
+    "save/Mount Andrew",
+    "save/Mount Andrew/#RGFuYSBNYXRzb24=.mm1",
+    "save/Mount Andrew/maps",
+    "save/Mount Andrew/overmaps",
+    "sound",
+    "templates"
+  ]
+}

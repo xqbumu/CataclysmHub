@@ -399,6 +399,17 @@ export default function BackupsPage({
               {size(plan.required_free_bytes)} 可用空间
             </dd>
           </dl>
+          {plan.play_instance_id &&
+            !plan.entries.some(
+              (entry) =>
+                entry.file_type === 'file' &&
+                entry.relative_path.startsWith('save/'),
+            ) && (
+              <p role="status" className="inline-note">
+                此次预览的实例 save
+                目录中没有普通文件。仍可备份配置等数据，但不能据此认为已有游戏进度受到保护；请先在游戏内保存，再重新预览。
+              </p>
+            )}
           <div className="plan-warnings">
             <TriangleAlert size={18} />
             <ul>

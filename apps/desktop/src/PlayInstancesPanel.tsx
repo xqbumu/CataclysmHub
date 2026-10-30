@@ -696,7 +696,7 @@ export default function PlayInstancesPanel({
                 <option value="managed">
                   系统推荐目录（自动创建独立目录）
                 </option>
-                <option value="custom">选择自定义空目录</option>
+                <option value="custom">选择空目录或已恢复的实例目录</option>
               </select>
             </label>
             {directoryMode === 'managed' && (
@@ -708,7 +708,8 @@ export default function PlayInstancesPanel({
             {directoryMode === 'custom' && (
               <>
                 <p>
-                  选择现有空目录，须与安装、工作区和其他实例分离。登记不会迁移文件。
+                  选择空目录，或 Hub 成功恢复的
+                  data/。恢复数据会重新校验，须关联原实例的同一游戏安装；登记不会迁移或覆盖文件。
                 </p>
                 <button
                   type="button"
@@ -721,7 +722,7 @@ export default function PlayInstancesPanel({
                     })
                   }
                 >
-                  选择实例空目录
+                  选择实例目录
                 </button>
                 <p className="mono">{root || '尚未选择'}</p>
               </>
