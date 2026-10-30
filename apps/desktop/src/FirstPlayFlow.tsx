@@ -29,6 +29,7 @@ export default function FirstPlayFlow({
   onDone: (id: string) => void;
   onClose: () => void;
 }) {
+  const [sourceMode, setSourceMode] = useState(mode);
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
@@ -70,8 +71,28 @@ export default function FirstPlayFlow({
       )}
       {step === 1 && (
         <div className="panel">
-          <h3>{mode === 'download' ? '获取游戏' : '导入已有游戏'}</h3>
-          {mode === 'import' ? (
+          <div
+            className="flow-source-options"
+            role="group"
+            aria-label="游戏来源"
+          >
+            <button
+              className={sourceMode === 'download' ? 'primary' : 'secondary'}
+              aria-pressed={sourceMode === 'download'}
+              onClick={() => setSourceMode('download')}
+            >
+              获取游戏
+            </button>
+            <button
+              className={sourceMode === 'import' ? 'primary' : 'secondary'}
+              aria-pressed={sourceMode === 'import'}
+              onClick={() => setSourceMode('import')}
+            >
+              导入已有游戏
+            </button>
+          </div>
+          <h3>{sourceMode === 'download' ? '获取游戏' : '导入已有游戏'}</h3>
+          {sourceMode === 'import' ? (
             <>
               <p>
                 选择可信的游戏程序或 macOS

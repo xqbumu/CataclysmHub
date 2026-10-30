@@ -228,6 +228,11 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
       setPlan(null);
     }
   };
+  function beginFirstPlay(mode: 'download' | 'import') {
+    setNotice('');
+    setFirstInstallationId('');
+    setFirstPlay(mode);
+  }
   function openImport() {
     setImportDestination('library');
     setName('');
@@ -469,8 +474,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                 <button
                   className="secondary"
                   onClick={() => {
-                    setFirstInstallationId('');
-                    setFirstPlay('import');
+                    beginFirstPlay('import');
                   }}
                 >
                   添加游玩环境
@@ -574,6 +578,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       data={data}
                       onRefresh={refresh}
                       home
+                      onOpenActivity={() => setPage('activity')}
                       focusId={homeFocusId}
                     />
                   ) : (
@@ -585,8 +590,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                         <button
                           className="primary"
                           onClick={() => {
-                            setFirstInstallationId('');
-                            setFirstPlay('download');
+                            beginFirstPlay('download');
                           }}
                         >
                           <Gamepad2 />
@@ -595,8 +599,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                         <button
                           className="secondary"
                           onClick={() => {
-                            setFirstInstallationId('');
-                            setFirstPlay('import');
+                            beginFirstPlay('import');
                           }}
                         >
                           <FolderOpen />
@@ -607,8 +610,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                         <button
                           className="text-button"
                           onClick={() => {
-                            setFirstInstallationId('');
-                            setFirstPlay('import');
+                            beginFirstPlay('import');
                           }}
                         >
                           使用已导入的版本创建环境
@@ -894,7 +896,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                 }
                 setNotice(
                   firstPlay && importDestination === 'first-play'
-                    ? '游戏已导入，接下来创建独立游玩环境。'
+                    ? ''
                     : '安装已导入。可在安装卡查看登记版本，首次启动时会检查当前程序并推荐适用方案。',
                 );
               });

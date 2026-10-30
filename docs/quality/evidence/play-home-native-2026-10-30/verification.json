@@ -1,0 +1,87 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "635f359",
+  "method": "Native packaged Debug app; CUA-driven actions with real IPC and isolated SQLite/paths. No browser data mocks.",
+  "fixture_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_",
+  "metadata": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/metadata",
+  "source_image": "/Users/bumu/Downloads/cdda-osx-with-graphics-universal-2026-09-19-2324.dmg",
+  "source_mount": "/Volumes/Cataclysm DDA",
+  "copy_method": "cp -Rp into an independent QA .app; preserved timestamps and quarantine",
+  "game_binary_sha256_before": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+  "game_binary_sha256_after": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+  "game_version_observed": "0.I-1",
+  "instance": {
+    "id": "47af6752-cc2a-4f69-856f-5bcd7d5508a0",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "installation_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+    "name": "主力验收",
+    "data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/metadata.workspace/instances/e3e10168-0e93-43c0-85ed-494b53c17b65",
+    "binding_status": "unverified",
+    "created_at": "2026-10-30T02:31:39.637859+00:00"
+  },
+  "first_launch_session": {
+    "id": "f8c6ef4d-af5d-4ce0-a081-06836ae416fb",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "exited_unverified",
+    "pid": 50644,
+    "started_at": "2026-10-30T02:35:16.638900+00:00",
+    "finished_at": "2026-10-30T02:35:27.652043+00:00",
+    "exit_code": null,
+    "play_instance_id": "47af6752-cc2a-4f69-856f-5bcd7d5508a0",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/metadata.workspace/instances/e3e10168-0e93-43c0-85ed-494b53c17b65"
+  },
+  "final_counts": {
+    "workspace": 1,
+    "installation": 1,
+    "play_instance": 1,
+    "session": 1,
+    "backup_archive": 0
+  },
+  "save_files": [],
+  "download_count": 0,
+  "extraction_count": 0,
+  "quarantine_retained": true,
+  "native_checks_passed": [
+    "Directory picker cancellation preserves default path and does not initialize workspace.",
+    "Explicitly saving recommended location advances to game selection.",
+    "Import cancellation keeps the current first-play step.",
+    "Real .app native picker and program import identify 0.I-1.",
+    "Environment name survives visiting settings and returning.",
+    "Managed environment creation does not launch a game.",
+    "Initial launch preview cancellation leaves session count zero.",
+    "Explicit launch creates one tracked session for the isolated instance.",
+    "Rebuilt app surfaces nonzero/unknown termination and opens activity records.",
+    "Rebuilt first-play flow can switch between official downloads and local import.",
+    "Official macOS attachment selection opens a download confirmation; cancelling creates no download.",
+    "Reimporting the same executable is idempotent and leaves no stale next-create notice."
+  ],
+  "launch_result": {
+    "main_menu_observed": false,
+    "status": "blocked_by_macos_gatekeeper",
+    "evidence": "gatekeeper.txt",
+    "security_bypass_performed": false
+  },
+  "checks": {
+    "frontend_full_tests_passed": 151,
+    "frontend_test_files": 21,
+    "format": true,
+    "typecheck": true,
+    "production_build": true,
+    "debug_bundle": true
+  },
+  "real_game_launch_attempted": true,
+  "existing_player_data_modified": false,
+  "existing_installed_hub_replaced": false,
+  "backend_protection_code_changed": false,
+  "not_accepted": [
+    "Real game main menu and save/load cycle; Gatekeeper rejected this copied official sample.",
+    "Full native download-transfer/extraction path was not repeated in this run.",
+    "Other host operating systems or game variants."
+  ],
+  "source_digest": {
+    "sha256": "8c169974d93762d1bedffee75c6847eb70a1d5b05e6448c1b829e314ba8bfaf6",
+    "upstream_digest": "sha256:8c169974d93762d1bedffee75c6847eb70a1d5b05e6448c1b829e314ba8bfaf6",
+    "matched": true
+  }
+}

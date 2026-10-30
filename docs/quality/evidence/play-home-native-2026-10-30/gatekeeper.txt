@@ -1,0 +1,3 @@
+2026-10-30 10:35:27.642 E  syspolicyd[494:a982f] [com.apple.syspolicy.exec:default] Terminating process due to Gatekeeper rejection: 50644, <private>
+2026-10-30 10:35:27.642 Df kernel[0:a9dc6] (AppleSystemPolicy) ASP: Sleep interrupted: ref 1566, signal 0x100, pid: 50644
+2026-10-30 10:35:27.642 Df kernel[0:a9dc6] (AppleSystemPolicy) ASP: Security policy would not allow process: 50644, /private/var/folders/x7/sn3s0frn66g8t84w6mtx6s9h0000gn/T/hub-firstplay-native-20261030-ary4ozm_/Game-QA.app/Contents/Resources/cataclysm-tiles

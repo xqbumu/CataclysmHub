@@ -509,6 +509,9 @@ it('continues local import into independent environment creation without launchi
   await u.type(screen.getByLabelText('游玩环境名称'), '主力生存');
   await u.click(screen.getByRole('button', { name: '创建独立游玩环境' }));
   await screen.findByText('环境已创建');
+  expect(
+    screen.queryByText('游戏已导入，接下来创建独立游玩环境。'),
+  ).not.toBeInTheDocument();
   expect(service.registerManagedInstance).toHaveBeenCalledExactlyOnceWith(
     game.id,
     '主力生存',
@@ -521,6 +524,8 @@ it('continues local import into independent environment creation without launchi
   expect(service.launch).not.toHaveBeenCalled();
   expect(screen.getByRole('status')).toHaveTextContent('游玩环境已创建');
   expect(service.registerPlayInstance).not.toHaveBeenCalled();
+  await u.click(screen.getByRole('button', { name: '添加游玩环境' }));
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
 });
 
 it('keeps first-play progress when visiting settings and gives both directory forms independent labels', async () => {

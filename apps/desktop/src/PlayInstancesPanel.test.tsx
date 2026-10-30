@@ -764,3 +764,60 @@ it.each([
     else expect(preview).toBeEnabled();
   },
 );
+
+it.each([null, 1, 0])(
+  'surfaces abnormal home termination (%s) without claiming save health or relaunching',
+  async (exit_code) => {
+    const onOpenActivity = vi.fn();
+    const launch = vi.fn();
+    render(
+      <PlayInstancesPanel
+        home
+        onOpenActivity={onOpenActivity}
+        api={{ ...api, desktop: true, launch }}
+        onRefresh={vi.fn()}
+        data={{
+          ...emptyDashboard,
+          play_instances: [
+            {
+              id: 'i',
+              installation_id: 'g',
+              installation_sha256: 'hash',
+              name: 'QA',
+              data_root: '/qa',
+              binding_status: 'unverified',
+              created_at: '2026-10-30T00:00:00Z',
+            },
+          ],
+          sessions: [
+            {
+              id: 's',
+              installation_id: 'g',
+              play_instance_id: 'i',
+              launch_profile_id: null,
+              instance_data_root: '/qa',
+              pid: 123,
+              started_at: '2026-10-30T00:00:00Z',
+              finished_at: '2026-10-30T00:01:00Z',
+              exit_code,
+              state: 'exited_unverified',
+            },
+          ],
+        }}
+      />,
+    );
+    if (exit_code === 0) {
+      expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    } else {
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        '上次启动或运行需要检查',
+      );
+      expect(screen.getByRole('alert')).toHaveTextContent('不代表存档稳定');
+      await userEvent
+        .setup()
+        .click(screen.getByRole('button', { name: '查看运行记录 QA' }));
+      expect(onOpenActivity).toHaveBeenCalledOnce();
+    }
+    expect(launch).not.toHaveBeenCalled();
+  },
+);

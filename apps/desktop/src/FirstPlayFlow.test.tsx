@@ -99,3 +99,33 @@ it('allows explicit selection of an existing installation without importing or c
   expect(onImport).not.toHaveBeenCalled();
   expect(registerManagedInstance).not.toHaveBeenCalled();
 });
+
+it('lets an existing-installation user switch between download and local import without leaving the flow', async () => {
+  const onImport = vi.fn();
+  const registerManagedInstance = vi.fn();
+  render(
+    <FirstPlayFlow
+      api={{ ...api, desktop: true, registerManagedInstance }}
+      data={data}
+      defaults={null}
+      mode="import"
+      installationId=""
+      onSelectInstallation={vi.fn()}
+      onImport={onImport}
+      onRefresh={vi.fn()}
+      onDone={vi.fn()}
+      onClose={vi.fn()}
+    />,
+  );
+  const u = userEvent.setup();
+  await u.click(screen.getByRole('button', { name: '获取游戏' }));
+  expect(await screen.findByLabelText('查找历史发布标签')).toBeVisible();
+  expect(screen.getByRole('button', { name: '获取游戏' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  );
+  await u.click(screen.getByRole('button', { name: '导入已有游戏' }));
+  expect(screen.getByRole('button', { name: '选择本地游戏' })).toBeVisible();
+  expect(onImport).not.toHaveBeenCalled();
+  expect(registerManagedInstance).not.toHaveBeenCalled();
+});

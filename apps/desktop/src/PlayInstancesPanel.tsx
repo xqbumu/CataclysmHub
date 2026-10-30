@@ -17,6 +17,7 @@ export default function PlayInstancesPanel({
   installationFilter = '',
   home = false,
   focusId = '',
+  onOpenActivity,
   onInstallationFilterChange,
 }: {
   api: HubApi;
@@ -25,6 +26,7 @@ export default function PlayInstancesPanel({
   installationFilter?: string;
   home?: boolean;
   focusId?: string;
+  onOpenActivity?: () => void;
   onInstallationFilterChange?: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
@@ -356,6 +358,18 @@ export default function PlayInstancesPanel({
       )}
       {visibleInstances.map((item) => {
         const activeSession = activeSessionFor(item.id);
+        const lastSession = data.sessions
+          .filter((s) => s.play_instance_id === item.id)
+          .sort(
+            (a, b) =>
+              (Date.parse(b.started_at) || 0) - (Date.parse(a.started_at) || 0),
+          )[0];
+        const abnormalExit =
+          !activeSession &&
+          lastSession &&
+          (lastSession.state === 'failed' ||
+            (lastSession.state === 'exited_unverified' &&
+              lastSession.exit_code !== 0));
         const launchLabel = activeSession
           ? activeSession.state === 'starting'
             ? '启动中'
@@ -421,6 +435,28 @@ export default function PlayInstancesPanel({
                     {new Date(session.started_at).toLocaleString('zh-CN')}
                   </p>
                 ))}
+            {home && abnormalExit && (
+              <div className="alert" role="alert">
+                <div>
+                  <strong>上次启动或运行需要检查</strong>
+                  <p>
+                    {lastSession.exit_code == null
+                      ? '未取得正常退出码；请检查系统拦截提示或游戏日志。'
+                      : `进程退出码：${lastSession.exit_code}。请检查游戏日志与运行记录。`}
+                    此状态不代表存档稳定。
+                  </p>
+                  {onOpenActivity && (
+                    <button
+                      className="secondary"
+                      aria-label={`查看运行记录 ${item.name}`}
+                      onClick={onOpenActivity}
+                    >
+                      查看运行记录
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             {activeSession?.state === 'interrupted_unknown' && (
               <p className="inline-note">
                 请先确认游戏已关闭，再到“任务与记录”页面处理状态未知的会话。
