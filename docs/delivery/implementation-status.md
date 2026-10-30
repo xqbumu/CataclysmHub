@@ -481,3 +481,8 @@ macOS 授权 QA 副本实际保存后，121 文件/142 条目的实例备份、�
 ### 2026-10-30 Gatekeeper 正常授权入口复验（未通过）
 
 新隔离副本保留 quarantine，包级 gktool 扫描和修改布局的原生入口 NSWorkspace 实验仍未生成可操作授权入口；Finder 复制另报 -36，该不完整样本被排除。未移除隔离、重签、修改生产启动或放宽存档门禁。原实例文件摘要保持。不能将先前明确授权 QA 副本的可游玩结果提升为本问题通过，详见 [实际阻断与下一步证据](../quality/gatekeeper-normal-entry-2026-10-30.md)。
+
+
+### 2026-10-30 macOS 开源启动器复用调研
+
+对照 TLG、CatLauncher、Catapult/Dabdoob、Prism、Heroic、itch.io/butler/smaug 固定提交。TLG 的游戏去隔离是明确 xattr 操作；Prism 的公证属于启动器自身；itch 的 open -W 分支上报 open PID，不能替代受控游戏进程。建议保留现有实例与启动门禁，仅评估用户单独确认的安装级信任处理；未找到保留全部 quarantine 的通用正常授权实现。本轮未改生产代码、未执行隔离或签名变更，结论不提升 Gatekeeper 验收状态。详见 [源码及最小复用方案](../research/macos-launcher-reuse-review-2026-10-30.md)。
