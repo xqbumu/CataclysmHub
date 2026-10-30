@@ -1,0 +1,60 @@
+{
+  "first_game_session": {
+    "id": "89505743-7f70-442b-83c7-fb59fb2e0204",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "state": "exited_unverified",
+    "pid": 38281,
+    "started_at": "2026-10-30T09:28:55.780420+00:00",
+    "finished_at": "2026-10-30T09:36:15.018881+00:00",
+    "exit_code": 0,
+    "play_instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+    "launch_profile_id": "cdda-0i-1-macos-trial-v2",
+    "instance_data_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data"
+  },
+  "cli_mod_check": {
+    "exit_code": 0,
+    "stdout": "Checking mod Hub QA NPC Needs [hub_qa_npc_needs]",
+    "isolated_root": "/tmp/hub-content-native-20261030/probe-data"
+  },
+  "original_world_files_unchanged": 108,
+  "twotone_install": {
+    "id": "3975a513-526b-42c1-9571-920ed4a92e7a",
+    "request_key": "cef467e8-7de7-4f00-9c76-4edb04ce4889",
+    "request_digest": "0c9127ed8d10a095694436a4f04eaa1982183eb4c5d19cbe04f5cfea4a191769",
+    "entry_id": "8e140eb8-3bce-4f5a-8653-12ee366fdb9b",
+    "source_root": "/private/tmp/hub-content-native-20261030/Hub-QA-TwoTone",
+    "destination": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/.hub-content-8d154dd4-b68b-4c12-a368-acd0ee1ded11",
+    "payload_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data/sound/hub-8d154dd4-b68b-4c12-a368-acd0ee1ded11",
+    "manifest_sha256": "66b0e2a520d6efd4d384126b0b3b5455070378f7d5ea61d4207c134f8edfb9fe",
+    "state": "succeeded",
+    "phase": "finished",
+    "revision": 2,
+    "error_code": null,
+    "created_at": "2026-10-30T09:40:56.985659+00:00",
+    "finished_at": "2026-10-30T09:40:57.096033+00:00"
+  },
+  "twotone_protection_backup": {
+    "id": "68173c11-e87b-46a7-8175-b073df82bba6",
+    "task_id": "68173c11-e87b-46a7-8175-b073df82bba6",
+    "workspace_id": "638c65a9-1b9b-439f-b67b-046e68212350",
+    "relative_dir": "68173c11-e87b-46a7-8175-b073df82bba6",
+    "created_at": "2026-10-30T09:41:54.830191+00:00",
+    "entry_count": 184,
+    "file_count": 151,
+    "total_bytes": "1888638",
+    "consistency": "best_effort",
+    "verification": "verified",
+    "verified_at": "2026-10-30T09:41:55.067998+00:00",
+    "archive_sha256": "2d5c3dc755f670421c286c29240a42989c3d413e6154e4329e0401b6bb6dd170",
+    "manifest_sha256": "faf9564aa912aa347774347aa942a9f51c0407acc634a9bf96775d0ca1c03288",
+    "display_name": "",
+    "notes": "",
+    "retention_locked": 0,
+    "metadata_revision": 0,
+    "metadata_updated_at": null,
+    "play_instance_id": "af2c3c87-4904-4943-838b-20eea487a26c",
+    "source_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data"
+  },
+  "current_soundpack": "hub_qa_basic",
+  "phase": "awaiting native dropdown selection before protected apply; no twotone playback claim"
+}
