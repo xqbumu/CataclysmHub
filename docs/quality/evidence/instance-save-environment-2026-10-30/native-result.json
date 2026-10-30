@@ -1,0 +1,35 @@
+{
+  "new_instance": {
+    "id": "af2c3c87-4904-4943-838b-20eea487a26c",
+    "installation_id": "4ab7d715-2b65-401b-b7ab-5d2ec4e8bdad",
+    "installation_sha256": "3f37ff041654edbb88773666344be0bf8eba67cb44d71c15908aeb961d4aac3a",
+    "name": "P1 恢复独立环境验收",
+    "data_root": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785/data",
+    "binding_status": "unverified",
+    "created_at": "2026-10-30T07:35:24.324604+00:00"
+  },
+  "restore_task": {
+    "id": "11cc8e49-1613-4a04-a3b2-f8d8511a5be9",
+    "request_key": "533843bd-d2b6-4b62-8d0e-5fe6b38a4b0e",
+    "request_digest": "fe38c0b67a064f58e0e1026dbc18c5b54be55ca43f750ab58d4436182bc066ea",
+    "workspace_id": "638c65a9-1b9b-439f-b67b-046e68212350",
+    "backup_id": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+    "destination": "/private/tmp/hub-p1-native-20261030/restores/restored-c6957d2b-d603-48cc-8ac7-f7262cd14785",
+    "state": "succeeded",
+    "phase": "finished",
+    "revision": 7,
+    "error_code": null,
+    "created_at": "2026-10-30T07:34:57.204285+00:00",
+    "finished_at": "2026-10-30T07:34:57.939507+00:00"
+  },
+  "source_unchanged_files": 124,
+  "restored_data_matches_source": true,
+  "new_policy_rows": 0,
+  "new_sessions": 0,
+  "native_scan": {
+    "source_and_restored_world": "Mount Andrew",
+    "file_count": 108,
+    "visited_entries": 112,
+    "world_bytes": "1396416"
+  }
+}

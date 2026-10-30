@@ -1,0 +1,63 @@
+   Compiling hub-core v0.1.0 (/opt/src/github.com/xqbumu/CataclysmHub/crates/hub-core)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 05s
+     Running tests/instance_backup.rs (target/debug/deps/instance_backup-9f5d1183ae5151b8)
+
+running 28 tests
+test configuration_protection_rejects_no_changes_and_unknown_sessions ... ok
+test configuration_protection_binds_original_bytes_and_restores_them_without_applying_draft ... ok
+test config_apply_rechecks_session_admission_and_rejects_multiple_files ... ok
+test configuration_protection_refuses_stale_bytes_at_creation ... ok
+test common_options_apply_and_rollback_use_the_existing_protected_single_file_flow ... ok
+test changing_backup_workspace_invalidates_prepared_config_application ... ok
+test archive_changes_after_prepare_block_config_publication ... ok
+test distinct_instance_provenance_survives_verification_with_the_source_offline ... ok
+test candidate_metadata_changed_after_preparation_prevents_application ... ok
+test failed_schema_nine_migration_rolls_back_earlier_source_columns ... ok
+test invalid_persisted_instance_identity_is_rejected_before_any_staging_write ... ok
+test failed_terminal_record_retains_claim_across_restart_without_replaying_io ... ok
+test instance_archive_is_independent_covers_config_and_save_and_restores_without_mixing_sources ... ok
+test replaced_config_identity_preserves_protection_and_requires_explicit_resolution ... ok
+test retention_previews_keep_instance_histories_separate_and_protect_named_backups ... ok
+test ignored_intent_or_failed_audit_never_starts_config_io ... ok
+test restored_instance_registration_rechecks_bytes_and_requires_original_installation ... ok
+test rollback_restores_exact_original_bytes_in_a_separate_idempotent_record ... ok
+test schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot ... ok
+test rollback_terminal_failure_is_reconciled_without_repeating_file_io ... ok
+test schema_twelve_upgrade_preserves_instance_backup_and_snapshots_old_metadata ... ok
+test schema_thirteen_upgrade_keeps_existing_config_history_and_snapshots_database ... ok
+test unknown_sessions_block_creation_and_active_claims_use_the_instance_root ... ok
+test single_config_apply_requires_confirmation_and_never_replays_request ... ok
+test rollback_refuses_later_edits_and_tampered_archives ... ok
+test sound_switch_keeps_retained_pack_and_scan_integrity_guards ... ok
+test sound_change_ignores_unrelated_mod_diagnostics_but_preserves_mod_guard ... ok
+test source_or_backup_directory_replacement_cannot_reuse_a_plan ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.25s
+
+     Running tests/play_instances.rs (target/debug/deps/play_instances-e1f946ef6c9f7b95)
+
+running 21 tests
+test caller_cannot_supply_binding_verification ... ok
+test failed_schema_seven_upgrade_preserves_schema_six ... ok
+test application_import_registers_real_entry_and_deduplicates_direct_import ... ok
+test dashboard_describes_recorded_sample_without_changing_legacy_rows_or_trusting_name ... ok
+test bundle_scripts_are_rejected_for_direct_and_directory_imports ... ok
+test audit_failure_rolls_back_registration ... ok
+test bundle_import_is_rejected_when_sibling_instance_was_registered_first ... ok
+test bundle_sibling_directory_is_not_an_independent_instance ... ok
+test independent_instances_persist_without_writing_data_or_granting_launch_binding ... ok
+test bundle_preview_and_unknown_session_protect_whole_bundle_after_restart ... ok
+test installation_import_cannot_take_over_an_instance_scope ... ok
+test legacy_bundle_script_record_cannot_prepare_a_launch ... ok
+test instance_save_inventory_rejects_save_symlinks ... ok
+test recognition_reads_current_program_without_running_or_trusting_its_name ... ok
+test legacy_instance_inside_bundle_is_blocked_before_launch_or_backup ... ok
+test reject_nested_and_aliased_reuse ... ok
+test managed_instances_use_unique_directories_and_refuse_protected_ancestors_before_creation ... ok
+test instance_save_inventory_is_scoped_read_only_and_blocks_active_sessions ... ok
+test reject_overlaps_nonempty_and_changed_executable_without_registration ... ok
+test two_installations_can_register_distinct_instances_but_not_share_roots ... ok
+test schema_six_upgrade_keeps_a_snapshot_and_records ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.82s
+

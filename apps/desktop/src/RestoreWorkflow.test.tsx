@@ -3,7 +3,14 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import InspectionPanel from './InspectionPanel';
 import { RestoreButton, RestoreTasks } from './RestoreWorkflow';
-import type { HubApi, RestorePlan, RestoreTask, InspectionTask } from './api';
+import {
+  emptyDashboard,
+  type HubApi,
+  type RestorePlan,
+  type RestoreTask,
+  type InspectionTask,
+  type BackupRecord,
+} from './api';
 const plan: RestorePlan = {
   id: 'plan',
   plan_digest: 'digest',
@@ -366,4 +373,47 @@ describe('persistent recovery directory inspection', () => {
     expect(screen.getByText('检查已取消，未形成新结论')).toBeVisible();
     expect(screen.queryByText('本次文件检查通过')).not.toBeInTheDocument();
   });
+});
+
+it('registers a restored environment only after explicit confirmation and passes task identity', async () => {
+  const api = {
+    ...client(),
+    registerRestoredInstance: vi.fn().mockResolvedValue({ id: 'new-instance' }),
+  };
+  const onRegistered = vi.fn();
+  const source = {
+    id: 'source',
+    name: '原环境',
+    installation_id: 'game',
+    installation_sha256: 'x',
+    data_root: '/original',
+    binding_status: 'unverified',
+    created_at: 'now',
+  };
+  const backup = {
+    id: plan.backup_id,
+    play_instance_id: source.id,
+  } as BackupRecord;
+  render(
+    <RestoreTasks
+      api={api}
+      tasks={[{ ...task, state: 'succeeded' }]}
+      data={{ ...emptyDashboard, play_instances: [source], backups: [backup] }}
+      busy={false}
+      run={async (f) => f()}
+      onRegistered={onRegistered}
+    />,
+  );
+  const user = userEvent.setup();
+  await user.click(screen.getByRole('button', { name: '创建独立游玩环境' }));
+  const confirm = screen.getByRole('button', { name: '确认创建独立环境' });
+  expect(confirm).toBeDisabled();
+  expect(api.registerRestoredInstance).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('checkbox'));
+  await user.click(confirm);
+  expect(api.registerRestoredInstance).toHaveBeenCalledWith(
+    task.id,
+    '原环境 · 恢复副本',
+  );
+  expect(onRegistered).toHaveBeenCalledWith('new-instance');
 });

@@ -1,8 +1,15 @@
 import { useRef, useState } from 'react';
+import { errorMessage } from './api';
 import { FolderOpen, LoaderCircle, Square, TriangleAlert } from 'lucide-react';
 import Modal from './Modal';
 import InspectionPanel from './InspectionPanel';
-import type { HubApi, RestorePlan, RestoreTask, InspectionTask } from './api';
+import type {
+  HubApi,
+  RestorePlan,
+  RestoreTask,
+  InspectionTask,
+  Dashboard,
+} from './api';
 type Runner = (action: () => Promise<void>) => Promise<void>;
 export function RestoreButton({
   api,
@@ -145,6 +152,8 @@ export function RestoreTasks({
   api,
   tasks,
   inspections = [],
+  data,
+  onRegistered,
   blocked = false,
   busy,
   run,
@@ -152,6 +161,8 @@ export function RestoreTasks({
   api: HubApi;
   tasks: RestoreTask[];
   inspections?: InspectionTask[];
+  data?: Dashboard;
+  onRegistered?: (instanceId: string) => void;
   blocked?: boolean;
   busy: boolean;
   run: Runner;
@@ -203,6 +214,18 @@ export function RestoreTasks({
                 文件路径、类型、大小和 SHA-256 已回读核对；游戏兼容性仍未验证。
               </p>
             )}
+            {task.state === 'succeeded' &&
+              data &&
+              api.registerRestoredInstance && (
+                <RestoredEnvironment
+                  api={api}
+                  task={task}
+                  data={data}
+                  busy={busy || blocked}
+                  run={run}
+                  onRegistered={onRegistered}
+                />
+              )}
             {!active && (
               <InspectionPanel
                 api={api}
@@ -232,5 +255,111 @@ export function RestoreTasks({
         );
       })}
     </section>
+  );
+}
+
+function RestoredEnvironment({
+  api,
+  task,
+  data,
+  busy,
+  run,
+  onRegistered,
+}: {
+  api: HubApi;
+  task: RestoreTask;
+  data: Dashboard;
+  busy: boolean;
+  run: Runner;
+  onRegistered?: (id: string) => void;
+}) {
+  const sourceId = data.backups.find(
+    (b) => b.id === task.backup_id,
+  )?.play_instance_id;
+  const source = data.play_instances.find((i) => i.id === sourceId);
+  const existing = data.play_instances.find(
+    (i) => i.data_root === `${task.destination}/data`,
+  );
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+  const [failure, setFailure] = useState('');
+  if (existing)
+    return (
+      <p>
+        已登记独立环境：{existing.name}
+        <button
+          className="secondary"
+          onClick={() => onRegistered?.(existing.id)}
+        >
+          查看游玩环境
+        </button>
+      </p>
+    );
+  if (!source) return null;
+  return (
+    <>
+      <button
+        className="secondary"
+        disabled={busy}
+        onClick={() => {
+          setName(`${source.name} · 恢复副本`.slice(0, 100));
+          setConfirmed(false);
+          setFailure('');
+          setOpen(true);
+        }}
+      >
+        创建独立游玩环境
+      </button>
+      {open && (
+        <Modal
+          title="从恢复目录创建独立游玩环境"
+          onClose={() => !busy && setOpen(false)}
+        >
+          <p>
+            使用原实例的同一游戏安装；服务端会重新校验恢复文件。保留原实例，不自动启动，不继承自动备份策略。
+          </p>
+          <p className="file-path">{task.destination}/data</p>
+          <label>
+            环境名称
+            <input
+              maxLength={100}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+          <label>
+            <input
+              type="checkbox"
+              checked={confirmed}
+              onChange={(e) => setConfirmed(e.target.checked)}
+            />
+            我确认创建独立环境，原环境与存档保持保留；游戏兼容性仍需实际验证。
+          </label>
+          <button
+            disabled={busy || !confirmed || !name.trim()}
+            onClick={() =>
+              void run(async () => {
+                setFailure('');
+                try {
+                  const result = await api.registerRestoredInstance!(
+                    task.id,
+                    name.trim(),
+                  );
+                  setOpen(false);
+                  onRegistered?.(result.id);
+                } catch (error) {
+                  setFailure(errorMessage(error));
+                  throw error;
+                }
+              })
+            }
+          >
+            确认创建独立环境
+          </button>
+          {failure && <p role="alert">{failure}</p>}
+        </Modal>
+      )}
+    </>
   );
 }

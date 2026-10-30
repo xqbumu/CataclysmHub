@@ -1,3 +1,4 @@
+import type { InstanceSaveReport } from './bindings/InstanceSaveReport';
 import type { AutomaticBackupPolicy } from './bindings/AutomaticBackupPolicy';
 import type { AutomaticBackupSettings } from './bindings/AutomaticBackupSettings';
 import type { InstallationQuarantinePlan } from './bindings/InstallationQuarantinePlan';
@@ -76,6 +77,11 @@ export const emptyDashboard: Dashboard = {
   inspection_tasks: [],
 };
 export interface HubApi {
+  inspectInstanceSaves?(instanceId: string): Promise<InstanceSaveReport>;
+  registerRestoredInstance?(
+    restoreTaskId: string,
+    name: string,
+  ): Promise<PlayInstance>;
   automaticBackupPolicy?(instanceId: string): Promise<AutomaticBackupPolicy>;
   saveAutomaticBackupPolicy?(
     instanceId: string,
@@ -305,6 +311,10 @@ export const api: HubApi = {
 
   previewInstanceResources: (instanceId) =>
     desktopOnly('preview_instance_resources', { instanceId }),
+  inspectInstanceSaves: (instanceId) =>
+    desktopOnly('inspect_instance_saves', { instanceId }),
+  registerRestoredInstance: (restoreTaskId, name) =>
+    desktopOnly('register_restored_instance', { restoreTaskId, name }),
   registerPlayInstance: (input) =>
     desktopOnly('register_play_instance', { input }),
   desktop: isTauri(),

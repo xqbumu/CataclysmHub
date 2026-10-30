@@ -49,6 +49,8 @@ export default function BackupsPage({
   run,
   onConfigure,
   initialSourceInstance = '',
+  onRegistered,
+  onViewSaves,
 }: {
   api: HubApi;
   data: Dashboard;
@@ -57,6 +59,8 @@ export default function BackupsPage({
   run: (action: () => Promise<void>) => Promise<void>;
   onConfigure: () => void;
   initialSourceInstance?: string;
+  onRegistered?: (id: string) => void;
+  onViewSaves?: (id: string) => void;
 }) {
   const [sourceInstance, setSourceInstance] = useState(initialSourceInstance);
   const [historySource, setHistorySource] = useState(
@@ -303,7 +307,17 @@ export default function BackupsPage({
           </span>
         </div>
       )}
+      {sourceInstance && onViewSaves && (
+        <button
+          className="secondary"
+          onClick={() => onViewSaves(sourceInstance)}
+        >
+          查看此实例存档
+        </button>
+      )}
       <RestoreTasks
+        data={data}
+        onRegistered={onRegistered}
         api={api}
         tasks={data.restore_tasks}
         inspections={data.inspection_tasks}

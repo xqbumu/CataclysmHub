@@ -177,7 +177,10 @@ fn inventory(
             "存档目录不可访问，请检查目录、磁盘和权限。",
         )
     })?;
-    let report = ScanReport {
+    inventory_directory(directory, task_id, cancelled, progress, limits)
+}
+fn empty_report(task_id: &str) -> ScanReport {
+    ScanReport {
         task_id: task_id.into(),
         scanner_version: "opaque-directory-v1".into(),
         created_at: now(),
@@ -187,7 +190,16 @@ fn inventory(
         candidates: vec![],
         entries: vec![],
         issues: vec![],
-    };
+    }
+}
+fn inventory_directory(
+    directory: Dir,
+    task_id: &str,
+    cancelled: &AtomicBool,
+    progress: &AtomicU64,
+    limits: ScanLimits,
+) -> Result<ScanReport> {
+    let report = empty_report(task_id);
     let mut scan = Inventory {
         report,
         cancelled,
@@ -235,7 +247,72 @@ pub(crate) fn inspect_source(root: &Path, cancelled: &AtomicBool) -> Result<Scan
     inventory(root, "preflight", cancelled, &AtomicU64::new(0), LIMITS)
 }
 
+#[derive(Debug, Clone, serde::Serialize, ts_rs::TS)]
+pub struct InstanceSaveReport {
+    pub instance_id: String,
+    pub data_root: String,
+    pub save_dir: String,
+    pub report: ScanReport,
+}
+
 impl Hub {
+    /// Read only, scoped to a registered instance; never merges workspace history.
+    pub async fn inspect_instance_saves(&self, instance_id: &str) -> Result<InstanceSaveReport> {
+        let _guard = self.mutation.lock().await;
+        self.check_resource_claims().await?;
+        let instance = self.instance(instance_id).await?;
+        let installation = self.installation(&instance.installation_id).await?;
+        let identity = self
+            .instance_identity(
+                &instance,
+                &installation.working_dir,
+                &installation.executable,
+            )
+            .await?;
+        let root = std::path::PathBuf::from(&instance.data_root);
+        let save = root.join("save");
+        let save_dir = paths::text(&save)?;
+        let report = tokio::task::spawn_blocking(move || {
+            let directory = Dir::open_ambient_dir(&root, cap_std::ambient_authority())
+                .map_err(|_| HubError::new("PATH_INVALID", "实例目录不可访问。"))?;
+            use cap_fs_ext::DirExt;
+            let save_directory = match directory.open_dir_nofollow("save") {
+                Ok(dir) => Some(dir),
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+                Err(_) => {
+                    return Err(HubError::new(
+                        "SAVE_ROOT_UNAVAILABLE",
+                        "save 必须是可访问的普通目录，不能是链接。",
+                    ));
+                }
+            };
+            let report = match save_directory {
+                Some(dir) => inventory_directory(
+                    dir,
+                    "instance",
+                    &AtomicBool::new(false),
+                    &AtomicU64::new(0),
+                    LIMITS,
+                )?,
+                None => empty_report("instance"),
+            };
+            if same_file::Handle::from_path(&root).ok().as_ref() != Some(&identity.0) {
+                return Err(HubError::new(
+                    "INSTANCE_PATH_CHANGED",
+                    "实例目录在扫描期间已变化。",
+                ));
+            }
+            Ok(report)
+        })
+        .await
+        .map_err(|_| HubError::new("SCAN_FAILED", "扫描未完成。"))??;
+        Ok(InstanceSaveReport {
+            instance_id: instance.id,
+            data_root: instance.data_root,
+            save_dir,
+            report,
+        })
+    }
     pub async fn start_world_scan(self: &Arc<Self>, request_key: &str) -> Result<ScanTask> {
         let _guard = self.mutation.lock().await;
         if uuid::Uuid::parse_str(request_key).is_err() {

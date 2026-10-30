@@ -1450,6 +1450,18 @@ async fn restored_instance_registration_rechecks_bytes_and_requires_original_ins
         "succeeded"
     );
     let data = PathBuf::from(&task.destination).join("data");
+    let held = PathBuf::from(&task.destination).join("held-for-test");
+    std::fs::rename(&data, &held).unwrap();
+    std::fs::create_dir(&data).unwrap();
+    assert!(
+        f.hub
+            .register_restored_instance(&task.id, "Empty tampered")
+            .await
+            .is_err()
+    );
+    std::fs::remove_dir(&data).unwrap();
+    std::fs::rename(held, &data).unwrap();
+
     let input = || PlayInstanceInput {
         installation_id: f.installation.clone(),
         name: "Restored A".into(),
@@ -1457,6 +1469,12 @@ async fn restored_instance_registration_rechecks_bytes_and_requires_original_ins
     };
     std::fs::write(data.join("save/world.dat"), b"tampered").unwrap();
     assert!(f.hub.register_play_instance(input()).await.is_err());
+    assert!(
+        f.hub
+            .register_restored_instance(&task.id, "Restored A")
+            .await
+            .is_err()
+    );
     assert_eq!(f.hub.play_instances().await.unwrap().len(), 2);
     std::fs::write(data.join("save/world.dat"), b"instance A world").unwrap();
     let other_program = f.path("game/other.exe");
@@ -1484,9 +1502,29 @@ async fn restored_instance_registration_rechecks_bytes_and_requires_original_ins
         "RESTORE_NOT_READY"
     );
     std::fs::remove_file(marker).unwrap();
-    let restored = f.hub.register_play_instance(input()).await.unwrap();
+    let restored = f
+        .hub
+        .register_restored_instance(&task.id, "Restored A")
+        .await
+        .unwrap();
     assert_eq!(restored.binding_status, "unverified");
     assert_ne!(restored.id, f.a);
+    assert!(
+        !f.hub
+            .automatic_backup_policy(&restored.id)
+            .await
+            .unwrap()
+            .settings
+            .enabled
+    );
+    assert_eq!(
+        f.hub
+            .register_restored_instance(&task.id, "Another name")
+            .await
+            .unwrap()
+            .id,
+        restored.id
+    );
     assert_eq!(
         f.hub.register_play_instance(input()).await.unwrap().id,
         restored.id

@@ -669,6 +669,14 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       content: (
                         <BackupsPage
                           initialSourceInstance={backupFocusId}
+                          onRegistered={(id) => {
+                            setHomeFocusId(id);
+                            setPage('overview');
+                          }}
+                          onViewSaves={(id) => {
+                            setBackupFocusId(id);
+                            setBackupView('worlds');
+                          }}
                           api={api}
                           data={data}
                           busy={busy}
@@ -683,6 +691,7 @@ export default function App({ api = nativeApi }: { api?: HubApi }) {
                       label: '世界与角色',
                       content: (
                         <WorldsPage
+                          initialInstanceId={backupFocusId}
                           api={api}
                           data={data}
                           busy={busy}

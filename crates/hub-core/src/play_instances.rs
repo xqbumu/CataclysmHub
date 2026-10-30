@@ -154,6 +154,62 @@ impl Hub {
         })
         .await
     }
+    /// Derive scope and game from a completed durable restore, never arbitrary UI paths.
+    pub async fn register_restored_instance(
+        &self,
+        restore_task_id: &str,
+        name: &str,
+    ) -> Result<PlayInstance> {
+        let _guard = self.mutation.lock().await;
+        self.check_resource_claims().await?;
+        let task = self.restore_task(restore_task_id).await?;
+        if task.state != "succeeded" {
+            return Err(HubError::new(
+                "RESTORE_NOT_READY",
+                "仅完成的恢复可创建独立环境。",
+            ));
+        }
+        let backup: crate::BackupRecord = sqlx::query_as("SELECT * FROM backup_archive WHERE id=?")
+            .bind(&task.backup_id)
+            .fetch_one(&self.pool)
+            .await
+            .map_err(HubError::db)?;
+        let original = self
+            .instance(backup.play_instance_id.as_deref().ok_or(HubError::new(
+                "RESTORED_INSTALLATION_MISMATCH",
+                "此副本没有原实例关联，请手动核对游戏。",
+            ))?)
+            .await?;
+        let data_root = paths::text(&Path::new(&task.destination).join("data"))?;
+        if let Some(existing) = self
+            .play_instances()
+            .await?
+            .into_iter()
+            .find(|i| i.data_root == data_root)
+        {
+            if existing.installation_id == original.installation_id
+                && existing.installation_sha256 == original.installation_sha256
+            {
+                return Ok(existing);
+            }
+            return Err(HubError::new(
+                "INSTANCE_ROOT_IN_USE",
+                "恢复目录已关联其他游戏。",
+            ));
+        }
+        if backup.source_root.as_deref() != Some(original.data_root.as_str()) {
+            return Err(HubError::new(
+                "RESTORED_INSTALLATION_MISMATCH",
+                "副本来源目录与原实例不一致。",
+            ));
+        }
+        self.register_play_instance_locked(PlayInstanceInput {
+            installation_id: original.installation_id,
+            name: name.into(),
+            data_root,
+        })
+        .await
+    }
     pub async fn register_play_instance(&self, input: PlayInstanceInput) -> Result<PlayInstance> {
         let _guard = self.mutation.lock().await;
         self.register_play_instance_locked(input).await
@@ -253,10 +309,11 @@ impl Hub {
                     ));
                 }
             }
-            if std::fs::read_dir(&root)
-                .map_err(|_| HubError::new("PATH_INVALID", "无法检查实例目录。"))?
-                .next()
-                .is_some()
+            if restored_record.is_some()
+                || std::fs::read_dir(&root)
+                    .map_err(|_| HubError::new("PATH_INVALID", "无法检查实例目录。"))?
+                    .next()
+                    .is_some()
             {
                 // Only a completed, registered instance restore can admit a
                 // nonempty root. Re-read its bytes now, not a stale inspection.

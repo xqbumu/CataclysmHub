@@ -645,3 +645,61 @@ async fn legacy_bundle_script_record_cannot_prepare_a_launch() {
     );
     assert!(hub.dashboard().await.unwrap().sessions.is_empty());
 }
+
+#[tokio::test]
+async fn instance_save_inventory_is_scoped_read_only_and_blocks_active_sessions() {
+    let (temp, hub, installation) = setup().await;
+    let a = hub
+        .register_play_instance(input(&temp, &installation, "instance"))
+        .await
+        .unwrap();
+    let b = hub
+        .register_play_instance(input(&temp, &installation, "other"))
+        .await
+        .unwrap();
+    assert!(
+        hub.inspect_instance_saves(&a.id)
+            .await
+            .unwrap()
+            .report
+            .candidates
+            .is_empty()
+    );
+    for (root, value) in [("instance", b"A"), ("other", b"B")] {
+        let world = temp.path().join(root).join("save/SameWorld");
+        std::fs::create_dir_all(&world).unwrap();
+        std::fs::write(world.join("character.sav"), value).unwrap();
+    }
+    let ar = hub.inspect_instance_saves(&a.id).await.unwrap();
+    let br = hub.inspect_instance_saves(&b.id).await.unwrap();
+    assert_ne!(ar.instance_id, br.instance_id);
+    assert_ne!(ar.save_dir, br.save_dir);
+    assert_eq!(ar.report.candidates[0].relative_root, "SameWorld");
+    assert_eq!(br.report.candidates[0].relative_root, "SameWorld");
+    assert!(hub.dashboard().await.unwrap().scan_tasks.is_empty());
+    assert_eq!(
+        std::fs::read(temp.path().join("instance/save/SameWorld/character.sav")).unwrap(),
+        b"A"
+    );
+    let pool = sqlx::SqlitePool::connect(&format!(
+        "sqlite://{}",
+        temp.path().join("metadata/metadata.sqlite").display()
+    ))
+    .await
+    .unwrap();
+    sqlx::query("INSERT INTO session(id,installation_id,state,started_at) VALUES('active',?,'interrupted_unknown','now')").bind(&installation).execute(&pool).await.unwrap();
+    assert!(hub.inspect_instance_saves(&a.id).await.is_err());
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn instance_save_inventory_rejects_save_symlinks() {
+    let (temp, hub, installation) = setup().await;
+    let a = hub
+        .register_play_instance(input(&temp, &installation, "instance"))
+        .await
+        .unwrap();
+    std::os::unix::fs::symlink(temp.path().join("save"), temp.path().join("instance/save"))
+        .unwrap();
+    assert!(hub.inspect_instance_saves(&a.id).await.is_err());
+}

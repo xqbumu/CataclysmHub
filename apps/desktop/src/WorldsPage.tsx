@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import InstanceSavesPanel from './InstanceSavesPanel';
 import {
   CircleHelp,
   File,
@@ -44,7 +45,7 @@ function bytes(value: string) {
   if (size < 1024 ** 2) return (size / 1024).toFixed(1) + ' KiB';
   return (size / 1024 ** 2).toFixed(1) + ' MiB';
 }
-export default function WorldsPage({
+function WorkspaceWorldsPage({
   api,
   data,
   busy,
@@ -460,5 +461,47 @@ export default function WorldsPage({
         </>
       )}
     </div>
+  );
+}
+
+export default function WorldsPage(props: {
+  api: HubApi;
+  data: Dashboard;
+  busy: boolean;
+  run: (action: () => Promise<void>) => Promise<void>;
+  onConfigure: () => void;
+  initialInstanceId?: string;
+}) {
+  const [source, setSource] = useState(props.initialInstanceId || 'workspace');
+  useEffect(() => {
+    setSource(props.initialInstanceId || 'workspace');
+  }, [props.initialInstanceId]);
+  return (
+    <>
+      <section className="panel">
+        <label>
+          存档来源
+          <select value={source} onChange={(e) => setSource(e.target.value)}>
+            <option value="workspace">工作区存档目录</option>
+            {props.data.play_instances.map((i) => (
+              <option key={i.id} value={i.id}>
+                {i.name} · 独立实例
+              </option>
+            ))}
+          </select>
+        </label>
+      </section>
+      {source === 'workspace' ? (
+        <WorkspaceWorldsPage {...props} />
+      ) : (
+        <InstanceSavesPanel
+          key={source}
+          api={props.api}
+          data={props.data}
+          instanceId={source}
+          busy={props.busy}
+        />
+      )}
+    </>
   );
 }

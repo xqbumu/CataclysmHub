@@ -203,3 +203,9 @@ cargo run -p hub-core --bin verify-restored -- /path/to/backup-id /path/to/recov
 人工验收记录：[I 建档与读档](docs/quality/world-save-load-manual-2026-10-29.md)、[H 建档与读档](docs/quality/h-world-save-load-manual-2026-10-29.md)。
 
 首要验证目标为 macOS Apple Silicon、CDDA 0.I Ito、MSXotto+；此处表示验证目标，不表示已完成兼容性认证。
+
+### 按实例查看与恢复为独立环境
+
+从游玩环境的“存档与备份”进入，点击“查看此实例存档”，再读取该实例的世界目录候选；也可在“世界与角色”的存档来源中切换实例。只读取该实例 `data_root/save`，不混合工作区扫描历史。游戏运行或状态未知时不可扫描；候选目录不表示角色已识别或保证能读档。
+
+实例保护副本恢复到新目录后，在成功恢复任务中选择“创建独立游玩环境”。Hub 自动关联原实例的同一游戏安装并重新校验恢复文件，无需手动选择 `data/`。原环境保留，新环境不自动启动，自动备份默认关闭；首次读档仍需人工验证。普通工作区副本没有原实例关联时，不提供自动关联游戏入口。

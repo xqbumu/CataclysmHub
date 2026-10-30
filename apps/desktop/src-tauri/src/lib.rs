@@ -709,6 +709,24 @@ async fn import_installation(
     state.hub.import_installation(&executable, &name).await
 }
 #[tauri::command]
+async fn inspect_instance_saves(
+    state: tauri::State<'_, AppState>,
+    instance_id: String,
+) -> Result<hub_core::InstanceSaveReport, HubError> {
+    state.hub.inspect_instance_saves(&instance_id).await
+}
+#[tauri::command]
+async fn register_restored_instance(
+    state: tauri::State<'_, AppState>,
+    restore_task_id: String,
+    name: String,
+) -> Result<hub_core::PlayInstance, HubError> {
+    state
+        .hub
+        .register_restored_instance(&restore_task_id, &name)
+        .await
+}
+#[tauri::command]
 async fn register_play_instance(
     state: tauri::State<'_, AppState>,
     input: hub_core::PlayInstanceInput,
@@ -1045,6 +1063,8 @@ pub fn run() {
             open_workspace_path,
             import_installation,
             register_play_instance,
+            register_restored_instance,
+            inspect_instance_saves,
             create_launch_plan,
             create_instance_launch_plan,
             preview_instance_resources,

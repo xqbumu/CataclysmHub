@@ -26,6 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     hub_core::PlayInstanceInput::export_all(&cfg)?;
     hub_core::RetentionPreview::export_all(&cfg)?;
     ScanReport::export_all(&cfg)?;
+    hub_core::InstanceSaveReport::export_all(&cfg)?;
     hub_core::BackupPlan::export_all(&cfg)?;
     hub_core::BackupDetailsInput::export_all(&cfg)?;
     hub_core::RestorePlan::export_all(&cfg)?;

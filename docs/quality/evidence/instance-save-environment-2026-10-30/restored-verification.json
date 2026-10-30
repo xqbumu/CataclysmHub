@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "inspected_at": "2026-10-30T07:37:36.998201+00:00",
+  "verification": {
+    "schema_version": 1,
+    "state": "verified",
+    "backup": {
+      "backup_id": "e5a007b9-8785-4415-8d39-65f0afb3dcb2",
+      "file_count": 124,
+      "entry_count": 145,
+      "total_bytes": "1526626",
+      "consistency": "best_effort",
+      "archive_sha256": "95f69f23a4d6456bbb86088c90e4e75f790454399268fd82016264b0f809d25d",
+      "manifest_sha256": "5b00e952f809d73f577fa35edf663c9b64a49e36428f940ab14a07a613a0c9c6",
+      "verified_at": "2026-10-30T07:37:36.892717+00:00",
+      "receipt_present": true
+    },
+    "restored_files": 124,
+    "restored_entries": 145,
+    "restored_bytes": "1526626"
+  },
+  "incomplete_marker_present": false,
+  "historical_report_present": true
+}

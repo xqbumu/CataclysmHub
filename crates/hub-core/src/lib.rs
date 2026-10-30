@@ -5,6 +5,7 @@ mod paths;
 mod process;
 mod types;
 mod world_scan;
+pub use world_scan::InstanceSaveReport;
 
 pub use database::Hub;
 pub use types::*;

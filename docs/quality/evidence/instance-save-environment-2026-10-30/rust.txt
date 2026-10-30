@@ -1,0 +1,553 @@
+task: [check:rust] cargo fmt --all -- --check
+task: [check:rust] cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+   Compiling libsqlite3-sys v0.30.1
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling objc2-exception-helper v0.1.1
+   Compiling sqlx-sqlite v0.8.6
+   Compiling objc2 v0.6.5
+   Compiling zstd-safe v7.3.0
+    Checking zstd v0.13.3
+   Compiling sqlx-macros-core v0.8.6
+    Checking block2 v0.6.2
+    Checking objc2-core-foundation v0.3.2
+    Checking dispatch2 v0.3.1
+   Compiling sqlx-macros v0.8.6
+    Checking objc2-foundation v0.3.2
+    Checking sqlx v0.8.6
+    Checking objc2-quartz-core v0.3.2
+    Checking objc2-app-kit v0.3.2
+    Checking hub-core v0.1.0 (/opt/src/github.com/xqbumu/CataclysmHub/crates/hub-core)
+    Checking objc2-web-kit v0.3.2
+    Checking tao v0.37.2
+    Checking muda v0.20.0
+    Checking window-vibrancy v0.8.1
+    Checking rfd v0.16.1
+    Checking wry v0.57.1
+    Checking tauri-runtime v2.12.2
+    Checking tauri-runtime-wry v2.12.3
+    Checking tauri v2.12.5
+    Checking tauri-plugin-fs v2.7.1
+    Checking tauri-plugin-dialog v2.8.3
+    Checking cataclysm-hub v0.1.0 (/opt/src/github.com/xqbumu/CataclysmHub/apps/desktop/src-tauri)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 14.75s
+task: [check:rust] cargo test --workspace --all-features --locked
+   Compiling libsqlite3-sys v0.30.1
+   Compiling zstd-sys v2.1.2+zstd.1.5.7
+   Compiling objc2-exception-helper v0.1.1
+   Compiling aws-lc-sys v0.47.0
+   Compiling objc2 v0.6.5
+   Compiling zstd-safe v7.3.0
+   Compiling sqlx-sqlite v0.8.6
+   Compiling zstd v0.13.3
+   Compiling objc2-foundation v0.3.2
+   Compiling block2 v0.6.2
+   Compiling objc2-core-foundation v0.3.2
+   Compiling sqlx-macros-core v0.8.6
+   Compiling wry v0.57.1
+   Compiling dispatch2 v0.3.1
+   Compiling sqlx-macros v0.8.6
+   Compiling sqlx v0.8.6
+   Compiling hub-core v0.1.0 (/opt/src/github.com/xqbumu/CataclysmHub/crates/hub-core)
+   Compiling objc2-quartz-core v0.3.2
+   Compiling objc2-app-kit v0.3.2
+   Compiling objc2-web-kit v0.3.2
+   Compiling tao v0.37.2
+   Compiling muda v0.20.0
+   Compiling tauri-runtime v2.12.2
+   Compiling window-vibrancy v0.8.1
+   Compiling rfd v0.16.1
+   Compiling tauri-runtime-wry v2.12.3
+   Compiling tauri v2.12.5
+   Compiling tauri-plugin-fs v2.7.1
+   Compiling aws-lc-rs v1.19.0
+   Compiling tauri-plugin-dialog v2.8.3
+   Compiling rustls v0.23.46
+   Compiling rustls-webpki v0.103.16
+   Compiling tokio-rustls v0.26.6
+   Compiling rustls-platform-verifier v0.7.1
+   Compiling hyper-rustls v0.27.10
+   Compiling reqwest v0.13.5
+   Compiling cataclysm-hub v0.1.0 (/opt/src/github.com/xqbumu/CataclysmHub/apps/desktop/src-tauri)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 00s
+     Running unittests src/lib.rs (target/debug/deps/cataclysm_hub_lib-b466cecb240d96c9)
+
+running 27 tests
+test archive::tests::rejects_portability_hazards_and_limits_before_writing ... ok
+test catalog::tests::archive_requires_fixed_commit_and_expected_repository ... ok
+test archive::tests::zip_index_budget_is_checked_before_library_construction ... ok
+test catalog::tests::cancelling_queued_cache_verification_never_falls_back_to_network ... ok
+test catalog::tests::cache_cancel_lifecycle_preserves_bytes_and_clears_progress ... ok
+test catalog::tests::attempted_source_never_automatically_retries_after_restart ... ok
+test catalog::tests::historical_release_url_keeps_tag_inside_one_path_segment ... ok
+test catalog::tests::live_sound_download_cache_and_extraction ... ignored, explicit public soundpack download/cache/extraction acceptance; never executes contents
+test catalog::tests::live_upstream_catalog_and_small_download ... ignored, explicit network smoke against public upstreams; uses temporary directories
+test catalog::tests::manual_historical_release_lookup ... ignored, manual upstream network acceptance; temporary metadata only
+test catalog::tests::historical_lookup_invalid_requests_preserve_catalog_without_network ... ok
+test catalog::tests::rejects_digest_mismatch ... ok
+test catalog::tests::cache_checks_actual_bytes_size_upstream_digest_and_links ... ok
+test catalog::tests::rejects_foreign_urls_and_paths ... ok
+test catalog::tests::extraction_failure_does_not_publish_or_remove_original_archive ... ok
+test catalog::tests::release_parser_preserves_prerelease_and_excludes_draft_or_foreign_asset ... ok
+test archive::tests::tar_preserves_file_time_and_executable_bit_and_refuses_links ... ok
+test catalog::tests::removing_download_preserves_extracted_files_and_does_not_follow_display_path ... ok
+test archive::tests::zip_extracts_files_and_rejects_traversal_duplicates_and_case_collisions ... ok
+test catalog::tests::cache_reuse_works_offline_after_restart_for_games_mods_and_sound ... ok
+test catalog::tests::successful_extraction_is_persisted_separately_from_archive_cache ... ok
+test directory_tests::managed_directories_do_not_follow_external_symlinks ... ok
+test directory_tests::defaults_are_read_only_until_saved_and_existing_workspace_is_preserved ... ok
+test directory_tests::unselected_override_does_not_create_root_children ... ok
+test directory_tests::arbitrary_paths_still_require_picker_authorization_before_creating_defaults ... ok
+test directory_tests::selected_root_creates_children_and_persists_root_without_moving_files ... ok
+test catalog::tests::oversized_catalog_cannot_replace_the_readable_cache ... ok
+
+test result: ok. 24 passed; 0 failed; 3 ignored; 0 measured; 0 filtered out; finished in 0.50s
+
+     Running unittests src/main.rs (target/debug/deps/cataclysm_hub-7e0483a5ad87c5e1)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (target/debug/deps/hub_core-528c89c5842e14bc)
+
+running 77 tests
+test application_entry::tests::rejects_linked_programs_and_linked_bundle_subdirectories ... ok
+test application_entry::tests::never_uses_launcher_script_or_guesses_normal_folder ... ok
+test application_entry::tests::selects_unique_real_program_and_refuses_ambiguous_entries ... ok
+test automatic_backup::tests::enabling_a_policy_does_not_backfill_a_prior_exit ... ok
+test automatic_backup::tests::active_sessions_block_enabling_but_allow_disabling ... ok
+test automatic_backup::tests::disabled_unknown_exit_and_unrecognized_program_never_create_archives_or_retry ... ok
+test backup_format::instance_manifest_tests::instance_context_is_strict_and_cannot_promote_binding_or_relabel_a_scope ... ok
+test automatic_backup::tests::other_running_session_blocks_automatic_work_and_retries ... ok
+test automatic_backup::tests::policy_requires_consent_revision_and_bounds_and_resets_with_backup ... ok
+test automatic_backup::tests::failed_schema_seventeen_upgrade_rolls_back_and_keeps_schema_sixteen_backup ... ok
+test automatic_backup::tests::interval_uses_only_verified_backups_of_this_instance_and_source ... ok
+test automatic_backup::tests::schema_sixteen_upgrade_backs_up_and_preserves_instance_identity ... ok
+test candidate_launch::tests::fingerprint_changes_for_static_content_but_not_known_cache_content ... ok
+test automatic_backup::tests::policy_reads_keep_reset_epochs_and_settings_in_one_snapshot ... ok
+test candidate_launch::tests::active_file_task_is_not_bypassed_by_candidate ... ok
+test automatic_backup::tests::reset_never_reuses_policy_revisions_for_old_drafts ... ok
+test candidate_launch::tests::local_qa_packages_match_pinned_candidates ... ignored, read-only local QA package check; requires HUB_CANDIDATE_QA_ROOT
+test candidate_launch::tests::abnormal_exit_and_reopen_cannot_recover_scoped_eligibility ... ok
+test candidate_launch::tests::production_candidate_never_accepts_arbitrary_package ... ok
+test candidate_launch::tests::changed_live_root_falls_back_to_global ... ok
+test candidate_launch::tests::failed_running_record_keeps_global_protection ... ok
+test candidate_launch::tests::failed_result_reverts_to_global_without_releasing_other_session ... ok
+test candidate_launch::tests::instance_backup_rechecks_session_and_destination_at_confirmation ... ok
+test candidate_launch::tests::instance_backup_blocks_unknown_candidate_and_unavailable_protected_root ... ok
+test candidate_launch::tests::restore_rejects_replaced_archive_directory_before_task_admission ... ok
+test content_install::tests::cancellation_at_publication_keeps_incomplete_marker_and_no_receipt ... ok
+test candidate_launch::tests::static_changes_and_failed_intent_never_spawn ... ok
+test candidate_launch::tests::observed_exit_revokes_eligibility_even_while_mutation_gate_is_busy ... ok
+test candidate_launch::tests::independent_candidates_run_together_and_exit_releases_only_its_owner ... ok
+test installation_copy::control_directory_tests::reject_controls_after_first_excess_entry_without_reading_the_rest ... ok
+test installation_copy::interruption_tests::copy_child_at_completion_boundary ... ok
+test installation_copy::interruption_tests::killing_before_completion_retains_incomplete_payload_and_never_claims_success ... ok
+test database::lock_regression::dropping_hub_unlocks_despite_a_transient_duplicate ... ok
+test database::lock_regression::shared_hub_owners_keep_the_lock_until_the_last_owner_drops ... ok
+test installation_quarantine::macos::tests::changes_only_selected_attribute_and_preserves_file_bytes ... ok
+test installation_quarantine::macos::tests::failed_removal_restores_attributes_already_changed ... ok
+test installation_copy::interruption_tests::operation_failure_at_completion_boundary_leaves_no_verified_copy ... ok
+test installation_quarantine::macos::tests::rejects_outside_links_and_shared_regular_files ... ok
+test installation_quarantine::macos::tests::stale_content_attributes_and_root_identity_are_rejected ... ok
+test content_install::tests::cancellation_is_audited_and_keeps_protection_until_worker_ends ... ok
+test installation_recognition::tests::only_exact_sample_hashes_identify_versions ... ok
+test installation_recognition::tests::recommendation_requires_known_version_platform_and_bundle_layout ... ok
+test candidate_launch::tests::restore_rechecks_running_target_and_unknown_session_at_confirmation ... ok
+test installation_quarantine::macos::tests::confirmation_and_expiry_do_not_create_attribute_backups_or_mutate ... ok
+test installation_quarantine::macos::tests::metadata_and_attribute_journal_are_never_in_the_installation_scope ... ok
+test installation_quarantine::macos::tests::unsupported_builds_and_active_or_unknown_games_are_blocked ... ok
+test candidate_launch::tests::simultaneous_same_instance_and_shared_installation_are_rejected ... ok
+test resource_conflicts::tests::a_global_unknown_owner_blocks_disjoint_paths_and_request_overlap_is_an_issue ... ok
+test resource_conflicts::tests::admission_enforces_read_write_conflicts_and_unknown_ownership ... ok
+test resource_conflicts::tests::admission_rejects_unknown_access_even_without_active_owners ... ok
+test resource_conflicts::tests::compares_both_ancestor_directions_and_keeps_read_read_nonconflicting ... ok
+test resource_claims::tests::failed_acknowledgement_audit_cannot_release_game_protection ... ok
+test resource_conflicts::tests::missing_wrong_type_and_malformed_scopes_fail_closed ... ok
+test resource_conflicts::tests::excessive_claims_never_return_a_partial_clearance ... ok
+test resource_conflicts::tests::symlink_aliases_cannot_hide_a_shared_directory ... ok
+test restore::tests::cancellation_before_work_never_creates_a_destination ... ok
+test resource_claims::tests::all_owners_expose_global_and_directory_protection ... ok
+test restore::tests::cancellation_at_completion_boundary_preserves_incomplete_marker_and_no_success_report ... ok
+test resource_claims::tests::recovery_overlay_releases_only_the_ended_owner_kind ... ok
+test resource_claims::tests::protection_is_not_limited_to_recent_session_history ... ok
+test resource_claims::tests::restart_releases_ended_workers_but_retains_unknown_game_until_acknowledged ... ok
+test candidate_launch::tests::restore_uses_actual_paths_not_archive_instance_association ... ok
+test restore_faults::tests::restore_child_process ... ok
+test retention::tests::daily_and_iso_week_buckets_use_latest_verified_and_union_with_recent ... ok
+test retention::tests::future_and_unverified_records_never_displace_verified_or_quiescent_anchors ... ok
+test retention::tests::malformed_metadata_and_oversized_rules_fail_closed ... ok
+test retention::tests::parses_actual_instants_instead_of_lexicographic_offsets ... ok
+test retention::tests::protects_named_locked_references_and_last_verified_with_rules_disabled ... ok
+test world_scan::tests::bounded_inventory_is_incomplete_and_never_claims_verified_worlds ... ok
+test world_scan::tests::precancelled_inventory_never_publishes_a_report ... ok
+test candidate_launch::tests::unrelated_instance_backup_can_finish_while_candidate_runs ... ok
+test restore_faults::tests::kill_after_incomplete_marker ... ok
+test restore_faults::tests::kill_after_one_payload_file ... ok
+test restore_faults::tests::kill_after_completion_marker ... ok
+test restore_faults::tests::kill_after_readback ... ok
+test restore_faults::tests::kill_after_report ... ok
+test restore_faults::tests::kill_after_task_commit ... ok
+
+test result: ok. 76 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 1.42s
+
+     Running unittests src/bin/copy-installation.rs (target/debug/deps/copy_installation-c38b532c61f84f63)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/export-bindings.rs (target/debug/deps/export_bindings-90a23f2b1fe32b99)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/restore-backup.rs (target/debug/deps/restore_backup-d0b5906a5237203a)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/verify-backup.rs (target/debug/deps/verify_backup-9340461949eab8b0)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/bin/verify-restored.rs (target/debug/deps/verify_restored-165cf1f07cc3402c)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running tests/backup.rs (target/debug/deps/backup-ea039083e6775c08)
+
+running 32 tests
+test cancellation_never_publishes_an_archive ... ok
+test empty_source_is_a_complete_independently_verifiable_archive ... ok
+test a_traversal_payload_is_rejected_without_writing_to_source_or_destination ... ok
+test confirmation_plan_integrity_and_request_replay_are_enforced_on_backend ... ok
+test corruption_is_reported_by_standalone_and_managed_verification ... ok
+test directory_change_cannot_detach_existing_backup_history ... ok
+test failed_schema4_migration_rolls_back_without_changing_schema3_records ... ok
+test changed_archive_or_preexisting_destination_never_gets_restored_or_overwritten ... ok
+test finished_request_replay_survives_restart_without_a_live_plan ... ok
+test interrupted_backup_is_not_replayed_or_exposed_as_a_valid_backup ... ok
+test full_root_backup_preserves_unknown_bytes_empty_directories_and_long_names_without_git_or_db ... ok
+test managed_restore_refuses_protected_roots_and_digest_changes ... ok
+test internal_manifest_remains_verifiable_if_the_external_receipt_is_lost ... ok
+test replaced_parent_is_refused_even_when_the_path_text_is_unchanged ... ok
+test interrupted_restores_are_not_replayed_on_restart_and_request_identity_survives ... ok
+test missing_archive_revokes_current_verified_status_but_retains_last_success_time ... ok
+test restore_preview_revokes_verified_status_when_the_registered_archive_is_missing ... ok
+test managed_restore_requires_confirmation_and_audits_a_new_verified_directory ... ok
+test restore_refuses_a_target_symlink_without_touching_its_contents ... ok
+test restore_never_silently_merges_case_colliding_archive_paths ... ok
+test restore_refuses_existing_empty_populated_and_overlapping_destinations ... ok
+test restore_rejects_corruption_before_creating_any_target_directory ... ok
+test scope_changes_after_preview_fail_without_publishing_a_partial_backup ... ok
+test schema3_migration_preserves_archives_and_creates_a_valid_metadata_snapshot ... ok
+test restoring_an_empty_archive_still_requires_and_creates_a_new_container ... ok
+test symlinks_and_hardlinks_are_not_silently_omitted_or_dereferenced ... ok
+test restore_terminal_persistence_failure_is_recoverable_without_replaying_files ... ok
+test truncated_zstd_frame_is_rejected_even_when_the_outer_hash_is_recomputed ... ok
+test standalone_restore_materializes_exact_bytes_and_empty_directories_without_metadata ... ok
+test terminal_write_failure_is_visible_and_recording_can_retry_without_replaying_backup ... ok
+test standalone_restore_cli_requires_explicit_confirmation_and_reports_verified_output ... ok
+test cancellation_and_conflict_gates_are_enforced_by_the_restore_backend ... ok
+
+test result: ok. 32 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.89s
+
+     Running tests/backup_details.rs (target/debug/deps/backup_details-020b80d98f59aa9b)
+
+running 8 tests
+test schema6_failure_rolls_back_earlier_alter_statements_and_preserves_old_data ... ok
+test schema5_upgrade_sets_safe_annotation_defaults_and_preserves_a_valid_old_snapshot ... ok
+test unicode_limits_and_control_characters_are_enforced_before_any_write ... ok
+test absent_records_and_revision_exhaustion_fail_without_changing_annotations ... ok
+test annotation_is_local_persistent_and_does_not_rewrite_archives_paths_or_verification ... ok
+test same_value_retry_is_idempotent_but_stale_edits_and_unlocks_are_rejected ... ok
+test audit_failure_rolls_back_metadata_and_any_earlier_audit_in_the_same_change ... ok
+test offline_media_does_not_prevent_local_annotation_or_create_another_archive ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.24s
+
+     Running tests/content.rs (target/debug/deps/content-9fc0699afd047d61)
+
+running 5 tests
+test manifest_symlink_is_not_followed ... ok
+test soundpack_requires_unique_name_and_view_and_rejects_invalid_metadata ... ok
+test local_registry_survives_restart_refresh_failure_and_forget_without_touching_files ... ok
+test audit_failure_rolls_back_registration_and_forget ... ok
+test schema10_upgrade_backs_up_metadata_and_failed_migration_preserves_version ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.13s
+
+     Running tests/content_config.rs (target/debug/deps/content_config-e7f7db07a2c48eef)
+
+running 13 tests
+test candidate_discovery_never_follows_external_directory_or_metadata_links ... ok
+test linked_world_and_configuration_are_not_followed ... ok
+test config_preview_rejects_duplicate_json_keys_and_preserves_noop_bytes ... ok
+test candidate_discovery_reports_invalid_metadata_and_bounded_depth ... ok
+test discovers_candidates_and_diagnoses_dependencies_without_choosing_duplicate_ids ... ok
+test config_preview_rejects_unknown_baselines_and_invalid_drafts ... ok
+test fresh_config_preview_preserves_other_fields_and_never_writes ... ok
+test common_options_preview_is_bounded_preserves_unknown_fields_and_never_invents_options ... ok
+test missing_corrupt_and_duplicate_fields_are_not_treated_as_disabled_or_empty ... ok
+test obsolete_mods_remain_visible_for_old_worlds_but_diagnose_new_defaults ... ok
+test read_only_inspection_keeps_unknown_session_protection ... ok
+test observes_ordered_world_references_separately_from_defaults_without_writes ... ok
+test too_many_world_candidates_fail_instead_of_claiming_a_complete_empty_scan ... ok
+
+test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.26s
+
+     Running tests/content_install.rs (target/debug/deps/content_install-f6aeaafe6f2a9dd0)
+
+running 14 tests
+test deployment_rejects_nested_resource_roots_before_creating_staging ... ok
+test deployment_refuses_linked_role_and_replaced_program ... ok
+test deployment_rechecks_duplicate_ids_and_refuses_active_sessions ... ok
+test changed_source_and_existing_target_never_publish_or_overwrite ... ok
+test install_is_confirmed_idempotent_verified_and_source_preserving ... ok
+test deployment_never_overwrites_existing_output_and_keeps_failed_staging_outside_discovery ... ok
+test deployment_publishes_complete_soundpack_only_to_selected_instance_and_is_idempotent ... ok
+test package_links_are_rejected_before_any_target_creation ... ok
+test audit_failure_does_not_spawn_and_terminal_failure_never_replays_copy ... ok
+test replaced_parent_and_active_game_are_rejected_before_admission ... ok
+test targets_inside_another_registered_package_are_rejected ... ok
+test restart_marks_abandoned_task_without_replaying_io ... ok
+test mod_deployment_preserves_worlds_and_default_configuration ... ok
+test schema_eleven_upgrade_preserves_catalog_and_rolls_back_on_collision ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.42s
+
+     Running tests/foundation.rs (target/debug/deps/foundation-d80d52da4f3cfb1d)
+
+running 15 tests
+test importing_is_read_only_and_duplicate_import_is_idempotent ... ok
+test nested_paths_are_rejected_without_creating_a_workspace ... ok
+test directory_update_rejects_overlap_without_changing_registration ... ok
+test directory_update_keeps_identity_and_files_and_rejects_stale_edits ... ok
+test changing_an_executable_after_preview_blocks_launch ... ok
+test initialization_is_persistent_and_cannot_overwrite_existing_paths ... ok
+test only_one_writer_can_open_the_metadata_directory ... ok
+test newer_database_versions_are_refused_without_downgrading ... ok
+test spawn_failure_is_audited_instead_of_left_running ... ok
+test restart_does_not_misreport_an_unfinished_process_as_exited ... ok
+test symlink_aliases_do_not_bypass_path_separation ... ok
+test schema15_upgrade_retains_legacy_directories_without_inventing_a_root ... ok
+test launch_uses_literal_arguments_requires_confirmation_and_records_exit ... ok
+test signal_termination_is_recorded_without_claiming_a_security_cause ... ok
+test a_running_game_blocks_other_installations_in_the_unverified_workspace ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running tests/installation_copy.rs (target/debug/deps/installation_copy-f85023c8c181784c)
+
+running 9 tests
+test existing_targets_and_nested_destinations_are_never_overwritten ... ok
+test pre_epoch_file_time_survives_copy_when_supported_by_source_filesystem ... ok
+test ordinary_file_times_are_preserved_and_timestamp_only_tampering_is_rejected ... ok
+test malformed_controls_extra_files_and_false_verification_promotions_are_rejected ... ok
+test legacy_v1_copy_remains_readable_without_claiming_timestamp_preservation ... ok
+test preview_is_readonly_and_complete_copy_is_independent_and_verifies_without_source ... ok
+test special_files_setid_bits_and_hardlinked_target_files_are_rejected ... ok
+test relative_framework_links_are_preserved_and_external_or_dangling_links_refused ... ok
+test cli_requires_explicit_mode_and_does_not_execute_the_copied_program ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.55s
+
+     Running tests/instance_backup.rs (target/debug/deps/instance_backup-4b34684906584eac)
+
+running 28 tests
+test configuration_protection_rejects_no_changes_and_unknown_sessions ... ok
+test configuration_protection_refuses_stale_bytes_at_creation ... ok
+test changing_backup_workspace_invalidates_prepared_config_application ... ok
+test archive_changes_after_prepare_block_config_publication ... ok
+test config_apply_rechecks_session_admission_and_rejects_multiple_files ... ok
+test configuration_protection_binds_original_bytes_and_restores_them_without_applying_draft ... ok
+test candidate_metadata_changed_after_preparation_prevents_application ... ok
+test common_options_apply_and_rollback_use_the_existing_protected_single_file_flow ... ok
+test invalid_persisted_instance_identity_is_rejected_before_any_staging_write ... ok
+test distinct_instance_provenance_survives_verification_with_the_source_offline ... ok
+test failed_schema_nine_migration_rolls_back_earlier_source_columns ... ok
+test failed_terminal_record_retains_claim_across_restart_without_replaying_io ... ok
+test instance_archive_is_independent_covers_config_and_save_and_restores_without_mixing_sources ... ok
+test replaced_config_identity_preserves_protection_and_requires_explicit_resolution ... ok
+test retention_previews_keep_instance_histories_separate_and_protect_named_backups ... ok
+test restored_instance_registration_rechecks_bytes_and_requires_original_installation ... ok
+test rollback_terminal_failure_is_reconciled_without_repeating_file_io ... ok
+test rollback_restores_exact_original_bytes_in_a_separate_idempotent_record ... ok
+test ignored_intent_or_failed_audit_never_starts_config_io ... ok
+test schema_eight_upgrade_preserves_records_and_keeps_a_verified_snapshot ... ok
+test schema_thirteen_upgrade_keeps_existing_config_history_and_snapshots_database ... ok
+test unknown_sessions_block_creation_and_active_claims_use_the_instance_root ... ok
+test schema_twelve_upgrade_preserves_instance_backup_and_snapshots_old_metadata ... ok
+test single_config_apply_requires_confirmation_and_never_replays_request ... ok
+test sound_switch_keeps_retained_pack_and_scan_integrity_guards ... ok
+test source_or_backup_directory_replacement_cannot_reuse_a_plan ... ok
+test rollback_refuses_later_edits_and_tampered_archives ... ok
+test sound_change_ignores_unrelated_mod_diagnostics_but_preserves_mod_guard ... ok
+
+test result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.34s
+
+     Running tests/instance_launch.rs (target/debug/deps/instance_launch-e03b7524390561da)
+
+running 25 tests
+test macos_profiles_do_not_silently_apply_to_other_platforms_or_layouts ... ok
+test directory_replacement_after_preview_is_rejected_before_spawning ... ok
+test installation_directory_replacement_with_identical_program_is_rejected ... ok
+test added_symlink_after_preview_is_rejected ... ok
+test failed_launch_audit_does_not_prepare_directories_or_run_program ... ok
+test macos_bundle_trial_freezes_local_loader_paths_and_rechecks_frameworks ... ok
+test failed_schema_eight_upgrade_does_not_partially_alter_sessions ... ok
+test instance_hardlinks_are_rejected_at_preview_and_confirmation ... ok
+test native_entry_rejects_resources_redirect_outside_its_bundle ... ok
+test native_entry_rejects_identical_body_in_replaced_macos_directory ... ok
+test native_entry_rejects_wrappers_and_body_changes_before_launch ... ok
+test occupied_role_path_is_rejected_without_overwriting_original_file ... ok
+test preview_is_read_only_explicit_and_never_verified ... ok
+test resource_preview_is_readonly_and_rechecks_owners_without_granting_concurrency ... ok
+test resource_preview_reports_missing_instance_instead_of_implying_clearance ... ok
+test restart_preserves_unknown_instance_context_without_replay ... ok
+test schema_seven_upgrade_preserves_old_sessions_and_snapshots ... ok
+test native_entry_plan_uses_actual_body_with_resources_cwd_and_direct_session ... ok
+test native_bundle_allows_internal_framework_links_and_mutable_cache ... ok
+test simultaneous_confirmations_recheck_ownership_before_spawning ... ok
+test runtime_v2_rejects_occupied_or_redirected_roles_before_launch ... ok
+test runtime_v2_failed_intent_audit_creates_no_runtime_directories ... ok
+test trial_runs_real_child_records_instance_and_keeps_global_gate ... ok
+test runtime_v2_preview_is_readonly_and_child_writes_to_declared_instance_roles ... ok
+test native_bundle_rejects_shared_or_redirected_files_before_spawning ... ok
+
+test result: ok. 25 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.52s
+
+     Running tests/managed_inspection.rs (target/debug/deps/managed_inspection-159ab7e6caf0584a)
+
+running 12 tests
+test failed_schema5_upgrade_keeps_the_old_version_and_data ... ok
+test inspection_persists_exact_result_and_audit_without_rewriting_or_reclassifying_restore ... ok
+test invalid_saved_result_is_an_explicit_error_instead_of_a_false_success_or_panic ... ok
+test interrupted_inspection_is_not_replayed_and_does_not_reclassify_original_restore ... ok
+test missing_backup_root_marks_the_registered_archive_unavailable_without_touching_target ... ok
+test later_tampering_is_a_separate_failed_check_and_does_not_replace_original_restore_history ... ok
+test replacing_the_recorded_container_with_a_symlink_is_refused_without_following_it ... ok
+test inspection_request_identity_and_result_survive_restart_without_repeating_io ... ok
+test schema4_upgrade_preserves_restore_history_and_saves_a_valid_metadata_snapshot ... ok
+test terminal_persistence_failure_recovers_recording_only_without_repeating_check ... ok
+test source_archive_is_bound_to_registered_hash_and_source_failures_revoke_current_health ... ok
+test cancellation_saves_no_new_verdict_and_inspection_shares_workspace_gate ... ok
+
+test result: ok. 12 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.62s
+
+     Running tests/managed_installation_copy.rs (target/debug/deps/managed_installation_copy-ed37b15449b6e04a)
+
+running 14 tests
+test app_source_is_narrowed_from_authorized_parent_and_partial_bundle_selection_is_rejected ... ok
+test explicit_copy_is_readonly_until_confirmed_and_registration_is_separate_atomic_and_idempotent ... ok
+test active_copy_claims_prevent_importing_partial_installations_or_reserving_payload_directories ... ok
+test ignored_registration_update_cannot_commit_an_orphan_installation ... ok
+test existing_v1_task_can_be_independently_verified_and_registered_by_new_reader ... ok
+test cancellation_has_a_serialized_boundary_and_never_registers_automatically ... ok
+test pinned_source_and_parent_directory_replacement_are_refused ... ok
+test intent_audit_failure_writes_no_copy_and_registration_audit_failure_rolls_back_both_records ... ok
+test timestamp_only_source_change_after_preview_cannot_be_silently_accepted ... ok
+test terminal_persistence_failure_releases_ended_claims_without_replaying_copy ... ok
+test restart_keeps_interruption_history_and_never_replays_or_auto_registers_a_complete_artifact ... ok
+test scopes_and_unknown_sessions_cannot_bypass_the_backend_gate ... ok
+test registration_rechecks_payload_and_pins_the_original_confirmed_manifest ... ok
+test schema_nine_upgrade_keeps_snapshot_and_failed_schema_ten_rolls_back_created_table ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.61s
+
+     Running tests/play_instances.rs (target/debug/deps/play_instances-1c1faaef0f278aac)
+
+running 21 tests
+test caller_cannot_supply_binding_verification ... ok
+test bundle_scripts_are_rejected_for_direct_and_directory_imports ... ok
+test bundle_sibling_directory_is_not_an_independent_instance ... ok
+test application_import_registers_real_entry_and_deduplicates_direct_import ... ok
+test audit_failure_rolls_back_registration ... ok
+test failed_schema_seven_upgrade_preserves_schema_six ... ok
+test dashboard_describes_recorded_sample_without_changing_legacy_rows_or_trusting_name ... ok
+test bundle_import_is_rejected_when_sibling_instance_was_registered_first ... ok
+test bundle_preview_and_unknown_session_protect_whole_bundle_after_restart ... ok
+test installation_import_cannot_take_over_an_instance_scope ... ok
+test instance_save_inventory_rejects_save_symlinks ... ok
+test legacy_bundle_script_record_cannot_prepare_a_launch ... ok
+test independent_instances_persist_without_writing_data_or_granting_launch_binding ... ok
+test legacy_instance_inside_bundle_is_blocked_before_launch_or_backup ... ok
+test instance_save_inventory_is_scoped_read_only_and_blocks_active_sessions ... ok
+test recognition_reads_current_program_without_running_or_trusting_its_name ... ok
+test managed_instances_use_unique_directories_and_refuse_protected_ancestors_before_creation ... ok
+test reject_nested_and_aliased_reuse ... ok
+test reject_overlaps_nonempty_and_changed_executable_without_registration ... ok
+test two_installations_can_register_distinct_instances_but_not_share_roots ... ok
+test schema_six_upgrade_keeps_a_snapshot_and_records ... ok
+
+test result: ok. 21 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.53s
+
+     Running tests/preferences.rs (target/debug/deps/preferences-fa61deea260d3b51)
+
+running 7 tests
+test symlink_backup_directory_is_not_followed ... ok
+test invalid_instance_or_profile_cannot_create_preferences ... ok
+test backup_failure_does_not_reset_preferences ... ok
+test confirmation_and_stale_revision_are_rejected_before_backup_or_reset ... ok
+test failed_reset_audit_keeps_preferences_and_the_completed_backup ... ok
+test reset_backs_up_previous_preferences_without_changing_workspace_or_game_data ... ok
+test schema14_upgrade_keeps_workspace_and_creates_a_metadata_backup ... ok
+
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.20s
+
+     Running tests/restore_inspection.rs (target/debug/deps/restore_inspection-16c784fbd01bb15e)
+
+running 5 tests
+test missing_or_corrupt_source_archive_cannot_be_replaced_by_a_success_report ... ok
+test inspection_refuses_payload_and_control_marker_symlinks ... ok
+test full_payload_can_verify_while_the_original_workflow_remains_incomplete ... ok
+test stale_success_report_cannot_hide_changed_missing_extra_or_wrong_type_payloads ... ok
+test standalone_cli_reads_exact_payload_without_writing_or_opening_metadata ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.64s
+
+     Running tests/retention.rs (target/debug/deps/retention-5e66c75dc2025651)
+
+running 4 tests
+test preview_requires_an_initialized_workspace ... ok
+test malformed_date_does_not_silently_disappear_from_the_retention_scope ... ok
+test preview_covers_more_than_dashboard_limit_and_never_writes_or_authorizes_deletion ... ok
+test more_than_preview_budget_never_returns_a_truncated_candidate_list ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.68s
+
+     Running tests/world_scan.rs (target/debug/deps/world_scan-468f1e5da710b445)
+
+running 10 tests
+test failed_migration_keeps_v1_schema_and_original_rows ... ok
+test migration_preserves_v1_database_and_saves_a_consistent_backup ... ok
+test empty_root_has_an_explicit_complete_empty_inventory ... ok
+test request_keys_are_persistent_and_do_not_repeat_a_scan ... ok
+test interrupted_scan_is_reported_on_restart_and_never_resumed_blindly ... ok
+test scan_and_launch_share_a_backend_gate_even_if_the_ui_is_bypassed ... ok
+test discovers_opaque_candidates_and_shared_files_without_interpreting_characters ... ok
+test symlinks_are_listed_but_external_data_is_not_traversed ... ok
+test terminal_write_failure_does_not_leave_a_phantom_running_scan ... ok
+test cancellation_never_publishes_a_success_report ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.37s
+
+   Doc-tests cataclysm_hub_lib
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests hub_core
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
