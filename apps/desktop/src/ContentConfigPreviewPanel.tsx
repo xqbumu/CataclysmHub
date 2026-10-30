@@ -1,3 +1,4 @@
+import { changedGameOptions } from './gameOptions';
 import GameOptionsFields from './GameOptionsFields';
 import { contentChoices } from './contentChoices';
 import ConfigChangePanel, { type ConfigChangeApi } from './ConfigChangePanel';
@@ -24,6 +25,10 @@ export default function ContentConfigPreviewPanel({
   changeApi?: ConfigChangeApi;
 }) {
   const [gameOptions, setGameOptions] = useState<Record<string, string>>({});
+  const optionChanges = changedGameOptions(
+    report.sound.game_options ?? {},
+    gameOptions,
+  );
   const modChoices = contentChoices(report, 'mod');
   const soundChoices = contentChoices(report, 'soundpack');
   const [addMod, setAddMod] = useState('');
@@ -63,8 +68,8 @@ export default function ContentConfigPreviewPanel({
     setError('');
     try {
       const input: ContentConfigInput = {
-        ...(Object.keys(gameOptions).length
-          ? { game_options: gameOptions }
+        ...(Object.keys(optionChanges).length
+          ? { game_options: optionChanges }
           : {}),
         default_mods: editMods
           ? mods
@@ -315,7 +320,7 @@ export default function ContentConfigPreviewPanel({
         onClick={() =>
           setPreview(
             previewContentConfig(report, {
-              gameOptions,
+              gameOptions: optionChanges,
               defaultMods: editMods
                 ? mods
                     .split(/\r?\n/u)

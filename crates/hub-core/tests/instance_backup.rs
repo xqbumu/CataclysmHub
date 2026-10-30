@@ -1347,6 +1347,9 @@ async fn common_options_apply_and_rollback_use_the_existing_protected_single_fil
     let original =
         br#"[{"name":"USE_LANG","value":"en","unknown":7},{"name":"AUTOSAVE","value":"true"}]"#;
     std::fs::write(f.path("a/config/options.json"), original).unwrap();
+    std::fs::create_dir(f.path("b/config")).unwrap();
+    let other = br#"[{"name":"USE_LANG","value":"ja"},{"name":"AUTOSAVE","value":"true"}]"#;
+    std::fs::write(f.path("b/config/options.json"), other).unwrap();
     let backup = f.create(&f.a).await;
     let input = hub_core::ContentConfigInput {
         game_options: Some(
@@ -1360,6 +1363,12 @@ async fn common_options_apply_and_rollback_use_the_existing_protected_single_fil
         soundpack: None,
         sound_enabled: None,
     };
+    assert!(
+        f.hub
+            .prepare_config_change(&f.b, input.clone(), &backup.backup_id)
+            .await
+            .is_err()
+    );
     let plan = f
         .hub
         .prepare_config_change(&f.a, input, &backup.backup_id)
@@ -1384,6 +1393,10 @@ async fn common_options_apply_and_rollback_use_the_existing_protected_single_fil
         std::fs::read(f.path("a/save/world.dat")).unwrap(),
         b"instance A world"
     );
+    assert_eq!(
+        std::fs::read(f.path("b/config/options.json")).unwrap(),
+        other
+    );
     let rollback = f.hub.prepare_config_rollback(&change.id).await.unwrap();
     let reverted = f
         .hub
@@ -1396,6 +1409,10 @@ async fn common_options_apply_and_rollback_use_the_existing_protected_single_fil
         .await
         .unwrap();
     assert_eq!(config_wait(&f.hub, &reverted.id).await.state, "applied");
+    assert_eq!(
+        std::fs::read(f.path("b/config/options.json")).unwrap(),
+        other
+    );
     assert_eq!(
         std::fs::read(f.path("a/config/options.json")).unwrap(),
         original

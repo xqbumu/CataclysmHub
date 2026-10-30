@@ -61,7 +61,9 @@ export default function GameOptionsFields({
                     }
                   >
                     {!languages.some(([id]) => id === value) && (
-                      <option value={value}>{value}（保留当前语言）</option>
+                      <option value={value}>
+                        {value}（当前语言；取消修改可保留）
+                      </option>
                     )}
                     {languages.map(([id, name]) => (
                       <option value={id} key={id}>

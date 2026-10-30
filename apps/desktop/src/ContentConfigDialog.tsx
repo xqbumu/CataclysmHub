@@ -78,6 +78,14 @@ export default function ContentConfigDialog({
         </p>
       )}
       <WorkspaceTabs
+        key={JSON.stringify([
+          report.instance_id,
+          report.data_root,
+          report.installation_version,
+          report.checked_at,
+          report.sound.sha256,
+          report.default_mods.sha256,
+        ])}
         label="实例配置视图"
         items={[
           {

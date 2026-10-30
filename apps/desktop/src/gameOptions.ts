@@ -28,3 +28,15 @@ export const languages = [
   ['es', 'Español'],
   ['ru', 'Русский'],
 ];
+
+/** Only actual edits participate; untouched/unsupported current values remain on disk. */
+export function changedGameOptions(
+  current: Record<string, string>,
+  draft: Record<string, string>,
+) {
+  return Object.fromEntries(
+    Object.entries(draft).filter(
+      ([key, value]) => !Object.hasOwn(current, key) || current[key] !== value,
+    ),
+  );
+}

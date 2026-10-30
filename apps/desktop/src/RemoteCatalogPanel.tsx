@@ -169,6 +169,7 @@ export default function RemoteCatalogPanel({
             onChange={(e) => {
               setSelected(e.target.value);
               setQuery('');
+              setTag('');
               setError('');
               setNotice('');
             }}
@@ -282,7 +283,7 @@ export default function RemoteCatalogPanel({
       )}
       {(error || listing?.error) && (
         <p role="alert" className="alert">
-          {error || listing?.error}。保留已有目录，可点击更新版本重试。
+          {error || listing?.error}。保留已有目录，可手动重试对应操作。
         </p>
       )}
       {notice && (

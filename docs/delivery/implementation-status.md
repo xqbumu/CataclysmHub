@@ -445,3 +445,11 @@ H QA 包经 Hub 导入并正确识别，独立实例完成首次启动、Monette
 - 设计及上游依据：`docs/design/common-game-configuration.md`。真实游戏重启后的选项效果仍需单独验收。
 
 验证：前端 139 项通过，workspace 全特性 Rust 299 项通过、4 项显式忽略；最终缓存上限补充后，目录定向 15 项与 workspace Clippy 再次通过。官方 `0.H-RELEASE` 查询及缓存重新打开通过，未下载附件。普通 Debug 已打包，未安装或运行真实游戏。证据：`docs/quality/evidence/common-game-configuration-2026-10-30/verification.json`。
+
+### 2026-10-30：集中配置续验与交互修正
+
+- 报告目标/基线变化时清空草稿和预览区域，验证旧异步响应不会进入新报告。
+- 未实际修改的通用选项不参与写入提案，当前列表之外的语言可保持原状。
+- 强化合成实例隔离回归：A 的备份不可用于 B，A 应用/原字节回滚不改变 B 配置。
+- 历史查询失败保留缓存；切换分支清空旧标签，错误提示引导重试对应动作。
+- 前端全量 142 项及最终相关 34 项、实例备份/配置集成 26 项通过；Debug 已重新打包。未执行真实游戏或修改玩家数据。证据：`docs/quality/evidence/common-game-configuration-followup-2026-10-30/verification.json`。

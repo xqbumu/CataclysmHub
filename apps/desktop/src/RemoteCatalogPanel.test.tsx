@@ -264,3 +264,32 @@ it('opens extraction directories and requires native selection before import', a
     expect(onImport).toHaveBeenCalledWith('/cache/extracted/game.app', 'mod'),
   );
 });
+
+it('retains cached releases after historical lookup failure and clears tags when changing forks', async () => {
+  const c = client();
+  const view: RemoteView = {
+    ...fixture,
+    sources: [
+      ...fixture.sources,
+      { id: 'bn', name: 'BN', kind: 'game', repo: 'cataclysmbn/Cataclysm-BN' },
+    ],
+  };
+  vi.mocked(c.view).mockResolvedValue(view);
+  vi.mocked(c.sync).mockResolvedValue(view);
+  vi.mocked(c.lookup).mockRejectedValue('未找到该发布标签');
+  render(<RemoteCatalogPanel kind="game" client={c} />);
+  const u = userEvent.setup();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: '更新版本' })).toBeEnabled(),
+  );
+  await u.type(screen.getByLabelText('查找历史发布标签'), 'missing-tag');
+  await u.click(screen.getByRole('button', { name: '查找历史版本' }));
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    '可手动重试对应操作',
+  );
+  expect(screen.getByText('0.I')).toBeInTheDocument();
+  expect(c.download).not.toHaveBeenCalled();
+  await u.selectOptions(screen.getByLabelText('游戏分支'), 'bn');
+  expect(screen.getByLabelText('查找历史发布标签')).toHaveValue('');
+  expect(c.lookup).toHaveBeenCalledOnce();
+});

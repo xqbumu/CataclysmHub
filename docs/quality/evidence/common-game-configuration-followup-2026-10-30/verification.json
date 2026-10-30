@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-30",
+  "base_commit": "6cb3d01",
+  "checks": {
+    "frontend_full_check": {
+      "command": "npm run check",
+      "passed_tests": 142,
+      "files": 20,
+      "typecheck": true,
+      "production_build": true
+    },
+    "final_targeted_regression": {
+      "passed_tests": 34,
+      "files": 3,
+      "note": "After adding the final historical-lookup failure case; overlaps full suite."
+    },
+    "format": true,
+    "instance_backup_integration": {
+      "passed_tests": 26,
+      "threads": 2
+    },
+    "debug_bundle": {
+      "exit_code": 0,
+      "size_mib_reported": 67.15
+    }
+  },
+  "verified_behaviors": [
+    "Changing report identity/baseline discards drafts and late preview responses.",
+    "Unchanged common options are omitted from local comparisons and backend requests; current unsupported language remains untouched.",
+    "An instance A backup is refused when preparing instance B changes.",
+    "Applying and rolling back A preserves B options bytes.",
+    "Historical lookup failures retain cached releases and do not download; changing source clears the typed tag."
+  ],
+  "real_game_executed": false,
+  "player_data_modified": false,
+  "app_installed": false,
+  "runtime_certification": false
+}
